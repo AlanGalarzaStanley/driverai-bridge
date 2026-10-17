@@ -3,10 +3,11 @@
 Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Actions · **P** = pendiente (requiere teléfono real o Uber).
 
 ## Resultado de la última ejecución verificada
-- Run 5 de Android CI, commit `abb0a37`: los tres jobs en verde.
+- Runs 5, 6 y 7 de Android CI (último verificado: run 7, commit `fc9eed9`): los tres jobs en verde.
   - Compilación: 47 unitarias (0 fallas, 1 omitida a propósito), lint OK, APK debug 43,8 MB verificado.
   - Contrato con Supabase real: OK. Web publicada: HTTP 200.
-  - Emulador Android 11 (API 30, AOSP x86_64): **OK (6 tests)**. El servicio de accesibilidad quedó enlazado (`dumpsys accessibility`). Sin crashes en logcat. Memoria PSS total ≈ 70 MB.
+  - Emulador Android 11 (API 30, AOSP x86_64): **OK (6 tests)**. El servicio de accesibilidad quedó enlazado (`dumpsys accessibility`). Sin crashes en logcat. Memoria PSS total ≈ 70 MB. Capturas `simulador-tarjeta.png`, `tarjeta-demo.png`, `evaluacion-manual.png` en el artefacto `emulator-N` → `screens/`.
+  - Evidencia clave: el servicio de accesibilidad leyó del simulador "$ 8.540 / A 4 min (1,2 km) / Viaje de 18 min (9,3 km)" y la tarjeta mostró CONVIENE · $8.540 · 10,5 km · 22 min · $813/km · $23.291/h (cálculo correcto). La evaluación manual reprodujo el ejemplo del pedido: $8.000, 10 km, 25 min → $800/km y $19.200/h.
 - Fallas encontradas y corregidas en el camino: regex con `$` (unitaria), `setup-android` (CI), `setUp()` no-void (instrumentada), UiAutomator suspendía la accesibilidad (instrumentada), etiquetas de navegación cortadas (captura de pantalla).
 
 ## A. Unitarias (`app/src/test`, JVM)

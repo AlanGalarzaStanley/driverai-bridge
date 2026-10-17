@@ -105,9 +105,10 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
 
         Text("Ejemplos de demostración (valores ficticios):", style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { fare = "8000"; pkm = "1,5"; pmin = "5"; tkm = "8,5"; tmin = "20" }) { Text("Demo A") }
-            OutlinedButton(onClick = { fare = "2500"; pkm = "3"; pmin = "10"; tkm = "6"; tmin = "18" }) { Text("Demo B") }
-            OutlinedButton(onClick = { fare = "9000"; pkm = ""; pmin = ""; tkm = "12"; tmin = "" }) { Text("Parcial", maxLines = 1) }
+            val pad = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
+            OutlinedButton(onClick = { fare = "8000"; pkm = "1,5"; pmin = "5"; tkm = "8,5"; tmin = "20" }, Modifier.weight(1f), contentPadding = pad) { Text("Demo A", maxLines = 1) }
+            OutlinedButton(onClick = { fare = "2500"; pkm = "3"; pmin = "10"; tkm = "6"; tmin = "18" }, Modifier.weight(1f), contentPadding = pad) { Text("Demo B", maxLines = 1) }
+            OutlinedButton(onClick = { fare = "9000"; pkm = ""; pmin = ""; tkm = "12"; tmin = "" }, Modifier.weight(1f), contentPadding = pad) { Text("Parcial", maxLines = 1) }
         }
 
         result?.let { rec ->
