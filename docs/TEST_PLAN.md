@@ -20,7 +20,7 @@ Ejecutadas localmente (JDK 17, AGP 8.7.3): **47 pruebas, 0 fallas, 1 omitida** (
 | Sin backend: evaluación local sigue funcionando (por diseño: el motor no depende de la red; `StrategicRepository` marca "desactualizado") | E (unitaria) |
 | Persistencia de configuración | E (unitaria) + CI (instrumentada `ajustes_guardan`) |
 
-## C. Android (emulador API 31 = Android 12, igual que el S10) — `AppInstrumentedTest`
+## C. Android (emulador API 30 AOSP en CI; el S10 usa Android 12 / API 31 → paridad pendiente de prueba física) — `AppInstrumentedTest`
 | Prueba | Estado |
 |---|---|
 | Inicio de la app | CI |

@@ -18,6 +18,7 @@ Conclusión: **no existía código Android ni código del backend en GitHub**. N
 - Funciones presentes en el bundle: reporte de zonas, selector de 14 zonas, decisión "¿me quedo o me muevo?", lectura en voz (Web `speechSynthesis`) y dictado (`webkitSpeechRecognition`).
 - Llamadas al backend: **no** van directo del navegador a Supabase. Pasan por una *server function* (`createServerFn`, método POST) que recibe `{fn, body}` y reenvía a la función Edge. Por eso el bundle **no contiene claves** de Supabase ni de Groq (verificado buscando `eyJ…`, `sb_publishable_`, `gsk_`).
 - Llamar a la server function desde fuera del navegador devuelve `Forbidden` (protección del framework). No se pudo confirmar si el proxy restringe `fn` a una lista blanca: **pendiente** revisar en el código de Lovable.
+- **Prueba funcional en navegador (2026-10-17 ~03:35 ART):** la página carga el reporte (turno, multiplicador, clima, resumen, ranking de zonas) y el botón "¿Me quedo o me muevo?" devuelve una decisión con alternativas. La web funciona. En pantalla se ve "sábado · 6h" cuando en Buenos Aires eran las 3:35 (confirma el hallazgo de hora en UTC) y "QUEDATE… score 4" con alternativas de puntaje 5 (decisión incoherente).
 - Preview `id-preview--…lovable.app` → HTTP 401 (requiere sesión de Lovable; esperado).
 - **Sin acceso al código fuente de Lovable** desde este entorno (no hay conector de Lovable ni el proyecto está sincronizado a GitHub). No se modificó la web.
 
@@ -40,9 +41,10 @@ Sin acceso a la consola ni al código de las funciones (no hay conector de Supab
 1. **Hora en UTC**: a las 02:58 de Buenos Aires (05:58 UTC) `hora` devolvió `5`. Los factores horarios probablemente estén corridos 3 horas. Recomendación: calcular con `America/Argentina/Buenos_Aires`.
 2. **Texto del LLM inconsistente con la hora**: a las 3 a. m. el `tip` dice "Aprovechá la tarde…". Es texto generado, no dato.
 3. **`precio_minimo_sugerido: 150`**: no es plausible como tarifa en ARS. La app lo muestra como "referencia no verificada" y **nunca** lo usa como umbral.
-4. **Sin validación de zona**: `zona_actual: "Inexistente"` devuelve `ok:true`, recomienda quedarse en "Inexistente" con puntaje 4 aunque las alternativas tienen 5. Devuelve zonas fuera de la lista (p. ej. "Puerto Madero").
-5. **Endpoints públicos sin límite de uso**: cualquiera puede invocarlos y consumir la cuota de Groq. Recomendación: límite por IP/minuto o exigir la clave anónima + verificación de JWT (y actualizar CORS para `apikey, authorization`).
-6. Body inválido en `driverai-posicion` → `{"error":"zona_actual requerida"}`. `driverai-reporte` acepta también GET.
+4. **Decisión incoherente**: con Palermo puntaje 4 y alternativas Belgrano/Recoleta/Microcentro puntaje 5, responde "quedarte".
+5. **Sin validación de zona**: `zona_actual: "Inexistente"` devuelve `ok:true`, recomienda quedarse en "Inexistente" con puntaje 4 aunque las alternativas tienen 5. Devuelve zonas fuera de la lista (p. ej. "Puerto Madero").
+6. **Endpoints públicos sin límite de uso**: cualquiera puede invocarlos y consumir la cuota de Groq. Recomendación: límite por IP/minuto o exigir la clave anónima + verificación de JWT (y actualizar CORS para `apikey, authorization`).
+7. Body inválido en `driverai-posicion` → `{"error":"zona_actual requerida"}`. `driverai-reporte` acepta también GET.
 
 ### Secretos
 No se encontraron secretos expuestos en la web publicada ni en los repositorios revisados.

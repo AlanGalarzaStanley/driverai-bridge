@@ -19,10 +19,8 @@ adb shell am instrument -w -r $PKG.test/androidx.test.runner.AndroidJUnitRunner 
 RC=0
 grep -q "FAILURES!!!" $OUT/instrument.txt && RC=1
 grep -q "OK (" $OUT/instrument.txt || RC=1
-# Evidencia visual: simulador con tarjeta flotante
-adb shell am start -n $PKG/.ui.SimulatorActivity --ei scenario 0
-sleep 4
-adb exec-out screencap -p > $OUT/simulador-tarjeta.png
+# Evidencia visual tomada por las pruebas (UiDevice.takeScreenshot)
+adb pull /sdcard/Android/data/$PKG/files/ $OUT/screens || true
 adb shell am start -n $PKG/.ui.MainActivity
 sleep 3
 adb exec-out screencap -p > $OUT/inicio.png
