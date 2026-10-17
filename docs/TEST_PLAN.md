@@ -1,6 +1,13 @@
 # Plan y resultados de pruebas
 
-Estado: **E** = ejecutada y pasó · **CI** = ejecutada en GitHub Actions · **P** = pendiente (requiere teléfono real o Uber).
+Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Actions · **P** = pendiente (requiere teléfono real o Uber).
+
+## Resultado de la última ejecución verificada
+- Run 5 de Android CI, commit `abb0a37`: los tres jobs en verde.
+  - Compilación: 47 unitarias (0 fallas, 1 omitida a propósito), lint OK, APK debug 43,8 MB verificado.
+  - Contrato con Supabase real: OK. Web publicada: HTTP 200.
+  - Emulador Android 11 (API 30, AOSP x86_64): **OK (6 tests)**. El servicio de accesibilidad quedó enlazado (`dumpsys accessibility`). Sin crashes en logcat. Memoria PSS total ≈ 70 MB.
+- Fallas encontradas y corregidas en el camino: regex con `$` (unitaria), `setup-android` (CI), `setUp()` no-void (instrumentada), UiAutomator suspendía la accesibilidad (instrumentada), etiquetas de navegación cortadas (captura de pantalla).
 
 ## A. Unitarias (`app/src/test`, JVM)
 | Área | Archivo | Casos | Estado |

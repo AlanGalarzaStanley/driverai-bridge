@@ -20,7 +20,10 @@ RC=0
 grep -q "FAILURES!!!" $OUT/instrument.txt && RC=1
 grep -q "OK (" $OUT/instrument.txt || RC=1
 # Evidencia visual tomada por las pruebas (UiDevice.takeScreenshot)
-adb pull /sdcard/Android/data/$PKG/files/ $OUT/screens || true
+mkdir -p $OUT/screens
+for f in $(adb shell run-as $PKG ls files | tr -d '\r' | grep '\.png$'); do
+  adb exec-out run-as $PKG cat files/$f > $OUT/screens/$f
+done
 adb shell am start -n $PKG/.ui.MainActivity
 sleep 3
 adb exec-out screencap -p > $OUT/inicio.png

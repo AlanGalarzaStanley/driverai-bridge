@@ -46,8 +46,7 @@ class AppInstrumentedTest {
     }
 
     private fun shot(name: String) {
-        val dir = ctx.getExternalFilesDir(null) ?: return
-        device.takeScreenshot(java.io.File(dir, "$name.png"))
+        device.takeScreenshot(java.io.File(ctx.filesDir, "$name.png"))
     }
 
     private fun waitFor(timeoutMs: Long, cond: () -> Boolean): Boolean {

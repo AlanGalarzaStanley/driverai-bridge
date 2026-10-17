@@ -16,3 +16,9 @@
 ### Corregido
 - Reemplazo de regex con `$` literal en la corrección OCR (detectado por test).
 - CI: `setup-android` fallaba por licencias; se usa el SDK del runner; `pipefail` para no ocultar fallas.
+- CI: el emulador Google APIs API 31 no arrancaba en 15 min en runners de 2 núcleos → AOSP API 30.
+- Pruebas instrumentadas: `setUp()` debía ser `Unit`; UiAutomator suspendía los servicios de accesibilidad (se usa `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`).
+- UI: etiquetas de la barra inferior se cortaban en pantallas angostas.
+### Mejorado
+- Accesibilidad: escaneos espaciados a 900 ms cuando no hay oferta en pantalla (ahorro de batería con el mapa animado).
+- OCR: la tarjeta flotante se oculta antes de capturar para no tapar la oferta.
