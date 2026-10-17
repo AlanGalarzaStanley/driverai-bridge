@@ -177,7 +177,11 @@ jobs:
           test -s "$SRC"
           test -s build-info.txt
           SHORT="${GITHUB_SHA::7}"
-          cp "$SRC" "driverai-debug-${SHORT}.apk"
+          NAMED="driverai-debug-${SHORT}.apk"
+          # El artefacto ya viene con ese nombre; cp falla si origen y destino son el mismo archivo.
+          if [ "$(basename "$SRC")" != "$NAMED" ]; then
+            cp "$SRC" "$NAMED"
+          fi
           cp "$SRC" driverai-debug.apk
           NOTES_FILE=$(mktemp)
           cat > "$NOTES_FILE" <<EOF
@@ -191,7 +195,7 @@ jobs:
           No es una build de Play Store. La firma es la de depuración del runner y puede cambiar entre corridas: si Android avisa de un conflicto de paquete, desinstalá la versión anterior. Este workflow no prueba Uber Driver en un teléfono real.
           EOF
           gh release create "apk-${GITHUB_RUN_NUMBER}" \
-            "driverai-debug-${SHORT}.apk" build-info.txt \
+            "$NAMED" build-info.txt \
             --target "$GITHUB_SHA" \
             --title "DriverAI debug ${SHORT} (run ${GITHUB_RUN_NUMBER})" \
             --prerelease \
