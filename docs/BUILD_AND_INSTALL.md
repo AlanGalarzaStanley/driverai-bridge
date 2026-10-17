@@ -1,5 +1,25 @@
 # Compilar, descargar e instalar
 
+## Descarga directa en el teléfono
+
+El repositorio es **privado**. Estos enlaces funcionan en Chrome del teléfono solo si la sesión de GitHub es la de esta cuenta. Sin sesión responden 404. No se publicó el repositorio.
+
+1. Abrí, con la sesión iniciada: <https://github.com/AlanGalarzaStanley/driverai-bridge/releases/download/latest-debug/driverai-debug.apk>
+2. Aceptá la descarga. El archivo ya es el APK: no hay que descomprimir un zip.
+3. Abrí la notificación de descarga o el archivo en Descargas.
+4. Si Android lo pide, permití "Instalar apps desconocidas" solo para Chrome o para Archivos.
+5. Instalar → Abrir. Play Protect puede avisar: es un APK de depuración, fuera de Play. "Instalar de todos modos".
+
+Copia fija, que no se reemplaza, del commit `cc64438` (run 8 de Android CI, verificada el 2026-10-17):
+
+<https://github.com/AlanGalarzaStanley/driverai-bridge/releases/download/v0.1.0-cc64438/driverai-debug-cc64438.apk>
+
+SHA-256 de ese archivo: `59ecc8b443b38f6f8a6969c25774e3d93fe0efbf7b4697da1fe575a18c86e0f8`
+
+Cada push a `main` que deje en verde la compilación, el contrato con el backend y el emulador publica además `apk-<N>` y reemplaza el archivo de `latest-debug`. La firma de depuración la genera el runner y **no está fijada**: la integración de GitHub usada acá no puede guardar secretos de Actions (HTTP 403). Si al actualizar dice que el paquete está en conflicto, desinstalá DriverAI y volvé a instalar (se pierden los ajustes).
+
+Google Play Console y Firebase App Distribution no están conectados. No se creó una cuenta ni se autorizó el pago de Play (25 USD). Play además exige un Android App Bundle firmado para producción y una declaración de la AccessibilityService API, sin garantía de aprobación.
+
 ## Compilación en la nube (no hace falta computadora)
 Cada push a `main` ejecuta `.github/workflows/android.yml`:
 1. JDK 17 + SDK de Android del runner + Gradle 8.11.1 (wrapper).
@@ -7,7 +27,8 @@ Cada push a `main` ejecuta `.github/workflows/android.yml`:
 3. Pruebas unitarias → Lint → `assembleDebug`.
 4. Verifica que el APK exista y pese entre 1 y 150 MB; imprime paquete, permisos, SDK y SHA-256 en `build-info.txt` junto con el commit exacto.
 5. Publica el artefacto `driverai-debug-apk-<N>` (APK + `build-info.txt`) y los reportes.
-6. Jobs aparte: contrato con el backend real y pruebas en emulador Android 12.
+6. Jobs aparte: contrato con el backend real y pruebas en emulador **Android 11 (API 30, imagen AOSP)**. El changelog viejo decía Android 12; el workflow y `android-version.txt` del run 8 dicen 11.
+7. Si los tres jobs terminan en verde en un push a `main`, el job `release` adjunta el APK a una GitHub Release.
 
 Para correr a mano: GitHub → Actions → Android CI → Run workflow.
 

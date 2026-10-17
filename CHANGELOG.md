@@ -11,7 +11,8 @@
 - Integración con `driverai-reporte` y `driverai-posicion` con timeouts y modo desactualizado.
 - Copiloto por reglas con voz es-AR y dictado bajo demanda.
 - Ajustes, historial numérico, turno, diagnóstico y simulador de oferta (debug).
-- CI: escaneo de secretos, unit tests, lint, APK verificado como artefacto, contrato en vivo, emulador Android 12.
+- CI: escaneo de secretos, unit tests, lint, APK verificado como artefacto, contrato en vivo, emulador Android 11 (API 30, AOSP). Una nota anterior decía Android 12; el emulador que realmente arranca es API 30.
+- Publicación: GitHub Release `v0.1.0-cc64438` (APK fijo del run 8) y tag móvil `latest-debug`. Los pushes siguientes a `main` publican `apk-<N>` cuando CI queda en verde.
 - Documentación en `docs/`.
 ### Corregido
 - Reemplazo de regex con `$` literal en la corrección OCR (detectado por test).

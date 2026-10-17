@@ -154,3 +154,66 @@ jobs:
             emulator-artifacts/
             app/build/outputs/androidTest-results/
             app/build/reports/androidTests/
+
+  release:
+    name: Publicar APK en GitHub Release
+    needs: [build, backend-contract, emulator]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Descargar APK del job de compilación
+        uses: actions/download-artifact@v4
+        with:
+          name: driverai-debug-apk-${{ github.run_number }}
+
+      - name: Publicar en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SRC=$(ls driverai-debug-*.apk)
+          test -s "$SRC"
+          test -s build-info.txt
+          SHORT="${GITHUB_SHA::7}"
+          cp "$SRC" "driverai-debug-${SHORT}.apk"
+          cp "$SRC" driverai-debug.apk
+          NOTES_FILE=$(mktemp)
+          cat > "$NOTES_FILE" <<EOF
+          APK de depuración generado por Android CI cuando compilación, contrato con el backend y emulador terminan en verde.
+
+          - Commit: \`${GITHUB_SHA}\`
+          - Run: ${GITHUB_RUN_NUMBER}
+          - El tag \`apk-${GITHUB_RUN_NUMBER}\` queda fijo.
+          - \`latest-debug\` reemplaza \`driverai-debug.apk\` con esta compilación.
+
+          No es una build de Play Store. La firma es la de depuración del runner y puede cambiar entre corridas: si Android avisa de un conflicto de paquete, desinstalá la versión anterior. Este workflow no prueba Uber Driver en un teléfono real.
+          EOF
+          gh release create "apk-${GITHUB_RUN_NUMBER}" \
+            "driverai-debug-${SHORT}.apk" build-info.txt \
+            --target "$GITHUB_SHA" \
+            --title "DriverAI debug ${SHORT} (run ${GITHUB_RUN_NUMBER})" \
+            --prerelease \
+            --notes-file "$NOTES_FILE"
+          if gh release view latest-debug >/dev/null 2>&1; then
+            while read -r id name; do
+              case "$name" in
+                driverai-debug.apk|build-info.txt)
+                  gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/assets/${id}"
+                  ;;
+              esac
+            done < <(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/latest-debug" --jq '.assets[] | "\(.id) \(.name)"')
+            gh release upload latest-debug driverai-debug.apk build-info.txt
+            gh release edit latest-debug \
+              --title "DriverAI debug más reciente (${SHORT})" \
+              --notes-file "$NOTES_FILE"
+          else
+            gh release create latest-debug driverai-debug.apk build-info.txt \
+              --target "$GITHUB_SHA" \
+              --title "DriverAI debug más reciente (${SHORT})" \
+              --latest \
+              --notes-file "$NOTES_FILE"
+          fi
+          echo "Descarga: https://github.com/${GITHUB_REPOSITORY}/releases/download/latest-debug/driverai-debug.apk"
+
