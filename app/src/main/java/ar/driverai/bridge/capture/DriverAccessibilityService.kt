@@ -23,6 +23,7 @@ class DriverAccessibilityService : AccessibilityService() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var lastScanAt = 0L
+    private var offerOnScreen = false
     private val scanRunnable = Runnable { scan() }
 
     override fun onServiceConnected() {
@@ -43,8 +44,12 @@ class DriverAccessibilityService : AccessibilityService() {
         if (pkg !in watchedPackages(this)) return
         if (pkg == packageName && !SimulatorActivity.isVisible) return
         handler.removeCallbacks(scanRunnable)
+        // Cambio de ventana (aparece una tarjeta) → rápido. Cambios de contenido (mapa animado)
+        // sin oferta reciente → se espacian los escaneos para ahorrar batería.
+        val stateChange = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        val minGap = if (stateChange || offerOnScreen) MIN_INTERVAL_MS else IDLE_INTERVAL_MS
         val since = System.currentTimeMillis() - lastScanAt
-        handler.postDelayed(scanRunnable, if (since > MIN_INTERVAL_MS) DEBOUNCE_MS else MIN_INTERVAL_MS)
+        handler.postDelayed(scanRunnable, if (since > minGap) DEBOUNCE_MS else minGap - since)
     }
 
     private fun scan() {
@@ -57,6 +62,7 @@ class DriverAccessibilityService : AccessibilityService() {
         }
         val texts = collectTexts(root)
         val found = pipeline.onScreenText(texts, DataSource.ACCESSIBILITY)
+        offerOnScreen = found
         if (!found) pipeline.onOfferGone()
     }
 
@@ -73,6 +79,7 @@ class DriverAccessibilityService : AccessibilityService() {
         const val UBER_DRIVER_PACKAGE = "com.ubercab.driver"
         private const val DEBOUNCE_MS = 350L
         private const val MIN_INTERVAL_MS = 300L
+        private const val IDLE_INTERVAL_MS = 900L
         private const val MAX_NODES = 400
         @Volatile var instance: DriverAccessibilityService? = null
             private set

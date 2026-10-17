@@ -28,6 +28,14 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class AppInstrumentedTest {
+    companion object {
+        init {
+            // Por defecto UiAutomation SUSPENDE los demás servicios de accesibilidad durante la prueba.
+            androidx.test.uiautomator.Configurator.getInstance().uiAutomationFlags =
+                android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES
+        }
+    }
+
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
     private val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
     private val ctx = InstrumentationRegistry.getInstrumentation().targetContext
@@ -88,7 +96,15 @@ class AppInstrumentedTest {
 
     @Test fun accesibilidad_simulador_extremoAExtremo() {
         Assume.assumeTrue("servicio de accesibilidad habilitado por el script de CI", DriverAccessibilityService.isEnabled(ctx))
-        assertTrue("servicio conectado", waitFor(10_000) { DriverAccessibilityService.instance != null })
+        if (!waitFor(8_000) { DriverAccessibilityService.instance != null }) {
+            // El proceso fue reiniciado por la instrumentación: se re-habilita el servicio para forzar el enlace
+            val ua = InstrumentationRegistry.getInstrumentation().getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES)
+            val comp = "${ctx.packageName}/${DriverAccessibilityService::class.java.name}"
+            ua.executeShellCommand("settings put secure enabled_accessibility_services null").close()
+            Thread.sleep(1500)
+            ua.executeShellCommand("settings put secure enabled_accessibility_services $comp").close()
+        }
+        assertTrue("servicio conectado", waitFor(15_000) { DriverAccessibilityService.instance != null })
         ctx.startActivity(Intent(ctx, SimulatorActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(SimulatorActivity.EXTRA_SCENARIO, 0))
         assertTrue("oferta leída por accesibilidad", waitFor(10_000) {
             DriverAiApp.graph.pipeline.last.value?.let { it.source == DataSource.ACCESSIBILITY && it.evaluation.metrics.fare == 8540.0 } == true

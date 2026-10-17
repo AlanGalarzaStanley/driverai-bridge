@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
     private var tab by mutableStateOf("inicio")
@@ -51,13 +52,13 @@ class MainActivity : ComponentActivity() {
             Triple("evaluar", "Evaluar", Icons.Filled.Check),
             Triple("ajustes", "Ajustes", Icons.Filled.Settings),
             Triple("historial", "Historial", Icons.Filled.List),
-            Triple("diag", "Diagnóstico", Icons.Filled.Build),
+            Triple("diag", "Chequeo", Icons.Filled.Build),
         )
         Scaffold(bottomBar = {
             NavigationBar {
                 tabs.forEach { (id, label, icon) ->
                     NavigationBarItem(selected = tab == id, onClick = { tab = id }, icon = { Icon(icon, null) },
-                        label = { Text(label) }, modifier = Modifier.testTag("tab_$id"))
+                        label = { Text(label, maxLines = 1, softWrap = false, fontSize = 11.sp) }, modifier = Modifier.testTag("tab_$id"))
                 }
             }
         }) { pad ->

@@ -188,8 +188,9 @@ class OverlayManager(private val app: Context) {
             background = GradientDrawable().apply { setColor(0xFFFFC107.toInt()); cornerRadius = dp(24).toFloat() }
             setPadding(dp(16), dp(8), dp(16), dp(8))
             setOnClickListener {
-                // Se oculta el botón durante la captura para que no tape la oferta
+                // Se ocultan el botón y la tarjeta durante la captura para que no tapen la oferta
                 visibility = View.INVISIBLE
+                hideCard()
                 main.postDelayed({ ScreenCaptureService.instance?.captureOnce(); visibility = View.VISIBLE }, 150)
             }
         }
