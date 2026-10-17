@@ -1,0 +1,148 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compilar, probar y generar APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Commit compilado
+        run: |
+          echo "Commit: $GITHUB_SHA" | tee build-info.txt
+          echo "Run: $GITHUB_RUN_NUMBER" >> build-info.txt
+          echo "Fecha: $(date -u +%FT%TZ)" >> build-info.txt
+
+      - name: Escaneo de secretos (falla si hay claves privadas en el repo)
+        run: |
+          set -e
+          if git grep -nE '(service_role|SUPABASE_SERVICE|gsk_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|eyJhbGciOiJIUzI1NiIs[A-Za-z0-9._-]{40,})' -- ':!.github/workflows/android.yml' ':!docs/*'; then
+            echo "::error::Posible secreto encontrado"; exit 1
+          fi
+          if git ls-files | grep -E '\.(jks|keystore)$'; then echo "::error::Keystore en el repo"; exit 1; fi
+
+      - name: Pruebas unitarias
+        run: ./gradlew --stacktrace testDebugUnitTest 2>&1 | tee unit-tests.log
+
+      - name: Lint
+        run: ./gradlew --stacktrace lintDebug 2>&1 | tee lint.log
+
+      - name: Compilar APK debug
+        run: ./gradlew --stacktrace assembleDebug 2>&1 | tee build.log
+
+      - name: Verificar APK
+        run: |
+          set -e
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          SIZE=$(stat -c%s "$APK")
+          echo "Tamaño APK: $SIZE bytes" | tee -a build-info.txt
+          if [ "$SIZE" -lt 1000000 ] || [ "$SIZE" -gt 150000000 ]; then echo "::error::Tamaño de APK fuera de rango"; exit 1; fi
+          AAPT=$(ls $ANDROID_HOME/build-tools/*/aapt2 | tail -1)
+          $AAPT dump badging "$APK" | grep -E "^package:|uses-permission|sdkVersion|targetSdkVersion" | tee -a build-info.txt
+          sha256sum "$APK" | tee -a build-info.txt
+          cp "$APK" "driverai-debug-${GITHUB_SHA::7}.apk"
+
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: driverai-debug-apk-${{ github.run_number }}
+          path: |
+            driverai-debug-*.apk
+            build-info.txt
+          retention-days: 30
+
+      - name: Publicar logs y reportes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ github.run_number }}
+          path: |
+            *.log
+            build-info.txt
+            app/build/reports/
+            app/build/test-results/
+          retention-days: 14
+
+  backend-contract:
+    name: Contrato con backend real (Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Prueba de contrato en vivo
+        env:
+          LIVE_BACKEND: '1'
+        run: ./gradlew testDebugUnitTest --tests 'ar.driverai.bridge.LiveBackendContractTest' 2>&1 | tee contract.log
+      - name: Regresión de la web publicada
+        run: |
+          set -e
+          code=$(curl -s -o /dev/null -w '%{http_code}' https://driverai-ba.lovable.app)
+          echo "Web publicada: HTTP $code"; test "$code" = "200"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: contract-${{ github.run_number }}
+          path: contract.log
+
+  emulator:
+    name: Pruebas instrumentadas (emulador)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Habilitar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Compilar APKs de prueba
+        run: ./gradlew assembleDebug assembleDebugAndroidTest
+      - name: Ejecutar en emulador (API 31, Android 12)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 31
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash scripts/emulator-tests.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: emulator-${{ github.run_number }}
+          path: |
+            emulator-artifacts/
+            app/build/outputs/androidTest-results/
+            app/build/reports/androidTests/
