@@ -56,6 +56,7 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
     var tkm by remember { mutableStateOf("") }
     var tmin by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<EvalRecord?>(null) }
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
 
     fun load(o: OfferData) {
         fare = fmtField(o.fare.value); pkm = fmtField(o.pickupKm.value); pmin = fmtField(o.pickupMin.value)
@@ -99,13 +100,14 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
             val offer = OfferData(Reading.manual(parseUserNumber(fare)), Reading.manual(parseUserNumber(pkm)), Reading.manual(parseUserNumber(pmin)),
                 Reading.manual(parseUserNumber(tkm)), Reading.manual(parseUserNumber(tmin)))
             result = g.pipeline.evaluateManual(offer)
+            focus.clearFocus() // cierra el teclado para que se vea el resultado
         }, modifier = Modifier.fillMaxWidth().height(56.dp).testTag("btn_evaluate")) { Text("Evaluar") }
 
         Text("Ejemplos de demostración (valores ficticios):", style = MaterialTheme.typography.bodySmall)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = { fare = "8000"; pkm = "1,5"; pmin = "5"; tkm = "8,5"; tmin = "20" }) { Text("Demo A") }
             OutlinedButton(onClick = { fare = "2500"; pkm = "3"; pmin = "10"; tkm = "6"; tmin = "18" }) { Text("Demo B") }
-            OutlinedButton(onClick = { fare = "9000"; pkm = ""; pmin = ""; tkm = "12"; tmin = "" }) { Text("Incompleta") }
+            OutlinedButton(onClick = { fare = "9000"; pkm = ""; pmin = ""; tkm = "12"; tmin = "" }) { Text("Parcial", maxLines = 1) }
         }
 
         result?.let { rec ->
