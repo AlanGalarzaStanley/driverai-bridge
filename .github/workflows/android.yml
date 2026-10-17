@@ -67,7 +67,7 @@ jobs:
           echo "Tamaño APK: $SIZE bytes" | tee -a build-info.txt
           if [ "$SIZE" -lt 1000000 ] || [ "$SIZE" -gt 150000000 ]; then echo "::error::Tamaño de APK fuera de rango"; exit 1; fi
           AAPT=$(ls $ANDROID_HOME/build-tools/*/aapt2 | tail -1)
-          $AAPT dump badging "$APK" | grep -E "^package:|uses-permission|sdkVersion|targetSdkVersion" | tee -a build-info.txt
+          $AAPT dump badging "$APK" | grep -iE "^package:|uses-permission|sdkVersion|native-code" | tee -a build-info.txt
           sha256sum "$APK" | tee -a build-info.txt
           cp "$APK" "driverai-debug-${GITHUB_SHA::7}.apk"
 
@@ -133,14 +133,18 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Compilar APKs de prueba
         run: ./gradlew assembleDebug assembleDebugAndroidTest
-      - name: Ejecutar en emulador (API 31, Android 12)
+      - name: Ejecutar en emulador (API 30, imagen AOSP liviana)
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 31
+          api-level: 30
           arch: x86_64
-          target: google_apis
+          target: default
+          cores: 2
+          ram-size: 3072M
+          disk-size: 4096M
+          emulator-boot-timeout: 900
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -no-snapshot -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none -feature -Vulkan
           script: bash scripts/emulator-tests.sh
       - uses: actions/upload-artifact@v4
         if: always()
