@@ -6,6 +6,9 @@ package ar.driverai.bridge.engine
  *
  * No hay dependencia del diseño exacto de Uber: busca patrones genéricos (importe, "N min (X km)")
  * y palabras clave en español e inglés. Si el diseño cambia, se ajustan las reglas acá y sus tests.
+ *
+ * Formato real de Uber Driver Argentina (nov 2026): "15.723 ARS", "32 min · 24.2 km · 650 ARS/km est.",
+ * "A 6 min (2.0 km) de distancia", "Viaje: 26 min (22.2 km)".
  */
 object OfferTextParser {
 
@@ -17,9 +20,18 @@ object OfferTextParser {
         val notes: List<String>,
     )
 
-    private val moneyRegex = Regex("""([+])?\s*(?:ARS|\$)\s?(\d[\d.,]*)(\s*/\s*\w+)?""", RegexOption.IGNORE_CASE)
+    // Moneda antes o después del número. El grupo de "/unidad" descarta tarifas por km/h.
+    private val moneyRegex = Regex(
+        """([+])?\s*(?:(?:ARS|\$)\s?(\d[\d.,]*)|(\d[\d.,]*)\s*(?:ARS|\$))(\s*/\s*\w+)?""",
+        RegexOption.IGNORE_CASE,
+    )
     private val timeDistRegex = Regex(
         """(?:(\d{1,2})\s*h(?:s|oras?)?\.?\s*)?(\d{1,3})\s*min(?:s|utos)?\.?\s*\(\s*(\d+(?:[.,]\d+)?)\s*(km|mi|m)\s*\)""",
+        RegexOption.IGNORE_CASE,
+    )
+    // Resumen de Uber AR: "32 min · 24.2 km" o "32 min • 24.2 km" (sin paréntesis).
+    private val timeDistLooseRegex = Regex(
+        """(?:(\d{1,2})\s*h(?:s|oras?)?\.?\s*)?(\d{1,3})\s*min(?:s|utos)?\.?\s*[•·\-|–—]\s*(\d+(?:[.,]\d+)?)\s*(km|mi)\b""",
         RegexOption.IGNORE_CASE,
     )
     private val distTimeRegex = Regex(
@@ -30,7 +42,9 @@ object OfferTextParser {
     private val tripKw = listOf("trip", "viaje", "recorrido", "destino", "con pasajero")
     private val offerKw = listOf("aceptar", "accept", "solicitud", "request", "nuevo viaje", "toca para aceptar", "tap to accept")
     private val bonusKw = listOf("incluid", "incl.", "incluye", "promo", "bonif", "propina", "tip", "dinámica", "boost", "surge", "+")
-    private val products = listOf("UberX", "Comfort", "Black", "Flash", "Moto", "XL", "Planet", "Uber Pet", "Envíos")
+    private val products = listOf(
+        "Uber Priority", "UberX", "Comfort", "Black", "Flash", "Moto", "XL", "Planet", "Uber Pet", "Envíos", "Priority",
+    )
 
     /** Interpreta importes con convención argentina (punto de miles, coma decimal). */
     fun parseArsAmount(rawIn: String): Amount? {
@@ -78,11 +92,12 @@ object OfferTextParser {
         fragments.forEach { f ->
             moneyRegex.findAll(f).forEach { m ->
                 val plus = m.groupValues[1].isNotEmpty()
-                val perUnit = m.groupValues[3].isNotEmpty()
+                val amountRaw = m.groupValues[2].ifEmpty { m.groupValues[3] }
+                val perUnit = m.groupValues[4].isNotEmpty()
                 val lower = f.lowercase()
                 val bonus = plus || bonusKw.any { kw -> kw != "+" && lower.contains(kw) }
-                if (!perUnit && !bonus) {
-                    parseArsAmount(m.groupValues[2])?.let { a ->
+                if (!perUnit && !bonus && amountRaw.isNotEmpty()) {
+                    parseArsAmount(amountRaw)?.let { a ->
                         cands += Cand(a, standalone = f.trim().length <= m.value.trim().length + 2, raw = m.value.trim())
                     }
                 }
@@ -109,12 +124,17 @@ object OfferTextParser {
             val label = fragments.getOrNull(i - 1)?.takeIf { it.length < 40 && it.none(Char::isDigit) } ?: ""
             val ctx = "$label $f"
             val seen = mutableListOf<IntRange>()
-            timeDistRegex.findAll(f).forEach { m ->
-                val h = m.groupValues[1].toDoubleOrNull() ?: 0.0
-                val min = m.groupValues[2].toDouble() + h * 60
-                val km = toKm(parseDecimal(m.groupValues[3]) ?: return@forEach, m.groupValues[4])
+            fun addPair(m: MatchResult, hIdx: Int, minIdx: Int, distIdx: Int, unitIdx: Int) {
+                val h = m.groupValues[hIdx].toDoubleOrNull() ?: 0.0
+                val min = m.groupValues[minIdx].toDouble() + h * 60
+                val km = toKm(parseDecimal(m.groupValues[distIdx]) ?: return, m.groupValues[unitIdx])
                 pairs += Pair(min, km, m.value, ctx.lowercase(), i)
                 seen += m.range
+            }
+            timeDistRegex.findAll(f).forEach { m -> addPair(m, 1, 2, 3, 4) }
+            timeDistLooseRegex.findAll(f).forEach { m ->
+                if (seen.any { it.first <= m.range.last && m.range.first <= it.last }) return@forEach
+                addPair(m, 1, 2, 3, 4)
             }
             distTimeRegex.findAll(f).forEach { m ->
                 if (seen.any { it.first <= m.range.last && m.range.first <= it.last }) return@forEach
@@ -149,6 +169,7 @@ object OfferTextParser {
                 notes += "Recogida y viaje asignados por orden de aparición."
             }
             pickup == null && trip == null && unclassified.size == 1 -> {
+                // En el resumen de Uber AR a menudo es el total (recogida + viaje).
                 trip = unclassified[0]; tripConf = 0.45
                 notes += "Un solo par tiempo/distancia sin etiqueta: puede ser recogida o viaje."
             }
@@ -170,7 +191,9 @@ object OfferTextParser {
             pickupMin = r(pickup?.minutes, pickupConf, pickup?.raw),
             tripKm = r(trip?.km, tripConf, trip?.raw),
             tripMin = r(trip?.minutes, tripConf, trip?.raw),
-            product = fragments.firstNotNullOfOrNull { f -> products.firstOrNull { p -> f.equals(p, true) || f.startsWith("$p ", true) } },
+            product = fragments.firstNotNullOfOrNull { f ->
+                products.firstOrNull { p -> f.equals(p, true) || f.startsWith("$p ", true) || f.contains(p, true) }
+            },
         )
         val hasKw = fragments.any { f -> offerKw.any { f.lowercase().contains(it) } }
         val likely = fare.isPresent && (pairs.isNotEmpty() || hasKw)
