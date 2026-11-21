@@ -48,16 +48,22 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import ar.driverai.bridge.DriverAiApp
 import ar.driverai.bridge.backend.ApiResult
+import ar.driverai.bridge.backend.StrategicRepository
 import ar.driverai.bridge.capture.DriverAccessibilityService
 import ar.driverai.bridge.capture.ScreenCaptureService
 import ar.driverai.bridge.copilot.CopilotContext
 import ar.driverai.bridge.copilot.CopilotEngine
 import ar.driverai.bridge.copilot.Intent as CIntent
 import ar.driverai.bridge.copilot.Zones
+import ar.driverai.bridge.data.MoneyLedgerRepository
 import ar.driverai.bridge.data.ShiftCalculator
+import ar.driverai.bridge.data.VehicleRecordsRepository
 import ar.driverai.bridge.engine.Fmt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 const val DISCLOSURE_ACCESSIBILITY = """DriverAI usa el servicio de accesibilidad de Android para LEER el texto visible de la app Uber Driver (solo ese paquete) mientras está abierta, con el único fin de detectar la tarifa, distancias y tiempos de una oferta y mostrarte una evaluación económica.
 
@@ -78,7 +84,7 @@ fun openAccessibilitySettings(ctx: Context) = ctx.startActivity(Intent(Settings.
 fun openOverlaySettings(ctx: Context) = ctx.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 
 @Composable
-fun HomeScreen(activity: Activity) {
+fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
     val g = DriverAiApp.graph
     val scope = rememberCoroutineScope()
     val settings by g.settings.collectAsState()
@@ -88,6 +94,8 @@ fun HomeScreen(activity: Activity) {
     val history by g.historyRepo.entries.collectAsState(initial = emptyList())
     val shiftStart by g.historyRepo.shiftStart.collectAsState(initial = null)
     val briefing by g.shiftBriefing.snapshot.collectAsState(initial = null)
+    val moneyEntries by g.walletRepo.entries.collectAsState(initial = emptyList())
+    val odometerEntries by g.vehicleRepo.odometerEntries.collectAsState(initial = emptyList())
     val capturing by ScreenCaptureService.running.collectAsState()
     var a11yOn by remember { mutableStateOf(false) }
     var overlayOk by remember { mutableStateOf(false) }
@@ -97,6 +105,10 @@ fun HomeScreen(activity: Activity) {
     var answer by remember { mutableStateOf<String?>(null) }
     var briefingMessage by remember { mutableStateOf<String?>(null) }
     var zoneMenu by remember { mutableStateOf(false) }
+
+    val today = LocalDate.now()
+    val moneyToday = remember(moneyEntries, today) { MoneyLedgerRepository.summarize(moneyEntries, today) }
+    val todayOdometer = remember(odometerEntries, today) { VehicleRecordsRepository.entryForDay(odometerEntries, today) }
 
     LifecycleResumeEffect(Unit) {
         a11yOn = DriverAccessibilityService.isEnabled(activity)
@@ -119,7 +131,8 @@ fun HomeScreen(activity: Activity) {
             if (intent == CIntent.DONDE_ESPERAR && settings.currentZone != null) g.strategic.refreshPosicion(settings.currentZone!!)
             if ((intent == CIntent.EVENTOS || intent == CIntent.CERCA_CASA) && g.strategic.state.value.isStale(System.currentTimeMillis())) g.strategic.refreshReporte()
             val t = System.currentTimeMillis()
-            val ctx = CopilotContext(g.pipeline.last.value?.evaluation, ShiftCalculator.compute(history, shiftStart, t), g.strategic.state.value, settings, t)
+            val shiftEstimate = ShiftCalculator.compute(history, shiftStart, t)
+            val ctx = CopilotContext(g.pipeline.last.value?.evaluation, shiftEstimate, g.strategic.state.value, settings, t)
             val a = CopilotEngine.answer(q, ctx)
             answer = a
             if (settings.voiceEnabled) g.tts.speak(a, settings.voiceVolume)
@@ -134,117 +147,106 @@ fun HomeScreen(activity: Activity) {
         when (val result = g.strategic.refreshReporte()) {
             is ApiResult.Ok -> {
                 g.shiftBriefing.capture(result.value, settings.currentZone, System.currentTimeMillis())
-                briefingMessage = "Contexto recibido. Revisá la fuente y la vigencia indicadas abajo."
+                briefingMessage = "Respuesta recibida. Mirá abajo qué datos informa y cuáles faltan."
             }
-            is ApiResult.Fail -> briefingMessage = "No se pudo actualizar el briefing: ${result.message}. Se conserva la consulta anterior, si existe."
+            is ApiResult.Fail -> briefingMessage = "No se pudo actualizar el contexto: ${result.message}. Se conserva la consulta anterior, si existe."
         }
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Text("DriverAI", style = MaterialTheme.typography.titleLarge)
-        Text("Estado: ${status.label}", modifier = Modifier.testTag("status"))
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
+        ScreenTitle("DriverAI · AMBA", "Tu jornada", today.format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es-AR"))))
 
-        Section("Lectura de ofertas") {
-            Text(if (a11yOn) "Lectura automática (accesibilidad): ACTIVADA" else "Lectura automática: desactivada", color = if (a11yOn) Green else Amber)
-            Text(if (capturing) "Lectura por captura: ACTIVA (botón \"Leer oferta\")" else "Lectura por captura: inactiva")
-            Text(if (overlayOk || a11yOn) "Tarjeta flotante: disponible" else "Tarjeta flotante: falta permiso (se usará notificación)")
-            Spacer(Modifier.height(6.dp))
-            Button(onClick = { dialog = if (a11yOn) "a11y_off" else "a11y" }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text(if (a11yOn) "Desactivar lectura automática" else "Activar lectura automática")
-            }
-            OutlinedButton(onClick = { if (capturing) ScreenCaptureService.stop(activity) else dialog = "capture" }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text(if (capturing) "Detener lectura por captura" else "Activar lectura por captura (OCR)")
-            }
-            if (!overlayOk) OutlinedButton(onClick = { openOverlaySettings(activity) }, modifier = Modifier.fillMaxWidth()) { Text("Permitir mostrar sobre otras apps") }
-        }
-
-        last?.let { rec ->
-            Section("Última oferta") {
-                Text(rec.evaluation.verdict.label, color = verdictColor(rec.evaluation.verdict), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                MetricsSummary(rec.evaluation.metrics)
-                Text(rec.evaluation.headline)
-            }
-        }
-
-        Section("Turno") {
-            val stats = ShiftCalculator.compute(history, shiftStart, now)
+        Section("Turno de trabajo") {
+            Text(if (shiftStart == null) "Listo para empezar" else "Turno activo desde ${formatHomeTime(shiftStart!!)}", color = if (shiftStart == null) TextMuted else AccentMint, fontWeight = FontWeight.SemiBold)
+            Text("Lectura de ofertas: ${status.label}", modifier = Modifier.testTag("status"), style = MaterialTheme.typography.bodySmall, color = if (a11yOn || capturing) Green else TextMuted)
+            Spacer(Modifier.height(8.dp))
             if (shiftStart == null) {
-                Text("Iniciá el turno para medir tu ingreso bruto por hora (viajes marcados como \"La tomé\").")
                 Button(enabled = !strategic.loading, onClick = {
                     scope.launch {
                         g.historyRepo.startShift(System.currentTimeMillis())
                         briefingMessage = "Turno iniciado. Consultando el contexto disponible…"
                         refreshBriefing()
                     }
-                }, modifier = Modifier.fillMaxWidth()) { Text("Iniciar turno y escanear briefing") }
+                }, modifier = Modifier.fillMaxWidth().testTag("start_shift")) { Text("Iniciar turno y consultar contexto") }
             } else {
-                Text("Viajes tomados: ${stats.trips} · Bruto: ${Fmt.ars(stats.grossFare)}")
-                Text("Horas: ${Fmt.num(stats.hours ?: 0.0)} · Bruto/h: ${stats.grossPerHour?.let { Fmt.ars(it) } ?: "—"}")
-                OutlinedButton(enabled = !strategic.loading, onClick = { scope.launch { refreshBriefing() } }) { Text("Actualizar briefing") }
-                OutlinedButton(onClick = { scope.launch { g.historyRepo.endShift() } }) { Text("Terminar turno") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(enabled = !strategic.loading, onClick = { scope.launch { refreshBriefing() } }, modifier = Modifier.weight(1f)) { Text("Actualizar contexto") }
+                    TextButton(onClick = { scope.launch { g.historyRepo.endShift() } }, modifier = Modifier.testTag("end_shift")) { Text("Terminar") }
+                }
             }
         }
 
+        Text("CAJA REGISTRADA HOY", style = MaterialTheme.typography.labelSmall, color = AccentMint, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            MetricCard("Ingresos", Fmt.ars(moneyToday.incomeArs), "Cargados por vos", Modifier.weight(1f), Green)
+            MetricCard("Gastos", Fmt.ars(moneyToday.expensesArs), "Cargados por vos", Modifier.weight(1f), Amber)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+            MetricCard("Diferencia de caja", Fmt.ars(moneyToday.cashBalanceArs), "No es ganancia neta", Modifier.weight(1f), if (moneyToday.cashBalanceArs < 0) Red else AccentMint)
+            MetricCard("Km de hoy", todayOdometer?.let { "${Fmt.num(it.drivenKm, 1)} km" } ?: "—", if (todayOdometer == null) "Pendiente de cargar" else "Odómetro manual", Modifier.weight(1f), AccentBlue)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            OutlinedButton(onClick = { onNavigate("billetera") }, modifier = Modifier.weight(1f).testTag("home_wallet")) { Text("Abrir billetera") }
+            OutlinedButton(onClick = { onNavigate("vehiculo") }, modifier = Modifier.weight(1f).testTag("home_vehicle")) { Text("Vehículo y service") }
+        }
+
         ShiftBriefingCard(briefing, now, briefingMessage)
+        Section("Demanda en contexto") {
+            Text("La estimación disponible proviene del servicio estratégico heredado. No equivale a demanda en vivo por fuente.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            Text("Clima, eventos, vuelos, barcos y horarios: solo se muestran si el servicio los informa; su fuente, frescura y confianza no están verificadas.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            OutlinedButton(onClick = { zoneMenu = true }, modifier = Modifier.fillMaxWidth()) { Text("Zona de trabajo: ${settings.currentZone ?: "Elegir zona"}") }
+            DropdownMenu(expanded = zoneMenu, onDismissRequest = { zoneMenu = false }) {
+                Zones.ALL.forEach { zone ->
+                    DropdownMenuItem(text = { Text(zone) }, onClick = {
+                        zoneMenu = false
+                        scope.launch { g.settingsRepo.update { it.copy(currentZone = zone) }; g.strategic.refreshPosicion(zone) }
+                    })
+                }
+            }
+            strategic.posicion?.let { p ->
+                val positionStale = strategic.posicionAt?.let { now - it > StrategicRepository.STALE_MS } != false || strategic.lastError != null
+                val label = if (positionStale) "Última referencia (puede estar desactualizada)" else "Estimación del servidor"
+                Text(if (p.decision == "moverte") "$label: ${p.zona_recomendada ?: "sin zona informada"} (${Fmt.num(p.score_recomendado ?: 0.0)} vs ${Fmt.num(p.score_actual ?: 0.0)})" else "$label: quedate en ${p.zona_actual ?: "tu zona"}", fontWeight = FontWeight.SemiBold)
+                strategic.posicionAt?.let { Text("Consultado ${formatHomeTime(it)}", style = MaterialTheme.typography.bodySmall, color = TextMuted) }
+            }
+        }
+
+        Section("Lectura de ofertas") {
+            Text(if (a11yOn) "Accesibilidad activa" else "Accesibilidad no activa", color = if (a11yOn) Green else Amber)
+            Text(if (capturing) "OCR por captura activo" else "OCR por captura disponible al pedirlo", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            Text(if (overlayOk || a11yOn) "Tarjeta flotante disponible" else "Falta permiso de superposición; se usará notificación", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = { dialog = if (a11yOn) "a11y_off" else "a11y" }, modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                Text(if (a11yOn) "Configurar accesibilidad" else "Activar lectura automática")
+            }
+            OutlinedButton(onClick = { if (capturing) ScreenCaptureService.stop(activity) else dialog = "capture" }, modifier = Modifier.fillMaxWidth().height(50.dp)) {
+                Text(if (capturing) "Detener OCR por captura" else "Activar OCR por captura")
+            }
+            if (!overlayOk) OutlinedButton(onClick = { openOverlaySettings(activity) }, modifier = Modifier.fillMaxWidth()) { Text("Permitir tarjeta sobre otras apps") }
+            last?.let { rec ->
+                Spacer(Modifier.height(8.dp))
+                Text("Última lectura: ${rec.evaluation.verdict.label}", color = verdictColor(rec.evaluation.verdict), style = MaterialTheme.typography.titleMedium)
+                Text(rec.evaluation.headline, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+        }
 
         Section("Copiloto") {
             OutlinedTextField(question, { question = it }, label = { Text("Preguntá algo") }, modifier = Modifier.fillMaxWidth().testTag("copilot_input"), singleLine = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = { if (question.isNotBlank()) ask(question) }, modifier = Modifier.testTag("copilot_ask")) { Text("Preguntar") }
                 OutlinedButton(onClick = {
-                    val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
                         .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                         .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-AR")
                         .putExtra(RecognizerIntent.EXTRA_PROMPT, "¿Qué querés saber?")
-                    try { speechLauncher.launch(i) } catch (e: ActivityNotFoundException) { answer = "Reconocimiento de voz no disponible en este teléfono. Escribí la pregunta." }
+                    try { speechLauncher.launch(intent) } catch (e: ActivityNotFoundException) { answer = "Reconocimiento de voz no disponible. Escribí la pregunta." }
                 }) { Text("Hablar") }
                 TextButton(onClick = { g.tts.stop() }) { Text("Callar") }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf("¿Me conviene?", "¿Por qué?", "¿Dónde espero?").forEach { q ->
-                    TextButton(onClick = { question = q; ask(q) }) { Text(q) }
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                listOf("¿Me conviene?", "¿Por qué?", "¿Dónde espero?").forEach { q -> TextButton(onClick = { question = q; ask(q) }) { Text(q) } }
             }
             answer?.let { Text(it, modifier = Modifier.testTag("copilot_answer"), fontWeight = FontWeight.SemiBold) }
-        }
-
-        Section("Contexto estratégico") {
-            val stale = strategic.isStale(now)
-            Text(
-                when {
-                    strategic.loading -> "Actualizando…"
-                    strategic.lastError != null -> "Contexto temporalmente desactualizado: ${strategic.lastError}. Las ofertas se siguen evaluando con tus reglas."
-                    stale -> "Contexto desactualizado."
-                    else -> "Actualizado."
-                }, color = if (stale) Amber else Green,
-            )
-            Text("Estimaciones generadas por el servidor (incluye IA). No son datos garantizados.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(enabled = !strategic.loading, onClick = { scope.launch { refreshBriefing() } }) { Text("Actualizar briefing") }
-                Column {
-                    OutlinedButton(onClick = { zoneMenu = true }) { Text(settings.currentZone ?: "Mi zona") }
-                    DropdownMenu(zoneMenu, { zoneMenu = false }) {
-                        Zones.ALL.forEach { z -> DropdownMenuItem(text = { Text(z) }, onClick = {
-                            zoneMenu = false
-                            scope.launch { g.settingsRepo.update { it.copy(currentZone = z) }; g.strategic.refreshPosicion(z) }
-                        }) }
-                    }
-                }
-            }
-            strategic.posicion?.let { p ->
-                Text(if (p.decision == "moverte") "Sugerencia: movete a ${p.zona_recomendada} (puntaje ${Fmt.num(p.score_recomendado ?: 0.0)} vs ${Fmt.num(p.score_actual ?: 0.0)})" else "Sugerencia: quedate en ${p.zona_actual}", fontWeight = FontWeight.Bold)
-                p.espera_estimada_min?.let { Text("Espera estimada: ${Fmt.num(it, 0)} min") }
-            }
-            strategic.reporte?.let { r ->
-                r.reporte?.resumen?.let { Text(it) }
-                r.reporte?.mejor_zona_ahora?.let { Text("Mejor zona ahora: $it", fontWeight = FontWeight.Bold) }
-                r.reporte?.mejor_zona_en_2h?.let { Text("En 2 h: $it") }
-                r.reporte?.zonas_rankeadas?.take(5)?.forEach { z -> Text("• ${z.zona}: ${z.score?.let { Fmt.num(it) } ?: "—"} — ${z.razon ?: ""}") }
-                r.clima?.let { c -> Text("Clima (dato): ${c.temperatura?.let { Fmt.num(it) } ?: "—"} °C, lluvia ${if (c.lluvia_ahora == true) "sí" else "no"}, prob. 3 h ${c.prob_lluvia_3h?.let { Fmt.num(it, 0) } ?: "—"} %") }
-                val eventLabel = r.eventos?.let { if (it.isEmpty()) "lista vacía" else "${it.size} listados" } ?: "sin dato"
-                Text("Eventos listados: $eventLabel · Partido: ${if (r.hay_partido == true) "sí" else "no"}")
-                r.reporte?.precio_minimo_sugerido?.let { Text("Precio mínimo sugerido por el servidor: ${Fmt.ars(it)} (referencia no verificada; tus umbrales mandan)", style = MaterialTheme.typography.bodySmall) }
-            }
         }
     }
 
@@ -270,12 +272,5 @@ fun HomeScreen(activity: Activity) {
     }
 }
 
-@Composable
-fun MetricsSummary(m: ar.driverai.bridge.engine.Metrics) {
-    fun d(v: Double?, f: (Double) -> String) = v?.let(f) ?: "—"
-    Text("Tarifa: ${d(m.fare, Fmt::ars)}")
-    Text("Km recogida: ${d(m.pickupKm) { Fmt.num(it) }} · Km con pasajero: ${d(m.tripKm) { Fmt.num(it) }} · Retorno vacío: ${d(m.returnKm) { Fmt.num(it) }}")
-    Text("Km totales: ${d(m.totalKm) { Fmt.num(it) }} · Min con pasajero: ${d(m.tripMin) { Fmt.num(it, 0) }} · Min totales: ${d(m.totalMin) { Fmt.num(it, 0) }}")
-    Text("Bruto/km: ${d(m.grossPerKm, Fmt::ars)} · Bruto/h: ${d(m.grossPerHour, Fmt::ars)}", fontWeight = FontWeight.Bold, modifier = Modifier.testTag("metrics_gross"))
-    if (m.variableCost != null) Text("Costo variable est.: ${Fmt.ars(m.variableCost)} · Ganancia est. antes de fijos e impuestos: ${d(m.estimatedProfitBeforeFixed, Fmt::ars)} · Margen: ${d(m.marginPct) { Fmt.num(it) + " %" }}")
-}
+private fun formatHomeTime(epochMillis: Long): String = DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("es-AR"))
+    .format(java.time.Instant.ofEpochMilli(epochMillis).atZone(java.time.ZoneId.systemDefault()))

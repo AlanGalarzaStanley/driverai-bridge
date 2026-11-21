@@ -74,9 +74,9 @@ object CopilotEngine {
             val s = ctx.shift
             when {
                 s == null || s.hours == null -> "Iniciá el turno en la pantalla principal para medir cuánto hacés por hora."
-                s.trips == 0 -> "No marcaste viajes tomados en este turno."
-                s.grossPerHour == null -> "Llevás ${s.trips} viajes y ${Fmt.ars(s.grossFare)} brutos."
-                else -> "Llevás ${Fmt.ars(s.grossFare)} brutos en ${s.trips} viajes: ${Fmt.ars(s.grossPerHour)} por hora."
+                s.trips == 0 -> "No marcaste ofertas como tomadas en este turno."
+                s.grossPerHour == null -> "Marcaste ${s.trips} ofertas; sus tarifas leídas suman ${Fmt.ars(s.grossFare)}. No confirma cobros."
+                else -> "Ofertas marcadas tomadas: ${s.trips}; tarifas leídas ${Fmt.ars(s.grossFare)} (${Fmt.ars(s.grossPerHour)}/h estimado). No confirma cobros."
             }
         }
         Intent.DONDE_ESPERAR -> donde(ctx)
@@ -85,13 +85,16 @@ object CopilotEngine {
         Intent.DESCONOCIDA -> "Podés preguntarme: ¿me conviene?, ¿por qué?, ¿cuánto hago por hora?, ¿dónde espero?, ¿hay eventos?"
     }
 
-    private fun staleNote(ctx: CopilotContext) = if (ctx.strategic.isStale(ctx.now)) " (dato posiblemente desactualizado)" else ""
+    private fun staleNote(ctx: CopilotContext, at: Long? = ctx.strategic.reporteAt): String {
+        val stale = at == null || ctx.now - at > StrategicRepository.STALE_MS || ctx.strategic.lastError != null
+        return if (stale) " (dato posiblemente desactualizado)" else ""
+    }
 
     private fun donde(ctx: CopilotContext): String {
         val p = ctx.strategic.posicion
         if (p != null && p.zona_recomendada != null) {
-            return if (p.decision == "moverte") "Estimación del servidor: movete a ${p.zona_recomendada}, puntaje ${Fmt.num(p.score_recomendado ?: 0.0)} contra ${Fmt.num(p.score_actual ?: 0.0)}.${staleNote(ctx)}"
-            else "Estimación del servidor: quedate en ${p.zona_actual ?: "tu zona"}.${staleNote(ctx)}"
+            return if (p.decision == "moverte") "Estimación del servidor: movete a ${p.zona_recomendada}, puntaje ${Fmt.num(p.score_recomendado ?: 0.0)} contra ${Fmt.num(p.score_actual ?: 0.0)}.${staleNote(ctx, ctx.strategic.posicionAt)}"
+            else "Estimación del servidor: quedate en ${p.zona_actual ?: "tu zona"}.${staleNote(ctx, ctx.strategic.posicionAt)}"
         }
         val best = ctx.strategic.reporte?.reporte?.mejor_zona_ahora
         return if (best != null) "Estimación del servidor: la mejor zona ahora es $best.${staleNote(ctx)}"
@@ -107,7 +110,7 @@ object CopilotEngine {
             ev.isEmpty() -> "El servidor no listó eventos."
             else -> "El servidor informa ${ev.size} eventos."
         }
-        if (r.hay_partido == true) parts += "Hay partido hoy."
+        if (r.hay_partido == true) parts += "El reporte indica un partido para hoy."
         r.reporte?.nivel_demanda_general?.let { parts += "Demanda estimada: ${it.replace('_', ' ')}." }
         return parts.joinToString(" ") + staleNote(ctx)
     }

@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -49,26 +50,42 @@ class MainActivity : ComponentActivity() {
     private fun Root() {
         val tabs = listOf(
             Triple("inicio", "Inicio", Icons.Filled.Home),
-            Triple("evaluar", "Evaluar", Icons.Filled.Check),
-            Triple("ajustes", "Ajustes", Icons.Filled.Settings),
-            Triple("historial", "Historial", Icons.Filled.List),
-            Triple("diag", "Chequeo", Icons.Filled.Build),
+            Triple("evaluar", "Oferta", Icons.Filled.Check),
+            Triple("billetera", "Billetera", Icons.Filled.List),
+            Triple("vehiculo", "Vehículo", Icons.Filled.Build),
+            Triple("mas", "Más", Icons.Filled.Settings),
         )
-        Scaffold(bottomBar = {
-            NavigationBar {
-                tabs.forEach { (id, label, icon) ->
-                    NavigationBarItem(selected = tab == id, onClick = { tab = id }, icon = { Icon(icon, null) },
-                        label = { Text(label, maxLines = 1, softWrap = false, fontSize = 11.sp) }, modifier = Modifier.testTag("tab_$id"))
+        val selectedTab = when (tab) {
+            "ajustes", "diag", "historial" -> "mas"
+            else -> tab
+        }
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            bottomBar = {
+                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    tabs.forEach { (id, label, icon) ->
+                        NavigationBarItem(
+                            selected = selectedTab == id,
+                            onClick = { tab = id },
+                            icon = { Icon(icon, contentDescription = label) },
+                            label = { Text(label, maxLines = 1, softWrap = false, fontSize = 10.sp) },
+                            modifier = Modifier.testTag("tab_$id"),
+                        )
+                    }
                 }
-            }
-        }) { pad ->
+            },
+        ) { pad ->
             Box(Modifier.fillMaxSize().padding(pad)) {
                 when (tab) {
-                    "inicio" -> HomeScreen(this@MainActivity)
+                    "inicio" -> HomeScreen(this@MainActivity) { destination -> tab = destination }
                     "evaluar" -> EvaluateScreen(prefill) { prefill = false }
+                    "billetera" -> WalletScreen()
+                    "vehiculo" -> VehicleScreen()
+                    "mas" -> ToolsScreen { destination -> tab = destination }
                     "ajustes" -> SettingsScreen()
                     "historial" -> HistoryScreen()
-                    else -> DiagnosticsScreen(this@MainActivity)
+                    "diag" -> DiagnosticsScreen(this@MainActivity)
+                    else -> HomeScreen(this@MainActivity)
                 }
             }
         }

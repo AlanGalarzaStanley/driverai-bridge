@@ -11,8 +11,16 @@ import ar.driverai.bridge.copilot.CopilotEngine
 import ar.driverai.bridge.copilot.Intent
 import ar.driverai.bridge.data.HistoryEntry
 import ar.driverai.bridge.data.HistoryRepository
+import ar.driverai.bridge.data.MaintenanceRecord
+import ar.driverai.bridge.data.MoneyCategory
+import ar.driverai.bridge.data.MoneyAmountParser
+import ar.driverai.bridge.data.MoneyKind
+import ar.driverai.bridge.data.MoneyLedgerRepository
+import ar.driverai.bridge.data.OdometerEntry
+import ar.driverai.bridge.data.OdometerSaveResult
 import ar.driverai.bridge.data.SettingsRepository
 import ar.driverai.bridge.data.ShiftCalculator
+import ar.driverai.bridge.data.VehicleRecordsRepository
 import ar.driverai.bridge.engine.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +31,8 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.time.LocalDate
+import java.time.ZoneId
 
 class DataAndCopilotTest {
     @get:Rule val tmp = TemporaryFolder()
@@ -66,6 +76,76 @@ class DataAndCopilotTest {
         )
         val s = ShiftCalculator.compute(entries, shiftStart = 0L, now = 2 * 3_600_000L)
         assertEquals(1, s.trips); assertEquals(8000.0, s.grossFare, 0.0); assertEquals(4000.0, s.grossPerHour!!, 1e-9)
+    }
+
+    @Test fun copiloto_porHoraAclaraQueSonTarifasEstimadas() {
+        val taken = HistoryEntry(3_600_000, "CONVIENE", 8000.0, 10.0, 25.0, 800.0, 19200.0, DataSource.ACCESSIBILITY, taken = true)
+        val shift = ShiftCalculator.compute(listOf(taken), shiftStart = 0L, now = 2 * 3_600_000L)
+        val answer = CopilotEngine.answer("¿Cuánto hago por hora?", ctx().copy(shift = shift))
+        assertTrue(answer, answer.contains("tarifas leídas"))
+        assertTrue(answer, answer.contains("estimado"))
+        assertTrue(answer, answer.contains("No confirma cobros"))
+    }
+
+    @Test fun billetera_persisteYResumePorDiaLocal() = runBlocking {
+        val repo = MoneyLedgerRepository(store("money"))
+        val zone = ZoneId.of("America/Argentina/Buenos_Aires")
+        val day = LocalDate.of(2026, 11, 21)
+        val incomeAt = day.atTime(10, 0).atZone(zone).toInstant().toEpochMilli()
+        val expenseAt = day.atTime(13, 0).atZone(zone).toInstant().toEpochMilli()
+        repo.add(MoneyKind.INCOME, 12000.0, MoneyCategory.TRIP_INCOME, incomeAt)
+        repo.add(MoneyKind.EXPENSE, 2500.0, MoneyCategory.FUEL, expenseAt)
+        val entries = repo.entries.first()
+        val summary = MoneyLedgerRepository.summarize(entries, day, zone)
+        assertEquals(12000.0, summary.incomeArs, 0.0)
+        assertEquals(2500.0, summary.expensesArs, 0.0)
+        assertEquals(9500.0, summary.cashBalanceArs, 0.0)
+        assertEquals(entries, MoneyLedgerRepository.decode(MoneyLedgerRepository.encode(entries)))
+        assertTrue(runCatching { repo.add(MoneyKind.INCOME, 0.0, MoneyCategory.TRIP_INCOME) }.isFailure)
+        assertTrue(runCatching { repo.add(MoneyKind.INCOME, 0.001, MoneyCategory.TRIP_INCOME) }.isFailure)
+        assertTrue(runCatching { repo.add(MoneyKind.INCOME, MoneyAmountParser.MAX_AMOUNT_ARS + 1, MoneyCategory.TRIP_INCOME) }.isFailure)
+        assertEquals(1234.0, MoneyAmountParser.parse("1.234")!!, 0.0)
+        assertEquals(12000.0, MoneyAmountParser.parse("12.000")!!, 0.0)
+        assertEquals(1.23, MoneyAmountParser.parse("1,23")!!, 1e-9)
+        assertEquals(1234.56, MoneyAmountParser.parse("1.234,56")!!, 1e-9)
+        assertNull(MoneyAmountParser.parse("1,234"))
+        assertNull(MoneyAmountParser.parse("100.000.000,01"))
+        repo.clear()
+        assertTrue(repo.entries.first().isEmpty())
+    }
+
+    @Test fun odometro_validaMonotoniaYActualizaUnaLecturaPorDia() = runBlocking {
+        val repo = VehicleRecordsRepository(store("vehicle"))
+        fun entry(day: LocalDate, start: Double, end: Double) = OdometerEntry(day.toString(), start, end, 1L)
+        val firstDay = LocalDate.of(2026, 11, 20)
+        val secondDay = firstDay.plusDays(1)
+        assertTrue(repo.saveOdometer(entry(firstDay, 100.0, 99.0)) is OdometerSaveResult.Invalid)
+        assertEquals(OdometerSaveResult.Saved, repo.saveOdometer(entry(firstDay, 100.0, 120.0)))
+        assertEquals(OdometerSaveResult.Saved, repo.saveOdometer(entry(secondDay, 120.0, 135.0)))
+        assertTrue(repo.saveOdometer(entry(firstDay, 100.0, 121.0)) is OdometerSaveResult.Invalid)
+        assertEquals(OdometerSaveResult.Saved, repo.saveOdometer(entry(firstDay, 100.0, 118.0)))
+        assertTrue(repo.saveOdometer(entry(secondDay, 117.0, 140.0)) is OdometerSaveResult.Invalid)
+        val entries = repo.odometerEntries.first()
+        assertEquals(2, entries.size)
+        assertEquals(18.0, entries.first().drivenKm, 0.0)
+        assertEquals(entries, VehicleRecordsRepository.decodeOdometer(VehicleRecordsRepository.encodeOdometer(entries)))
+    }
+
+    @Test fun mantenimiento_validaYDetectaVencimientosPorKmOFecha() = runBlocking {
+        val repo = VehicleRecordsRepository(store("service"))
+        val today = LocalDate.of(2026, 11, 21)
+        assertNotNull(repo.addMaintenance("  ", null, null, now = 1L))
+        assertNotNull(repo.addMaintenance("VTV", null, null, now = 1L))
+        assertNull(repo.addMaintenance("VTV", 24000.0, null, now = 1L))
+        val record = repo.maintenanceRecords.first().single()
+        assertFalse(VehicleRecordsRepository.maintenanceIsOverdue(record, 23999.0, today))
+        assertTrue(VehicleRecordsRepository.maintenanceIsOverdue(record, 24000.0, today))
+        val dueByDate = MaintenanceRecord("date", "Seguro", dueDate = today.minusDays(1).toString(), createdAt = 1L)
+        assertTrue(VehicleRecordsRepository.maintenanceIsOverdue(dueByDate, null, today))
+        repo.markMaintenanceDone(record.id, 24000.0, now = 2L)
+        val completed = repo.maintenanceRecords.first().single()
+        assertFalse(VehicleRecordsRepository.maintenanceIsOverdue(completed, 25000.0, today))
+        assertEquals(listOf(completed), VehicleRecordsRepository.decodeMaintenance(VehicleRecordsRepository.encodeMaintenance(listOf(completed))))
     }
 
     private fun ctx(eval: Evaluation? = null, posicion: PosicionResponse? = null, reporte: ReporteResponse? = null, settings: DriverSettings = DriverSettings()) =

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -19,6 +20,7 @@ import ar.driverai.bridge.engine.DriverSettings
 import ar.driverai.bridge.engine.Verdict
 import ar.driverai.bridge.ui.MainActivity
 import ar.driverai.bridge.ui.SimulatorActivity
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Assume
@@ -44,6 +46,8 @@ class AppInstrumentedTest {
     @Before fun setUp(): Unit = runBlocking {
         DriverAiApp.graph.settingsRepo.update { DriverSettings(minGrossPerKm = 500.0, historyEnabled = true, speakVerdicts = false) }
         DriverAiApp.graph.overlay.hideAll()
+        DriverAiApp.graph.walletRepo.clear()
+        DriverAiApp.graph.vehicleRepo.clearAll()
     }
 
     private fun shot(name: String) {
@@ -59,6 +63,10 @@ class AppInstrumentedTest {
     @Test fun inicioAbre() {
         compose.onNodeWithTag("status").assertExists()
         compose.onNodeWithTag("tab_evaluar").assertExists()
+        compose.onNodeWithTag("tab_billetera").assertExists()
+        compose.onNodeWithTag("tab_vehiculo").assertExists()
+        compose.onNodeWithTag("home_wallet").assertExists()
+        compose.onNodeWithTag("home_vehicle").assertExists()
         compose.onNodeWithText("Briefing del turno").assertExists()
         compose.onNodeWithText("Todavía no hay una consulta guardada. Al iniciar el turno podés consultar el contexto disponible.").assertExists()
     }
@@ -78,6 +86,7 @@ class AppInstrumentedTest {
     }
 
     @Test fun ajustes_guardan() {
+        compose.onNodeWithTag("tab_mas").performClick()
         compose.onNodeWithTag("tab_ajustes").performClick()
         compose.onNodeWithTag("set_minhour").performTextInput("15000")
         compose.onNodeWithTag("btn_save").performScrollTo().performClick()
@@ -86,6 +95,7 @@ class AppInstrumentedTest {
     }
 
     @Test fun tarjetaFlotante_apareceYSeCierra() {
+        compose.onNodeWithTag("tab_mas").performClick()
         compose.onNodeWithTag("tab_diag").performClick()
         compose.onNodeWithTag("btn_overlay_demo").performScrollTo().performClick()
         assertTrue("tarjeta visible", waitFor(3000) { DriverAiApp.graph.overlay.isCardVisible })
@@ -127,6 +137,36 @@ class AppInstrumentedTest {
         assertTrue("tarjeta oculta al desaparecer la oferta", waitFor(20_000) { !DriverAiApp.graph.overlay.isCardVisible })
         // El simulador sigue en primer plano: DriverAI no tocó nada
         assertNotNull(device.findObject(By.text("SIMULADOR DriverAI — no es Uber")))
+    }
+
+    @Test fun billetera_registraIngresoYGastoSeparadosDeOfertas() = runBlocking {
+        compose.onNodeWithTag("tab_billetera").performClick()
+        compose.onNodeWithTag("wallet_add_income").performClick()
+        compose.onNodeWithTag("wallet_amount").performTextReplacement("12000")
+        compose.onNodeWithTag("wallet_save").performClick()
+        compose.onNodeWithTag("wallet_add_expense").performClick()
+        compose.onNodeWithTag("wallet_amount").performTextReplacement("2500")
+        compose.onNodeWithTag("wallet_save").performClick()
+        compose.onNodeWithText("Movimientos de hoy").assertExists()
+        compose.onNodeWithText("Ingreso confirmado").assertExists()
+        compose.onNodeWithText("Combustible").assertExists()
+        val summary = ar.driverai.bridge.data.MoneyLedgerRepository.summarize(DriverAiApp.graph.walletRepo.entries.first())
+        assertEquals(12000.0, summary.incomeArs, 0.0)
+        assertEquals(2500.0, summary.expensesArs, 0.0)
+    }
+
+    @Test fun vehiculo_guardaKilometrosYRecordatorio() {
+        compose.onNodeWithTag("tab_vehiculo").performClick()
+        compose.onNodeWithTag("odo_start").performTextReplacement("1000")
+        compose.onNodeWithTag("odo_end").performTextReplacement("1012")
+        compose.onNodeWithTag("odo_save").performScrollTo().performClick()
+        compose.onNodeWithText("Guardado en este teléfono.").assertExists()
+        compose.onNodeWithTag("maintenance_add").performScrollTo().performClick()
+        compose.onNodeWithTag("maintenance_title").performTextReplacement("VTV")
+        compose.onNodeWithTag("maintenance_due_km").performTextReplacement("1500")
+        compose.onNodeWithTag("maintenance_save").performClick()
+        compose.onNodeWithText("VTV").assertExists()
+        compose.onNodeWithText("Pendiente").assertExists()
     }
 
     @Test fun deduplicacion_mismaOfertaNoSeRepite() {
