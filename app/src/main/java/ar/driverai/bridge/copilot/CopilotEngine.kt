@@ -101,8 +101,12 @@ object CopilotEngine {
     private fun eventos(ctx: CopilotContext): String {
         val r = ctx.strategic.reporte ?: return "No tengo el reporte del servidor. Actualizalo en Inicio."
         val parts = mutableListOf<String>()
-        val ev = r.eventos.size
-        parts += if (ev == 0) "El servidor no informa eventos." else "El servidor informa $ev eventos."
+        val ev = r.eventos
+        parts += when {
+            ev == null -> "El servidor no informó una lista de eventos."
+            ev.isEmpty() -> "El servidor no listó eventos."
+            else -> "El servidor informa ${ev.size} eventos."
+        }
         if (r.hay_partido == true) parts += "Hay partido hoy."
         r.reporte?.nivel_demanda_general?.let { parts += "Demanda estimada: ${it.replace('_', ' ')}." }
         return parts.joinToString(" ") + staleNote(ctx)

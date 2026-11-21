@@ -4,6 +4,7 @@ import android.content.Intent
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
@@ -58,6 +59,8 @@ class AppInstrumentedTest {
     @Test fun inicioAbre() {
         compose.onNodeWithTag("status").assertExists()
         compose.onNodeWithTag("tab_evaluar").assertExists()
+        compose.onNodeWithText("Briefing del turno").assertExists()
+        compose.onNodeWithText("Todavía no hay una consulta guardada. Al iniciar el turno podés consultar el contexto disponible.").assertExists()
     }
 
     @Test fun evaluacionManual_conviene() {

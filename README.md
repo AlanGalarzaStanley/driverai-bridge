@@ -12,11 +12,13 @@ App Android nativa (Kotlin + Jetpack Compose) que evalúa ofertas de viaje con r
 | Contrato con backend real | En verde (job `backend-contract`) |
 | Emulador Android 11 | 6 pruebas instrumentadas en verde, incluida accesibilidad → tarjeta con un simulador |
 | Uber real en teléfono real | **OCR leyó una oferta real** (run 17 / APK `713f1fe`); revalidar accesibilidad automática y más formatos |
+| Briefing de turno | En desarrollo en `manus/briefing-end-to-end`: consulta explícita al reporte heredado y snapshot local; aún sin feeds verificados ni índice calibrado |
 
 ## Documentación
 - [Auditoría inicial](docs/INITIAL_AUDIT.md) — repos, web, backend y hallazgos.
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Visión y hoja de ruta del copiloto](docs/PRODUCT_VISION.md)
+- [Investigación de fuentes para el briefing](docs/BRIEFING_SOURCE_RESEARCH.md) — cobertura, vigencia, permisos y brechas de producción.
 - [Permisos y políticas](docs/ANDROID_PERMISSIONS.md)
 - [Plan y resultados de pruebas](docs/TEST_PLAN.md)
 - [Compilar, descargar e instalar](docs/BUILD_AND_INSTALL.md)

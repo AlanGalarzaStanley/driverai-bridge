@@ -16,7 +16,8 @@ La ventaja no nace de una respuesta genérica de IA. Nace de combinar deprisa da
 - El conductor confirmó una lectura real exitosa por **OCR**: detectó tarifa, kilómetros y minutos. Mostró **REVISAR** porque todavía no había configurado umbrales.
 - La lectura automática por Accesibilidad todavía debe volver a probarse con esa versión.
 - La app ya tiene umbrales de tarifa, bruto por km/hora y margen; puede derivar costo variable por km de consumo y precio de combustible; guarda historial numérico, permite marcar una oferta como “La tomé” y estima bruto/hora del turno.
-- No hay todavía un escaneo diario de señales ni índice de demanda personalizado, una billetera completa, registro de gastos ni sincronización de billetera con Gridwise LATAM.
+- En la rama `manus/briefing-end-to-end` se está incorporando un primer paso explícito al iniciar el turno: consultar el reporte estratégico heredado y guardar un resumen mínimo local. Ese endpoint no identifica fuente, vigencia ni confianza de cada dato; por tanto, no es el escaneo diario de señales ni un índice de demanda nuevo y calibrado.
+- Siguen pendientes el briefing alimentado por fuentes autorizadas, índice de demanda por zona/franja, billetera completa, registro de gastos y sincronización con Gridwise LATAM.
 - El historial actual es un inicio, no una contabilidad: registrar “La tomé” no confirma que el viaje se completó ni que se cobró. Oferta, viaje aceptado, viaje terminado e ingreso liquidado deben mantenerse separados.
 
 ## El producto en cuatro piezas

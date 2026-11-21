@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import ar.driverai.bridge.DriverAiApp
+import ar.driverai.bridge.backend.ApiResult
 import ar.driverai.bridge.capture.DriverAccessibilityService
 import ar.driverai.bridge.capture.ScreenCaptureService
 import ar.driverai.bridge.copilot.CopilotContext
@@ -86,6 +87,7 @@ fun HomeScreen(activity: Activity) {
     val last by g.pipeline.last.collectAsState()
     val history by g.historyRepo.entries.collectAsState(initial = emptyList())
     val shiftStart by g.historyRepo.shiftStart.collectAsState(initial = null)
+    val briefing by g.shiftBriefing.snapshot.collectAsState(initial = null)
     val capturing by ScreenCaptureService.running.collectAsState()
     var a11yOn by remember { mutableStateOf(false) }
     var overlayOk by remember { mutableStateOf(false) }
@@ -93,6 +95,7 @@ fun HomeScreen(activity: Activity) {
     var dialog by remember { mutableStateOf<String?>(null) }
     var question by remember { mutableStateOf("") }
     var answer by remember { mutableStateOf<String?>(null) }
+    var briefingMessage by remember { mutableStateOf<String?>(null) }
     var zoneMenu by remember { mutableStateOf(false) }
 
     LifecycleResumeEffect(Unit) {
@@ -101,7 +104,6 @@ fun HomeScreen(activity: Activity) {
         onPauseOrDispose { }
     }
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(30_000) } }
-    LaunchedEffect(Unit) { if (strategic.reporte == null) g.strategic.refreshReporte() }
 
     val projectionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == Activity.RESULT_OK && r.data != null) ScreenCaptureService.start(activity, r.resultCode, r.data!!)
@@ -126,6 +128,16 @@ fun HomeScreen(activity: Activity) {
     val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         val text = r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
         if (r.resultCode == Activity.RESULT_OK && !text.isNullOrBlank()) { question = text; ask(text) }
+    }
+
+    suspend fun refreshBriefing() {
+        when (val result = g.strategic.refreshReporte()) {
+            is ApiResult.Ok -> {
+                g.shiftBriefing.capture(result.value, settings.currentZone, System.currentTimeMillis())
+                briefingMessage = "Contexto recibido. Revisá la fuente y la vigencia indicadas abajo."
+            }
+            is ApiResult.Fail -> briefingMessage = "No se pudo actualizar el briefing: ${result.message}. Se conserva la consulta anterior, si existe."
+        }
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
@@ -158,13 +170,22 @@ fun HomeScreen(activity: Activity) {
             val stats = ShiftCalculator.compute(history, shiftStart, now)
             if (shiftStart == null) {
                 Text("Iniciá el turno para medir tu ingreso bruto por hora (viajes marcados como \"La tomé\").")
-                Button(onClick = { scope.launch { g.historyRepo.startShift(System.currentTimeMillis()) } }, modifier = Modifier.fillMaxWidth()) { Text("Iniciar turno") }
+                Button(enabled = !strategic.loading, onClick = {
+                    scope.launch {
+                        g.historyRepo.startShift(System.currentTimeMillis())
+                        briefingMessage = "Turno iniciado. Consultando el contexto disponible…"
+                        refreshBriefing()
+                    }
+                }, modifier = Modifier.fillMaxWidth()) { Text("Iniciar turno y escanear briefing") }
             } else {
                 Text("Viajes tomados: ${stats.trips} · Bruto: ${Fmt.ars(stats.grossFare)}")
                 Text("Horas: ${Fmt.num(stats.hours ?: 0.0)} · Bruto/h: ${stats.grossPerHour?.let { Fmt.ars(it) } ?: "—"}")
+                OutlinedButton(enabled = !strategic.loading, onClick = { scope.launch { refreshBriefing() } }) { Text("Actualizar briefing") }
                 OutlinedButton(onClick = { scope.launch { g.historyRepo.endShift() } }) { Text("Terminar turno") }
             }
         }
+
+        ShiftBriefingCard(briefing, now, briefingMessage)
 
         Section("Copiloto") {
             OutlinedTextField(question, { question = it }, label = { Text("Preguntá algo") }, modifier = Modifier.fillMaxWidth().testTag("copilot_input"), singleLine = true)
@@ -199,7 +220,7 @@ fun HomeScreen(activity: Activity) {
             )
             Text("Estimaciones generadas por el servidor (incluye IA). No son datos garantizados.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { scope.launch { g.strategic.refreshReporte() } }) { Text("Actualizar reporte") }
+                Button(enabled = !strategic.loading, onClick = { scope.launch { refreshBriefing() } }) { Text("Actualizar briefing") }
                 Column {
                     OutlinedButton(onClick = { zoneMenu = true }) { Text(settings.currentZone ?: "Mi zona") }
                     DropdownMenu(zoneMenu, { zoneMenu = false }) {
@@ -220,7 +241,8 @@ fun HomeScreen(activity: Activity) {
                 r.reporte?.mejor_zona_en_2h?.let { Text("En 2 h: $it") }
                 r.reporte?.zonas_rankeadas?.take(5)?.forEach { z -> Text("• ${z.zona}: ${z.score?.let { Fmt.num(it) } ?: "—"} — ${z.razon ?: ""}") }
                 r.clima?.let { c -> Text("Clima (dato): ${c.temperatura?.let { Fmt.num(it) } ?: "—"} °C, lluvia ${if (c.lluvia_ahora == true) "sí" else "no"}, prob. 3 h ${c.prob_lluvia_3h?.let { Fmt.num(it, 0) } ?: "—"} %") }
-                Text("Eventos informados: ${r.eventos.size} · Partido: ${if (r.hay_partido == true) "sí" else "no"}")
+                val eventLabel = r.eventos?.let { if (it.isEmpty()) "lista vacía" else "${it.size} listados" } ?: "sin dato"
+                Text("Eventos listados: $eventLabel · Partido: ${if (r.hay_partido == true) "sí" else "no"}")
                 r.reporte?.precio_minimo_sugerido?.let { Text("Precio mínimo sugerido por el servidor: ${Fmt.ars(it)} (referencia no verificada; tus umbrales mandan)", style = MaterialTheme.typography.bodySmall) }
             }
         }

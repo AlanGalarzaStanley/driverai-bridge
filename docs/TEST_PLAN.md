@@ -17,9 +17,10 @@ Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Action
 | Parser / OCR | `OfferTextParserTest` | importes AR/US/ambiguos y ARS al final; oferta clara es/en (millas); horas+min; metros; sin etiquetas; un solo par ambiguo; texto parcial; no-oferta; bonos y $/h ignorados; varios importes; correcciones OCR (S→$, rn→m); distancia-antes-de-tiempo; espacios no separables | CI (run 17) |
 | Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva solo importes (también ARS al final), tiempos, distancias y etiquetas permitidas; descarta nombres/direcciones/texto libre; no trata “Km 25” como distancia; limita y normaliza fragmentos; copia campos, confianza porcentual y veredicto reducidos | CI (run 17) |
 | Backend | `BackendTest` (MockWebServer) | contrato real de ambos endpoints (JSON capturado), path/método/body, sin `Authorization`; campos nuevos/faltantes; HTTP 500; `ok:false`; JSON inválido; timeout; desconexión; contexto desactualizado y conservación del último dato | E |
+| Briefing | `ShiftBriefingTest` + `BackendTest` | snapshot local minimizado, hora de recepción, campos de contexto, eventos ausentes vs lista vacía | P (código agregado en rama; falta ejecutar) |
 | Datos y copiloto | `DataAndCopilotTest` | persistencia DataStore; JSON corrupto; historial (límite 100, sin texto); turno $/h; intenciones de las 6 consultas; respuestas breves y con fuente | E |
 
-La suite pasó en GitHub Actions run 17. No se repitió localmente en esta sandbox porque no tiene Android SDK.
+La suite base pasó en GitHub Actions run 17. En esta rama, la validación local llegó a Gradle pero el AAPT2 de Android descargado es binario Linux x86_64 y esta sandbox es ARM64; no pudo arrancar. La ejecución del código de esta rama queda pendiente de un runner Linux x86_64/CI.
 
 ## B. Integración
 | Prueba | Estado |
@@ -27,12 +28,14 @@ La suite pasó en GitHub Actions run 17. No se repitió localmente en esta sandb
 | `LiveBackendContractTest` contra Supabase real (job `backend-contract`) | CI |
 | Regresión web: `https://driverai-ba.lovable.app` responde 200 (job `backend-contract`) | CI |
 | Sin backend: evaluación local sigue funcionando (por diseño: el motor no depende de la red; `StrategicRepository` marca "desactualizado") | E (unitaria) |
+| Inicio de turno → consulta explícita del reporte heredado → snapshot local | P (requiere compilar y probar esta rama; no valida fuentes externas) |
 | Persistencia de configuración | E (unitaria) + CI (instrumentada `ajustes_guardan`) |
 
 ## C. Android (emulador API 30 AOSP en CI; prueba física parcial: una lectura OCR real; paridad completa pendiente) — `AppInstrumentedTest`
 | Prueba | Estado |
 |---|---|
 | Inicio de la app | CI |
+| Tarjeta de briefing: carga, fuente/vigencia desconocida y estado vacío | P (pendiente de CI de esta rama) |
 | Evaluación manual de punta a punta en la UI | CI |
 | Guardado de ajustes | CI |
 | Tarjeta flotante aparece y se cierra con "×" | CI |

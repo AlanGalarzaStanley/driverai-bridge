@@ -12,6 +12,7 @@
 | Tarjeta flotante | Sí | Emulador | Sí | No |
 | Voz (TTS) / dictado | Sí | **No** en teléfono | Sí | No |
 | Copiloto por reglas | Sí | Unitarias | Sí | No |
+| Briefing de turno | Parcial en `manus/briefing-end-to-end` | Pruebas de código pendientes | Solo con el reporte heredado | No |
 
 ## Limitaciones
 1. **Compatibilidad real aún parcial.** Una primera versión no reconoció el formato `11.405 ARS`; el parser se corrigió en `713f1fe`. Después, el conductor confirmó que esa versión leyó una oferta real por OCR (tarifa, km y minutos); recibió REVISAR porque no había configurado umbrales. Es solo una muestra. La lectura automática por accesibilidad sigue pendiente de revalidación y no se afirma compatibilidad general.
@@ -21,7 +22,8 @@
 5. "Bruto por hora del turno" cuenta solo los viajes que marcás con "La tomé"; la app no sabe qué aceptaste en Uber.
 6. La zona actual se elige a mano (no se usa GPS, por privacidad).
 7. Los textos del backend son generados por IA y tienen inconsistencias (ver `INITIAL_AUDIT.md`); se muestran como estimaciones.
-8. Cada runner de CI puede firmar con distinta clave debug → a veces hay que desinstalar antes de actualizar. No hay keystore en el repo. No se pudo guardar uno en los secretos de Actions: la integración respondió HTTP 403 (`actions/secrets` no accesible).
-9. Sin sincronización con la web: los ajustes viven solo en el teléfono.
-10. Chequeo muestra solo fragmentos reducidos de tarifa, tiempo y distancia, etiquetas permitidas, campos detectados y veredicto. El texto libre de accesibilidad no se conserva; el registro permanece en memoria y solo se copia al portapapeles si el usuario toca el botón. No se envía el texto ni imágenes al backend.
-11. La web y el backend productivo no se modificaron.
+8. El primer briefing consulta el endpoint estratégico existente y guarda un resumen local mínimo. El backend no devuelve fuente ni hora de actualización por señal, y el snapshot solo marca cuándo se recibió la respuesta. No existe todavía un índice de demanda calibrado ni datos verificados de eventos, vuelos o barcos en tiempo real.
+9. Cada runner de CI puede firmar con distinta clave debug → a veces hay que desinstalar antes de actualizar. No hay keystore en el repo. No se pudo guardar uno en los secretos de Actions: la integración respondió HTTP 403 (`actions/secrets` no accesible).
+10. Sin sincronización con la web: los ajustes viven solo en el teléfono.
+11. Chequeo muestra solo fragmentos reducidos de tarifa, tiempo y distancia, etiquetas permitidas, campos detectados y veredicto. El texto libre de accesibilidad no se conserva; el registro permanece en memoria y solo se copia al portapapeles si el usuario toca el botón. No se envía el texto ni imágenes al backend.
+12. La web y el backend productivo no se modificaron.

@@ -14,8 +14,10 @@
                     OverlayManager (tarjeta flotante) / notificación
                                       │
  UI Compose: Inicio · Evaluar · Ajustes · Historial · Diagnóstico
-                                      │
+                                      │ inicio/actualización explícita del turno
  StrategicRepository ──► DriverAiApi (OkHttp) ──► Supabase Edge Functions (existentes)
+          │ respuesta heredada                    │
+          └── ShiftBriefingRepository (snapshot local mínimo) ──► ShiftBriefingCard
 ```
 
 ## Decisiones
@@ -28,6 +30,7 @@
 | Motor | Reglas puras en Kotlin, sin LLM, umbrales del usuario | Resultados reproducibles y testeables. |
 | Tarjeta | Vistas nativas en `WindowManager`; `TYPE_ACCESSIBILITY_OVERLAY` si el servicio está activo, si no `TYPE_APPLICATION_OVERLAY`, si no notificación | Menos permisos; robusta; no enfocable (no bloquea Uber). |
 | Backend | Se reutilizan las 2 funciones tal cual. Sin claves en la app. | Están públicas; no hace falta secreto. El contexto nunca bloquea la evaluación. |
+| Briefing en esta rama | Consulta explícita al reporte heredado al iniciar/actualizar turno; conserva solo campos mínimos en DataStore | No inventa índice ni confianza. La hora local es la recepción de la respuesta, no la actualización de sus fuentes; backend y feeds no se modifican. |
 | Voz | `TextToSpeech` es-AR → es-419 → es; dictado vía `RecognizerIntent` (solo al tocar "Hablar") | No requiere permiso de micrófono propio; nunca escucha en segundo plano. |
 | Copiloto | Reglas por intención, respuestas < 220 caracteres | Breve y sin distraer; diferencia datos de estimaciones. |
 | Persistencia | DataStore local; historial solo numérico (máx. 100) | Minimización de datos. Backup deshabilitado. |
@@ -37,7 +40,7 @@
 - `engine/` Modelos, `OfferEvaluator`, `OfferTextParser`, formatos.
 - `capture/` `OfferPipeline`, `DriverAccessibilityService`, `ScreenCaptureService`, `OcrEngine`.
 - `overlay/` `OverlayManager`.
-- `backend/` `DriverAiApi`, `StrategicRepository`.
+- `backend/` `DriverAiApi`, `StrategicRepository`, `ShiftBriefingRepository` (snapshot local, no feed nuevo).
 - `data/` Configuración, historial, cálculo de turno.
 - `copilot/` `CopilotEngine`, zonas.
 - `voice/` `TtsManager`.
