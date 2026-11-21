@@ -5,8 +5,8 @@ Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Action
 ## Resultado de la última ejecución verificada
 - Android CI manual run `44926383458`, commit `95c4590`: **unitarias, lint, compilación/verificación del APK y emulador pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/44926383458).
   - Validó la billetera, el parser explícito de ARS, los registros diarios de odómetro, los recordatorios de mantenimiento y la navegación de cinco áreas. El chequeo de secretos también pasó.
-  - APK debug disponible en el artefacto `driverai-debug-apk-22` de esa ejecución (retención de 30 días); no se creó un release.
-  - El job de backend live y el job de release quedaron omitidos por diseño: `run_live_contract=false` y el evento fue `workflow_dispatch`. No se reemplazó `latest-debug` ni se publicó en Play.
+  - APK debug disponible en el artefacto `driverai-debug-apk-22` de esa ejecución (retención de 30 días). Tras validar el run, se publicó como GitHub Release fijo `apk-22` y se actualizó el asset de `latest-debug`.
+  - El contrato live y el job de release del workflow quedaron omitidos por diseño: `run_live_contract=false` y el evento fue `workflow_dispatch`. La publicación manual fue solo a GitHub Releases; no se publicó en Play.
   - La prueba de emulador no valida Uber Driver real. La lectura de Accesibilidad/OCR en teléfono y la frescura de fuentes de demanda siguen requiriendo validación adicional.
 - Android CI run 19, commit `e9e140b`: **58 tests JVM (57 pasaron, 1 omitido), lint, compilación/verificación del APK y emulador pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/44875590847).
   - APK debug verificado: 43.811.213 bytes. Está como artefacto `driverai-debug-apk-19` en la ejecución; no se creó un GitHub Release ni se publicó en Play.
