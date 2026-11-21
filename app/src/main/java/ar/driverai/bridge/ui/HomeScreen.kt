@@ -274,3 +274,13 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
 
 private fun formatHomeTime(epochMillis: Long): String = DateTimeFormatter.ofPattern("HH:mm", Locale.forLanguageTag("es-AR"))
     .format(java.time.Instant.ofEpochMilli(epochMillis).atZone(java.time.ZoneId.systemDefault()))
+
+@Composable
+fun MetricsSummary(m: ar.driverai.bridge.engine.Metrics) {
+    fun d(v: Double?, f: (Double) -> String) = v?.let(f) ?: "—"
+    Text("Tarifa: ${d(m.fare, Fmt::ars)}")
+    Text("Km recogida: ${d(m.pickupKm) { Fmt.num(it) }} · Km con pasajero: ${d(m.tripKm) { Fmt.num(it) }} · Retorno vacío: ${d(m.returnKm) { Fmt.num(it) }}")
+    Text("Km totales: ${d(m.totalKm) { Fmt.num(it) }} · Min con pasajero: ${d(m.tripMin) { Fmt.num(it, 0) }} · Min totales: ${d(m.totalMin) { Fmt.num(it, 0) }}")
+    Text("Bruto/km: ${d(m.grossPerKm, Fmt::ars)} · Bruto/h: ${d(m.grossPerHour, Fmt::ars)}", fontWeight = FontWeight.Bold, modifier = Modifier.testTag("metrics_gross"))
+    if (m.variableCost != null) Text("Costo variable est.: ${Fmt.ars(m.variableCost)} · Ganancia est. antes de fijos e impuestos: ${d(m.estimatedProfitBeforeFixed, Fmt::ars)} · Margen: ${d(m.marginPct) { Fmt.num(it) + " %" }}")
+}
