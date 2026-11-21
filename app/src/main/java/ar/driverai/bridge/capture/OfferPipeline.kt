@@ -7,11 +7,13 @@ import ar.driverai.bridge.engine.Fmt
 import ar.driverai.bridge.engine.OfferData
 import ar.driverai.bridge.engine.OfferEvaluator
 import ar.driverai.bridge.engine.OfferTextParser
+import ar.driverai.bridge.engine.Reading
 import ar.driverai.bridge.engine.Verdict
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 enum class PipelineStatus(val label: String) {
     INACTIVO("Inactivo"), LEYENDO("Leyendo oferta"), CALCULANDO("Calculando"), RESULTADO("Resultado listo"),
@@ -20,21 +22,25 @@ enum class PipelineStatus(val label: String) {
 
 data class EvalRecord(val evaluation: Evaluation, val at: Long, val source: DataSource, val notes: List<String>)
 
+data class DiagnosticField(val value: String?, val confidencePercent: Int) {
+    fun displayText(): String = value?.let { "$it (confianza $confidencePercent%)" } ?: "no detectada"
+}
+
 data class DiagnosticSnapshot(
     val source: DataSource,
     val snippets: List<String>,
-    val fare: String,
-    val tripKm: String,
-    val tripMin: String,
+    val fare: DiagnosticField,
+    val tripKm: DiagnosticField,
+    val tripMin: DiagnosticField,
     val verdict: String,
 ) {
     fun clipboardText(): String = buildString {
         appendLine("DriverAI · Chequeo de oferta")
         appendLine("Origen: ${if (source == DataSource.OCR) "OCR local" else "Accesibilidad"}")
         appendLine("Veredicto: $verdict")
-        appendLine("Tarifa detectada: $fare")
-        appendLine("Distancia del viaje: $tripKm")
-        appendLine("Duración del viaje: $tripMin")
+        appendLine("Tarifa detectada: ${fare.displayText()}")
+        appendLine("Distancia del viaje: ${tripKm.displayText()}")
+        appendLine("Duración del viaje: ${tripMin.displayText()}")
         appendLine("Fragmentos anonimizados:")
         if (snippets.isEmpty()) appendLine("- ninguno")
         else snippets.forEach { appendLine("- $it") }
@@ -78,12 +84,15 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
         _lastDiagnostic.value = DiagnosticSnapshot(
             source = source,
             snippets = DiagnosticTextSanitizer.sanitize(fragments),
-            fare = offer.fare.value?.let(Fmt::ars) ?: "no detectada",
-            tripKm = offer.tripKm.value?.let { "${Fmt.num(it)} km" } ?: "no detectada",
-            tripMin = offer.tripMin.value?.let { "${Fmt.num(it)} min" } ?: "no detectada",
+            fare = diagnosticField(offer.fare, Fmt::ars),
+            tripKm = diagnosticField(offer.tripKm) { "${Fmt.num(it)} km" },
+            tripMin = diagnosticField(offer.tripMin) { "${Fmt.num(it)} min" },
             verdict = verdict,
         )
     }
+
+    private fun diagnosticField(reading: Reading, format: (Double) -> String) =
+        DiagnosticField(reading.value?.let(format), (reading.confidence * 100).roundToInt())
 
     /** @return true si se reconoció una oferta (nueva o repetida). */
     fun onScreenText(fragments: List<String>, source: DataSource): Boolean {

@@ -119,7 +119,7 @@ fun DiagnosticsScreen(activity: Activity) {
             if (diag && diagnostic == null) Text("Esperando una lectura de oferta…", style = MaterialTheme.typography.bodySmall)
             diagnostic?.let { record ->
                 Text("Veredicto: ${record.verdict}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("diag_verdict"))
-                Text("Tarifa: ${record.fare} · Viaje: ${record.tripKm} · ${record.tripMin}", style = MaterialTheme.typography.bodySmall)
+                Text("Tarifa: ${record.fare.displayText()}\nDistancia del viaje: ${record.tripKm.displayText()}\nDuración del viaje: ${record.tripMin.displayText()}", style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = {
                     val cm = activity.getSystemService(ClipboardManager::class.java)
                     cm.setPrimaryClip(ClipData.newPlainText("DriverAI Chequeo", record.clipboardText()))

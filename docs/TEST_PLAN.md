@@ -15,6 +15,7 @@ Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Action
 |---|---|---|---|
 | Motor económico | `OfferEvaluatorTest` | ejemplo $8.000/10 km/25 min → $800/km y $19.200/h; desfavorable; límite exacto (≥); justo debajo; sin umbrales; sin recogida (pasa → REVISAR, falla → NO CONVIENE); recogida por defecto; sin tarifa; inválidos (negativo, NaN, ∞, 0); baja confianza vs tolerancia; costos + combustible + margen; margen sin costos; combustible desactualizado; retorno vacío; sin minutos; formatos | E |
 | Parser / OCR | `OfferTextParserTest` | importes AR/US/ambiguos; oferta clara es/en (millas); horas+min; metros; sin etiquetas; un solo par ambiguo; texto parcial; no-oferta; bonos y $/h ignorados; varios importes; correcciones OCR (S→$, rn→m); distancia-antes-de-tiempo; espacios no separables | E |
+| Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva solo importes, tiempos, distancias y etiquetas permitidas; descarta nombres/direcciones/texto libre; no trata “Km 25” como distancia; limita y normaliza fragmentos; copia campos, confianza porcentual y veredicto reducidos | CI pendiente |
 | Backend | `BackendTest` (MockWebServer) | contrato real de ambos endpoints (JSON capturado), path/método/body, sin `Authorization`; campos nuevos/faltantes; HTTP 500; `ok:false`; JSON inválido; timeout; desconexión; contexto desactualizado y conservación del último dato | E |
 | Datos y copiloto | `DataAndCopilotTest` | persistencia DataStore; JSON corrupto; historial (límite 100, sin texto); turno $/h; intenciones de las 6 consultas; respuestas breves y con fuente | E |
 
@@ -56,10 +57,10 @@ Ejecutadas localmente (JDK 17, AGP 8.7.3): **47 pruebas, 0 fallas, 1 omitida** (
 | Web y funciones Supabase no modificadas | E (no se tocaron) |
 
 ## Protocolo de prueba física (cuando esté el teléfono)
-1. Instalar el APK (ver `BUILD_AND_INSTALL.md`). Diagnóstico → anotar modelo, Android y versión de Uber Driver.
+1. Instalar el APK (ver `BUILD_AND_INSTALL.md`). En Diagnóstico, anotar modelo, versión de Android y versión de Uber Driver; no anotar datos personales que aparezcan en pantalla.
 2. Ajustes → cargar al menos un umbral.
 3. Inicio → Activar lectura automática → aceptar → activar el servicio.
-4. Diagnóstico → activar "Registrar textos".
-5. Conectarse en Uber. Al llegar una oferta: ¿aparece la tarjeta? Anotar lo que muestra vs. lo que muestra Uber.
-6. Diagnóstico → copiar textos leídos y pegarlos en un issue (borrar direcciones/nombres antes).
-7. Repetir con lectura por captura (botón "Leer oferta").
+4. En Diagnóstico, activar **Registrar lectura reducida** antes de abrir Uber Driver.
+5. Conectarse en Uber. Al llegar una oferta, observar si aparece la tarjeta y comparar tarifa, distancia, duración y veredicto. No copiar ni transcribir el texto crudo que muestra Uber; no incluir nombres ni direcciones en notas.
+6. Volver a Diagnóstico y usar **Copiar registro reducido**. Revisar los campos y los porcentajes de confianza. Compartir únicamente ese registro si se desea pedir calibración; no compartir capturas de pantalla ni texto crudo, aunque se hayan ocultado manualmente los datos personales.
+7. Desactivar **Registrar lectura reducida** al terminar; el registro temporal se borra. Si se prueba la lectura por captura, usarla solo tras el consentimiento del sistema y no guardar ni compartir la captura.

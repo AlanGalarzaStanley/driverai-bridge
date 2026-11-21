@@ -1,5 +1,6 @@
 package ar.driverai.bridge
 
+import ar.driverai.bridge.capture.DiagnosticField
 import ar.driverai.bridge.capture.DiagnosticSnapshot
 import ar.driverai.bridge.capture.DiagnosticTextSanitizer
 import ar.driverai.bridge.engine.DataSource
@@ -31,6 +32,13 @@ class DiagnosticTextSanitizerTest {
         assertTrue(DiagnosticTextSanitizer.sanitize(listOf("Estás en línea", "Juan Pérez", "Destino desconocido")).isEmpty())
     }
 
+    @Test fun noConvierteMarcadorDeUbicacionKm25EnDistancia() {
+        val safe = DiagnosticTextSanitizer.sanitize(listOf("Ruta 8 · Km 25", "Km 25", "viaje · 18 min · 9,3 km"))
+
+        assertEquals(listOf("viaje · 18 min · 9,3 km"), safe)
+        assertFalse(safe.any { it.contains("25") })
+    }
+
     @Test fun limitaElNumeroDeFragmentosYNormalizaEspacios() {
         val safe = DiagnosticTextSanitizer.sanitize(
             listOf("Tarifa\u00A0$\u202F8.540", "UberX") + List(50) { "${it + 1} min ${it + 2} km" }
@@ -45,15 +53,17 @@ class DiagnosticTextSanitizerTest {
         val record = DiagnosticSnapshot(
             source = DataSource.ACCESSIBILITY,
             snippets = listOf("$ 8.540", "viaje · 18 min · 9,3 km"),
-            fare = "$8.540",
-            tripKm = "9,3 km",
-            tripMin = "18 min",
+            fare = DiagnosticField("$8.540", 95),
+            tripKm = DiagnosticField("9,3 km", 45),
+            tripMin = DiagnosticField("18 min", 45),
             verdict = "REVISAR",
         )
         val clipboard = record.clipboardText()
 
         assertTrue(clipboard.contains("Veredicto: REVISAR"))
-        assertTrue(clipboard.contains("9,3 km"))
+        assertTrue(clipboard.contains("Tarifa detectada: \$8.540 (confianza 95%)"))
+        assertTrue(clipboard.contains("9,3 km (confianza 45%)"))
+        assertTrue(clipboard.contains("18 min (confianza 45%)"))
         assertFalse(clipboard.contains("María"))
         assertFalse(clipboard.contains("Dirección"))
     }
