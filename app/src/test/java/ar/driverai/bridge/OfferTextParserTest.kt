@@ -31,6 +31,34 @@ class OfferTextParserTest {
         assertEquals("UberX", o.product)
     }
 
+    /** Formato real de Uber Driver Argentina (captura nov 2026): moneda después del número. */
+    @Test fun ofertaReal_uberArgentina_arsDespuesDelNumero() {
+        val r = p(
+            "Uber Priority",
+            "Exclusiva",
+            "15.723 ARS",
+            "32 min · 24.2 km · 650 ARS/km est.",
+            "+2.115,00 ARS incluido para inicio",
+            "A 6 min (2.0 km) de distancia",
+            "Avenida Alicia Moreau de Justo, CABA",
+            "Puerto Madero",
+            "Viaje: 26 min (22.2 km)",
+            "Avenida General San Martín 2991",
+            "Lomas Del Mirador, La Matanza",
+            "Aceptar",
+        )
+        assertTrue("Debe reconocer la oferta AR", r.isLikelyOffer)
+        val o = r.offer
+        assertEquals(15723.0, o.fare.value!!, 0.0)
+        assertEquals(2.0, o.pickupKm.value!!, 1e-9)
+        assertEquals(6.0, o.pickupMin.value!!, 0.0)
+        assertEquals(22.2, o.tripKm.value!!, 1e-9)
+        assertEquals(26.0, o.tripMin.value!!, 0.0)
+        assertEquals("Uber Priority", o.product)
+        // 650 ARS/km no debe usarse como tarifa
+        assertNotEquals(650.0, o.fare.value)
+    }
+
     @Test fun ofertaClara_ingles_millas() {
         val o = p("UberX", "$12", "5 mins (1.6 mi) away", "12 mins (5.1 mi) trip").offer
         assertEquals(1.6 * 1.609344, o.pickupKm.value!!, 1e-6)
