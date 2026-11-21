@@ -7,14 +7,14 @@
 | Evaluación manual / demo | Sí | Emulador | Sí | No |
 | Backend Supabase (reporte/posición) | Sí | Unitarias + contrato en vivo | Sí | No |
 | Lectura por accesibilidad (simulador) | Sí | Emulador | Sí | Sí (declaración) |
-| **Lectura por accesibilidad de Uber real** | Sí | **Probada; no detectó la oferta aportada** | Sí, si Uber expone el texto | Sí |
-| Lectura por captura + OCR | Sí | **Probada; no detectó la oferta aportada** (requiere consentimiento humano) | Sí, si Uber no bloquea la captura | Revisión de foreground service |
+| **Lectura por accesibilidad de Uber real** | Sí | **Pendiente de revalidar** (un intento previo no detectó) | Sí, si Uber expone el texto | Sí |
+| Lectura por captura + OCR | Sí | **Una oferta real leída con APK `713f1fe`** (requiere consentimiento humano) | Sí, si Uber no bloquea la captura | Revisión de foreground service |
 | Tarjeta flotante | Sí | Emulador | Sí | No |
 | Voz (TTS) / dictado | Sí | **No** en teléfono | Sí | No |
 | Copiloto por reglas | Sí | Unitarias | Sí | No |
 
 ## Limitaciones
-1. **La primera prueba con Uber real falló.** La captura aportada muestra que el formato de tarifa `11.405 ARS` no estaba cubierto por el parser (que solo aceptaba el código de moneda antes del importe o el signo `$`). Eso hacía que el pipeline rechazara la oferta tanto por accesibilidad como por OCR. Se añade soporte y una prueba de regresión, pero falta instalar la nueva versión y confirmar la lectura en el teléfono; no se afirma compatibilidad aún.
+1. **Compatibilidad real aún parcial.** Una primera versión no reconoció el formato `11.405 ARS`; el parser se corrigió en `713f1fe`. Después, el conductor confirmó que esa versión leyó una oferta real por OCR (tarifa, km y minutos); recibió REVISAR porque no había configurado umbrales. Es solo una muestra. La lectura automática por accesibilidad sigue pendiente de revalidación y no se afirma compatibilidad general.
 2. El diseño de la tarjeta de Uber puede cambiar; el parser usa patrones genéricos y avisa con baja confianza en vez de inventar.
 3. Si Uber usa `FLAG_SECURE`, el OCR verá la pantalla negra; si no expone texto por accesibilidad, solo quedará OCR o manual.
 4. La tarifa leída es la que muestra Uber (normalmente ya neta de comisión). Si tu cuenta muestra otra cosa, ajustá los umbrales.
@@ -23,5 +23,5 @@
 7. Los textos del backend son generados por IA y tienen inconsistencias (ver `INITIAL_AUDIT.md`); se muestran como estimaciones.
 8. Cada runner de CI puede firmar con distinta clave debug → a veces hay que desinstalar antes de actualizar. No hay keystore en el repo. No se pudo guardar uno en los secretos de Actions: la integración respondió HTTP 403 (`actions/secrets` no accesible).
 9. Sin sincronización con la web: los ajustes viven solo en el teléfono.
-10. Chequeo muestra solo fragmentos reducidos de tarifa, tiempo y distancia, etiquetas permitidas, campos detectados y veredicto. El texto libre de accesibilidad no se conserva; el registro permanece en memoria y solo se copia al portapapeles si el usuario toca el botón. No se envía el texto ni imágenes al backend. La lectura real de Uber continúa sin verificar.
-10. La web de Lovable no se modificó (sin acceso a su código).
+10. Chequeo muestra solo fragmentos reducidos de tarifa, tiempo y distancia, etiquetas permitidas, campos detectados y veredicto. El texto libre de accesibilidad no se conserva; el registro permanece en memoria y solo se copia al portapapeles si el usuario toca el botón. No se envía el texto ni imágenes al backend.
+11. La web y el backend productivo no se modificaron.

@@ -8,14 +8,15 @@ App Android nativa (Kotlin + Jetpack Compose) que evalúa ofertas de viaje con r
 | | |
 |---|---|
 | Compila en la nube y genera APK | Sí — GitHub Actions → artefacto `driverai-debug-apk-N` |
-| Pruebas unitarias / lint | 47 pruebas en verde |
+| Pruebas unitarias / lint | En verde en CI (run 17, commit `713f1fe`) |
 | Contrato con backend real | En verde (job `backend-contract`) |
 | Emulador Android 11 | 6 pruebas instrumentadas en verde, incluida accesibilidad → tarjeta con un simulador |
-| Uber real en teléfono real | **Pendiente** (ver `docs/KNOWN_LIMITATIONS.md`) |
+| Uber real en teléfono real | **OCR leyó una oferta real** (run 17 / APK `713f1fe`); revalidar accesibilidad automática y más formatos |
 
 ## Documentación
 - [Auditoría inicial](docs/INITIAL_AUDIT.md) — repos, web, backend y hallazgos.
 - [Arquitectura](docs/ARCHITECTURE.md)
+- [Visión y hoja de ruta del copiloto](docs/PRODUCT_VISION.md)
 - [Permisos y políticas](docs/ANDROID_PERMISSIONS.md)
 - [Plan y resultados de pruebas](docs/TEST_PLAN.md)
 - [Compilar, descargar e instalar](docs/BUILD_AND_INSTALL.md)

@@ -3,23 +3,23 @@
 Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Actions · **P** = pendiente (requiere teléfono real o Uber).
 
 ## Resultado de la última ejecución verificada
-- Runs 5, 6 y 7 de Android CI (último verificado: run 7, commit `fc9eed9`): los tres jobs en verde.
-  - Compilación: 47 unitarias (0 fallas, 1 omitida a propósito), lint OK, APK debug 43,8 MB verificado.
+- Android CI run 17, commit `713f1fe`: unitarias, lint, generación/verificación de APK, contrato backend y pruebas instrumentadas en emulador **pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/44862295430).
+  - APK debug verificado: 43,8 MB. El paso de publicar GitHub Release se omitió por ser una ejecución manual desde rama de trabajo; no se publicó en Play.
   - Contrato con Supabase real: OK. Web publicada: HTTP 200.
-  - Emulador Android 11 (API 30, AOSP x86_64): **OK (6 tests)**. El servicio de accesibilidad quedó enlazado (`dumpsys accessibility`). Sin crashes en logcat. Memoria PSS total ≈ 70 MB. Capturas `simulador-tarjeta.png`, `tarjeta-demo.png`, `evaluacion-manual.png` en el artefacto `emulator-N` → `screens/`.
-  - Evidencia clave: el servicio de accesibilidad leyó del simulador "$ 8.540 / A 4 min (1,2 km) / Viaje de 18 min (9,3 km)" y la tarjeta mostró CONVIENE · $8.540 · 10,5 km · 22 min · $813/km · $23.291/h (cálculo correcto). La evaluación manual reprodujo el ejemplo del pedido: $8.000, 10 km, 25 min → $800/km y $19.200/h.
+  - Emulador Android 11 (API 30, AOSP x86_64): **OK (6 tests)**. La accesibilidad quedó enlazada en el simulador; esto no demuestra compatibilidad con Uber real.
+  - Prueba real informada por el conductor: el APK `713f1fe` detectó una oferta con fuente OCR; mostró REVISAR porque no había umbrales configurados. Es una muestra exitosa, no una validación general. La lectura automática por accesibilidad sigue pendiente de revalidación.
 - Fallas encontradas y corregidas en el camino: regex con `$` (unitaria), `setup-android` (CI), `setUp()` no-void (instrumentada), UiAutomator suspendía la accesibilidad (instrumentada), etiquetas de navegación cortadas (captura de pantalla).
 
 ## A. Unitarias (`app/src/test`, JVM)
 | Área | Archivo | Casos | Estado |
 |---|---|---|---|
 | Motor económico | `OfferEvaluatorTest` | ejemplo $8.000/10 km/25 min → $800/km y $19.200/h; desfavorable; límite exacto (≥); justo debajo; sin umbrales; sin recogida (pasa → REVISAR, falla → NO CONVIENE); recogida por defecto; sin tarifa; inválidos (negativo, NaN, ∞, 0); baja confianza vs tolerancia; costos + combustible + margen; margen sin costos; combustible desactualizado; retorno vacío; sin minutos; formatos | E |
-| Parser / OCR | `OfferTextParserTest` | importes AR/US/ambiguos; oferta clara es/en (millas); horas+min; metros; sin etiquetas; un solo par ambiguo; texto parcial; no-oferta; bonos y $/h ignorados; varios importes; correcciones OCR (S→$, rn→m); distancia-antes-de-tiempo; espacios no separables | E |
-| Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva solo importes, tiempos, distancias y etiquetas permitidas; descarta nombres/direcciones/texto libre; no trata “Km 25” como distancia; limita y normaliza fragmentos; copia campos, confianza porcentual y veredicto reducidos | CI pendiente |
+| Parser / OCR | `OfferTextParserTest` | importes AR/US/ambiguos y ARS al final; oferta clara es/en (millas); horas+min; metros; sin etiquetas; un solo par ambiguo; texto parcial; no-oferta; bonos y $/h ignorados; varios importes; correcciones OCR (S→$, rn→m); distancia-antes-de-tiempo; espacios no separables | CI (run 17) |
+| Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva solo importes (también ARS al final), tiempos, distancias y etiquetas permitidas; descarta nombres/direcciones/texto libre; no trata “Km 25” como distancia; limita y normaliza fragmentos; copia campos, confianza porcentual y veredicto reducidos | CI (run 17) |
 | Backend | `BackendTest` (MockWebServer) | contrato real de ambos endpoints (JSON capturado), path/método/body, sin `Authorization`; campos nuevos/faltantes; HTTP 500; `ok:false`; JSON inválido; timeout; desconexión; contexto desactualizado y conservación del último dato | E |
 | Datos y copiloto | `DataAndCopilotTest` | persistencia DataStore; JSON corrupto; historial (límite 100, sin texto); turno $/h; intenciones de las 6 consultas; respuestas breves y con fuente | E |
 
-Ejecutadas localmente (JDK 17, AGP 8.7.3): **47 pruebas, 0 fallas, 1 omitida** (la de contrato en vivo, que corre en CI).
+La suite pasó en GitHub Actions run 17. No se repitió localmente en esta sandbox porque no tiene Android SDK.
 
 ## B. Integración
 | Prueba | Estado |
@@ -29,7 +29,7 @@ Ejecutadas localmente (JDK 17, AGP 8.7.3): **47 pruebas, 0 fallas, 1 omitida** (
 | Sin backend: evaluación local sigue funcionando (por diseño: el motor no depende de la red; `StrategicRepository` marca "desactualizado") | E (unitaria) |
 | Persistencia de configuración | E (unitaria) + CI (instrumentada `ajustes_guardan`) |
 
-## C. Android (emulador API 30 AOSP en CI; el S10 usa Android 12 / API 31 → paridad pendiente de prueba física) — `AppInstrumentedTest`
+## C. Android (emulador API 30 AOSP en CI; prueba física parcial: una lectura OCR real; paridad completa pendiente) — `AppInstrumentedTest`
 | Prueba | Estado |
 |---|---|
 | Inicio de la app | CI |
@@ -45,9 +45,9 @@ Ejecutadas localmente (JDK 17, AGP 8.7.3): **47 pruebas, 0 fallas, 1 omitida** (
 ## D. Lectura de ofertas reales de Uber
 | Prueba | Estado |
 |---|---|
-| ¿Uber Driver expone el texto de la oferta por accesibilidad? | **P** — requiere teléfono con Uber Driver y una oferta real |
-| ¿La captura de Uber sale legible o negra (FLAG_SECURE)? | **P** |
-| Precisión del parser con textos reales (usar Diagnóstico → "Registrar lectura reducida" → copiar registro anonimizado; no compartir captura ni texto crudo) | **P** |
+| ¿Uber Driver expone el texto de la oferta por accesibilidad? | **P** — la prueba automática previa no detectó; falta repetir en la nueva versión |
+| ¿OCR puede leer una oferta real? | **E (una muestra)** — el APK `713f1fe` leyó una oferta; no cubre todos los diseños |
+| Precisión del parser con textos reales (usar Diagnóstico → "Registrar lectura reducida" → copiar registro reducido; no compartir captura ni texto crudo) | **E parcial** — 1 lectura OCR; faltan más ofertas y validar Accesibilidad |
 
 ## E. Regresión y seguridad
 | Prueba | Estado |
@@ -56,11 +56,11 @@ Ejecutadas localmente (JDK 17, AGP 8.7.3): **47 pruebas, 0 fallas, 1 omitida** (
 | Permisos del APK listados en `build-info.txt` | CI |
 | Web y funciones Supabase no modificadas | E (no se tocaron) |
 
-## Protocolo de prueba física (cuando esté el teléfono)
-1. Instalar el APK (ver `BUILD_AND_INSTALL.md`). En Diagnóstico, anotar modelo, versión de Android y versión de Uber Driver; no anotar datos personales que aparezcan en pantalla.
-2. Ajustes → cargar al menos un umbral.
-3. Inicio → Activar lectura automática → aceptar → activar el servicio.
+## Protocolo para la siguiente prueba física
+1. Usar el APK `713f1fe` o posterior (ver `BUILD_AND_INSTALL.md`). Anotar modelo, Android y versión de Uber Driver; no anotar datos personales.
+2. En Ajustes, cargar al menos un umbral personal —no usar valores inventados— para que el veredicto pueda evaluarse.
+3. En Inicio, activar la lectura automática y habilitar el servicio de Accesibilidad de DriverAI.
 4. En Diagnóstico, activar **Registrar lectura reducida** antes de abrir Uber Driver.
-5. Conectarse en Uber. Al llegar una oferta, observar si aparece la tarjeta y comparar tarifa, distancia, duración y veredicto. No copiar ni transcribir el texto crudo que muestra Uber; no incluir nombres ni direcciones en notas.
-6. Volver a Diagnóstico y usar **Copiar registro reducido**. Revisar los campos y los porcentajes de confianza. Compartir únicamente ese registro si se desea pedir calibración; no compartir capturas de pantalla ni texto crudo, aunque se hayan ocultado manualmente los datos personales.
-7. Desactivar **Registrar lectura reducida** al terminar; el registro temporal se borra. Si se prueba la lectura por captura, usarla solo tras el consentimiento del sistema y no guardar ni compartir la captura.
+5. Dejar que llegue una oferta y comprobar primero si Accesibilidad la detecta sin tocar **Leer oferta**. Comparar tarifa, recogida, tramo del viaje y veredicto; no copiar ni transcribir texto crudo.
+6. En Diagnóstico, usar **Copiar registro reducido** y revisar fuente, campos y confianza. Compartir solo ese registro si se necesita calibración; nunca compartir texto crudo ni capturas.
+7. Si Accesibilidad falla, probar OCR por separado con el consentimiento del sistema. Ya hubo una lectura OCR real exitosa; esta repetición sirve para aislar la ruta automática. Desactivar el registro reducido al terminar.
