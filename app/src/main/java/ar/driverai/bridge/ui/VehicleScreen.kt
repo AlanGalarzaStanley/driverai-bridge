@@ -195,7 +195,7 @@ private fun MaintenanceCard(record: MaintenanceRecord, currentKm: Double?, today
         }
         when {
             done -> {
-                val completedDay = record.completedAt?.let { LocalDate.ofInstant(java.time.Instant.ofEpochMilli(it), java.time.ZoneId.systemDefault())?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) }
+                val completedDay = record.completedAt?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) }
                 Text("Realizado${completedDay?.let { " el $it" } ?: ""}${record.completedAtKm?.let { " · ${Fmt.num(it, 0)} km" } ?: ""}", color = color)
             }
             overdue -> Text("VENCIDO", color = Red, style = MaterialTheme.typography.labelLarge)
