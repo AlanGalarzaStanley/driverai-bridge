@@ -3,6 +3,11 @@
 Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Actions · **P** = pendiente (requiere teléfono real o Uber).
 
 ## Resultado de la última ejecución verificada
+- Android CI manual run `44926383458`, commit `95c4590`: **unitarias, lint, compilación/verificación del APK y emulador pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/44926383458).
+  - Validó la billetera, el parser explícito de ARS, los registros diarios de odómetro, los recordatorios de mantenimiento y la navegación de cinco áreas. El chequeo de secretos también pasó.
+  - APK debug disponible en el artefacto `driverai-debug-apk-22` de esa ejecución (retención de 30 días); no se creó un release.
+  - El job de backend live y el job de release quedaron omitidos por diseño: `run_live_contract=false` y el evento fue `workflow_dispatch`. No se reemplazó `latest-debug` ni se publicó en Play.
+  - La prueba de emulador no valida Uber Driver real. La lectura de Accesibilidad/OCR en teléfono y la frescura de fuentes de demanda siguen requiriendo validación adicional.
 - Android CI run 19, commit `e9e140b`: **58 tests JVM (57 pasaron, 1 omitido), lint, compilación/verificación del APK y emulador pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/44875590847).
   - APK debug verificado: 43.811.213 bytes. Está como artefacto `driverai-debug-apk-19` en la ejecución; no se creó un GitHub Release ni se publicó en Play.
   - Emulador Android 11 (API 30, AOSP x86_64): **OK (6 tests)**, incluida la tarjeta de briefing en estado vacío. Esto no demuestra compatibilidad con Uber real.
@@ -19,30 +24,32 @@ Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Action
 | Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva solo importes (también ARS al final), tiempos, distancias y etiquetas permitidas; descarta nombres/direcciones/texto libre; no trata “Km 25” como distancia; limita y normaliza fragmentos; copia campos, confianza porcentual y veredicto reducidos | CI (run 19) |
 | Backend | `BackendTest` (MockWebServer) | contrato real de ambos endpoints (JSON capturado), path/método/body, sin `Authorization`; campos nuevos/faltantes; HTTP 500; `ok:false`; JSON inválido; timeout; desconexión; contexto desactualizado y conservación del último dato | CI (run 19) |
 | Briefing | `ShiftBriefingTest` + `BackendTest` | snapshot local minimizado, hora de recepción, campos de contexto, eventos ausentes vs lista vacía | CI (run 19) |
-| Datos y copiloto | `DataAndCopilotTest` | persistencia DataStore; JSON corrupto; historial (límite 100, sin texto); turno $/h; intenciones de las 6 consultas; respuestas breves y con fuente | CI (run 19) |
+| Datos y copiloto | `DataAndCopilotTest` | persistencia DataStore; JSON corrupto; historial (límite 100, sin texto); turno $/h; billetera ARS con fechas locales y parseo de miles/decimales; odómetro monotónico/upsert diario; vencimientos por fecha/km; resumen horario de ofertas claramente separado de cobros; intenciones y respuestas del copiloto | CI (run 44926383458) |
 
-La validación de esta rama pasó en el runner Linux x86_64 de GitHub Actions (run 19). En la sandbox ARM64, AAPT2 descargado es binario Linux x86_64 y no pudo arrancar; por eso la validación reproducible es la de CI.
+La validación de esta rama pasó en el runner Linux x86_64 de GitHub Actions (run `44926383458`). En la sandbox ARM64, AAPT2 descargado es binario Linux x86_64 y no pudo arrancar; por eso la validación reproducible es la de CI.
 
 ## B. Integración
 | Prueba | Estado |
 |---|---|
-| `LiveBackendContractTest` contra Supabase real (job `backend-contract`) | CI histórico (run 17); omitido en run 19 para evitar llamada live |
-| Regresión web: `https://driverai-ba.lovable.app` responde 200 (job `backend-contract`) | CI histórico (run 17); omitido en run 19 |
+| `LiveBackendContractTest` contra Supabase real (job `backend-contract`) | CI histórico (run 17); omitido en run 19 y run `44926383458` para evitar llamada live |
+| Regresión web: `https://driverai-ba.lovable.app` responde 200 (job `backend-contract`) | CI histórico (run 17); omitido en run 19 y run `44926383458` |
 | Sin backend: evaluación local sigue funcionando (por diseño: el motor no depende de la red; `StrategicRepository` marca "desactualizado") | E (unitaria) |
-| Inicio de turno → consulta explícita del reporte heredado → snapshot local | Código compilado; mapeo/persistencia unitaria CI (run 19). Llamada real al endpoint omitida |
+| Inicio de turno → consulta explícita del reporte heredado → snapshot local | Código compilado; mapeo/persistencia unitaria CI (run `44926383458`). Llamada real al endpoint omitida |
 | Persistencia de configuración | E (unitaria) + CI (instrumentada `ajustes_guardan`) |
 
 ## C. Android (emulador API 30 AOSP en CI; prueba física parcial: una lectura OCR real; paridad completa pendiente) — `AppInstrumentedTest`
 | Prueba | Estado |
 |---|---|
-| Inicio de la app | CI |
-| Tarjeta de briefing: carga, fuente/vigencia desconocida y estado vacío | CI (run 19, API 30) |
-| Evaluación manual de punta a punta en la UI | CI |
-| Guardado de ajustes | CI |
-| Tarjeta flotante aparece y se cierra con "×" | CI |
+| Inicio de la app | CI (run `44926383458`) |
+| Tarjeta de briefing: carga, fuente/vigencia desconocida y estado vacío | CI (run `44926383458`, API 30) |
+| Evaluación manual de punta a punta en la UI | CI (run `44926383458`) |
+| Guardado de ajustes | CI (run `44926383458`) |
+| Registrar ingreso/gasto real y mantenerlo separado de ofertas | CI (run `44926383458`) |
+| Guardar odómetro diario y alta de recordatorio de service | CI (run `44926383458`) |
+| Tarjeta flotante aparece y se cierra con "×" | CI (run `44926383458`) |
 | Accesibilidad → parser → motor → tarjeta con el **simulador** (no Uber); rotación con tarjeta visible; ocultamiento al desaparecer la oferta; la app de origen sigue en primer plano (no se tocó nada) | CI |
-| Deduplicación (misma oferta 3 veces = 1 evaluación) | CI |
-| Capturas de pantalla, logcat, meminfo y batterystats como evidencia | CI (artefacto `emulator-N`) |
+| Deduplicación (misma oferta 3 veces = 1 evaluación) | CI (run `44926383458`) |
+| Capturas de pantalla, logcat, meminfo y batterystats como evidencia | CI (artefacto `emulator-22`) |
 | Captura por MediaProjection (requiere diálogo de consentimiento humano) | P |
 | Revocación de permisos y recuperación tras forzar cierre | P |
 
@@ -61,7 +68,7 @@ La validación de esta rama pasó en el runner Linux x86_64 de GitHub Actions (r
 | Web y funciones Supabase no modificadas | E (no se tocaron) |
 
 ## Protocolo para la siguiente prueba física
-1. Usar el APK `713f1fe` o posterior (ver `BUILD_AND_INSTALL.md`). Anotar modelo, Android y versión de Uber Driver; no anotar datos personales.
+1. Usar el APK validado `95c4590` o posterior (ver `BUILD_AND_INSTALL.md`). Anotar modelo, Android y versión de Uber Driver; no anotar datos personales.
 2. En Ajustes, cargar al menos un umbral personal —no usar valores inventados— para que el veredicto pueda evaluarse.
 3. En Inicio, activar la lectura automática y habilitar el servicio de Accesibilidad de DriverAI.
 4. En Diagnóstico, activar **Registrar lectura reducida** antes de abrir Uber Driver.
