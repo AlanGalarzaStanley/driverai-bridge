@@ -46,7 +46,7 @@ Ejecutadas localmente (JDK 17, AGP 8.7.3): **47 pruebas, 0 fallas, 1 omitida** (
 |---|---|
 | ¿Uber Driver expone el texto de la oferta por accesibilidad? | **P** — requiere teléfono con Uber Driver y una oferta real |
 | ¿La captura de Uber sale legible o negra (FLAG_SECURE)? | **P** |
-| Precisión del parser con textos reales (usar Diagnóstico → "Registrar textos" → copiar) | **P** |
+| Precisión del parser con textos reales (usar Diagnóstico → "Registrar lectura reducida" → copiar registro anonimizado; no compartir captura ni texto crudo) | **P** |
 
 ## E. Regresión y seguridad
 | Prueba | Estado |

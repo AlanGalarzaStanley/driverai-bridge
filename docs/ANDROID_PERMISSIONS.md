@@ -19,6 +19,7 @@ No se piden: ubicación, micrófono (el dictado lo hace la app de voz del sistem
 - **No** declara `isAccessibilityTool`: DriverAI no es una herramienta para personas con discapacidad. Según la [política de Google Play sobre la AccessibilityService API](https://support.google.com/googleplay/android-developer/answer/10964491?hl=es-419), las apps que no son herramientas de accesibilidad deben mostrar una divulgación destacada dentro de la app, durante el uso normal, separada de otras divulgaciones y con una acción afirmativa del usuario; además, las apps con target API 31+ deben completar la declaración en Play Console y obtener aprobación.
 - Implementado: al tocar "Activar lectura automática" en Inicio se muestra la divulgación completa (`DISCLOSURE_ACCESSIBILITY` en `HomeScreen.kt`) con "Acepto" / "No, gracias". Solo después se abre Ajustes > Accesibilidad. Si el usuario rechaza, puede volver a verla con el mismo botón.
 - El servicio nunca llama a `performAction` ni a gestos: **no acepta ni rechaza viajes**.
+- Chequeo es opcional y reduce localmente los textos a métricas numéricas y etiquetas permitidas; no mantiene texto libre, nombres ni direcciones. El registro queda en memoria y solo se copia al portapapeles por acción explícita del usuario. No se transmite al backend.
 
 ### Borrador de declaración para Play Console (para la fase de publicación)
 1. ¿Por qué usa la API? → Funciones de la app: leer tarifa, distancia y tiempo de la oferta visible en Uber Driver para mostrar una evaluación económica.

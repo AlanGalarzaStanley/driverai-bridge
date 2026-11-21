@@ -59,7 +59,7 @@ fun DiagnosticsScreen(activity: Activity) {
     var refresh by remember { mutableIntStateOf(0) }
     var backendMsg by remember { mutableStateOf<String?>(null) }
     val diag by g.pipeline.diagnosticsEnabled.collectAsState()
-    val frags by g.pipeline.lastFragments.collectAsState()
+    val diagnostic by g.pipeline.lastDiagnostic.collectAsState()
     val capturing by ScreenCaptureService.running.collectAsState()
     LifecycleResumeEffect(Unit) { refresh++; onPauseOrDispose { } }
 
@@ -114,14 +114,18 @@ fun DiagnosticsScreen(activity: Activity) {
             }
         }
         Section("Textos leídos (calibración)") {
-            Text("Muestra en memoria el último texto leído para calibrar el lector. Puede incluir datos de la oferta; no se guarda ni se envía. Se borra al cerrar la app.", style = MaterialTheme.typography.bodySmall)
-            androidx.compose.foundation.layout.Row { Text("Registrar textos", Modifier.weight(1f)); Switch(diag, { g.pipeline.diagnosticsEnabled.value = it }) }
-            if (frags.isNotEmpty()) {
+            Text("Registra temporalmente solo etiquetas permitidas, tarifa, tiempos, distancias y veredicto. No conserva nombres, direcciones ni capturas; no se persiste ni se envía. Al apagarlo, se borra.", style = MaterialTheme.typography.bodySmall)
+            androidx.compose.foundation.layout.Row { Text("Registrar lectura reducida", Modifier.weight(1f)); Switch(diag, { g.pipeline.setDiagnosticsEnabled(it) }) }
+            if (diag && diagnostic == null) Text("Esperando una lectura de oferta…", style = MaterialTheme.typography.bodySmall)
+            diagnostic?.let { record ->
+                Text("Veredicto: ${record.verdict}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("diag_verdict"))
+                Text("Tarifa: ${record.fare} · Viaje: ${record.tripKm} · ${record.tripMin}", style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = {
                     val cm = activity.getSystemService(ClipboardManager::class.java)
-                    cm.setPrimaryClip(ClipData.newPlainText("driverai", frags.joinToString("\n")))
-                }) { Text("Copiar al portapapeles") }
-                frags.take(60).forEach { Text("· $it", style = MaterialTheme.typography.bodySmall) }
+                    cm.setPrimaryClip(ClipData.newPlainText("DriverAI Chequeo", record.clipboardText()))
+                }, modifier = Modifier.testTag("btn_copy_diagnostic")) { Text("Copiar registro reducido") }
+                if (record.snippets.isEmpty()) Text("No se encontraron fragmentos de tarifa, tiempo o distancia.", style = MaterialTheme.typography.bodySmall)
+                record.snippets.forEach { Text("· $it", style = MaterialTheme.typography.bodySmall) }
             }
         }
     }

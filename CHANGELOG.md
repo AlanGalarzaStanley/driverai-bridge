@@ -1,5 +1,10 @@
 # Changelog
 
+## En desarrollo
+### Mejorado
+- Chequeo conserva y copia únicamente métricas de oferta y etiquetas permitidas; nombres, direcciones y texto libre se descartan en el dispositivo.
+- El registro de diagnóstico incluye veredicto y campos detectados, se borra al desactivar el diagnóstico y no se transmite al backend.
+
 ## 0.1.0 — 2026-10-17
 ### Agregado
 - App Android nativa (Kotlin + Compose, minSdk 26, target 35).

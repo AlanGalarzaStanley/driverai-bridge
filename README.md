@@ -28,4 +28,4 @@ App Android nativa (Kotlin + Jetpack Compose) que evalúa ofertas de viaje con r
 3. **Evaluar**: probá una oferta a mano (modo demo).
 4. **Inicio → Activar lectura automática**: leé la divulgación, aceptá y activá "DriverAI – lectura de ofertas" en Accesibilidad.
 5. Abrí Uber Driver. Cuando llegue una oferta, debería aparecer la tarjeta. Si no aparece, probá **Activar lectura por captura (OCR)** y el botón "Leer oferta".
-6. **Chequeo**: estado de cada permiso y módulo, prueba del backend y registro de textos leídos para calibrar.
+6. **Chequeo**: estado de cada permiso y módulo, prueba del backend y registro reducido (métricas y etiquetas permitidas, sin nombres ni direcciones) para calibrar.

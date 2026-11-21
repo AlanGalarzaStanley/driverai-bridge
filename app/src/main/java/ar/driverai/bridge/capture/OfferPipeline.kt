@@ -20,6 +20,27 @@ enum class PipelineStatus(val label: String) {
 
 data class EvalRecord(val evaluation: Evaluation, val at: Long, val source: DataSource, val notes: List<String>)
 
+data class DiagnosticSnapshot(
+    val source: DataSource,
+    val snippets: List<String>,
+    val fare: String,
+    val tripKm: String,
+    val tripMin: String,
+    val verdict: String,
+) {
+    fun clipboardText(): String = buildString {
+        appendLine("DriverAI · Chequeo de oferta")
+        appendLine("Origen: ${if (source == DataSource.OCR) "OCR local" else "Accesibilidad"}")
+        appendLine("Veredicto: $verdict")
+        appendLine("Tarifa detectada: $fare")
+        appendLine("Distancia del viaje: $tripKm")
+        appendLine("Duración del viaje: $tripMin")
+        appendLine("Fragmentos anonimizados:")
+        if (snippets.isEmpty()) appendLine("- ninguno")
+        else snippets.forEach { appendLine("- $it") }
+    }.trim()
+}
+
 /**
  * Orquesta: texto visible → parser → motor → tarjeta flotante / historial / voz.
  * Evita duplicados (misma oferta en ventana de 90 s) y nunca interactúa con la app de origen.
@@ -32,8 +53,8 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
 
     /** Solo en memoria y solo si el usuario activa el diagnóstico. Nunca se persiste. */
     val diagnosticsEnabled = MutableStateFlow(false)
-    private val _lastFragments = MutableStateFlow<List<String>>(emptyList())
-    val lastFragments: StateFlow<List<String>> = _lastFragments.asStateFlow()
+    private val _lastDiagnostic = MutableStateFlow<DiagnosticSnapshot?>(null)
+    val lastDiagnostic: StateFlow<DiagnosticSnapshot?> = _lastDiagnostic.asStateFlow()
     @Volatile var scans = 0L; private set
     @Volatile var offersDetected = 0L; private set
 
@@ -42,13 +63,35 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
 
     fun setStatus(s: PipelineStatus) { _status.value = s }
 
+    fun setDiagnosticsEnabled(enabled: Boolean) {
+        diagnosticsEnabled.value = enabled
+        _lastDiagnostic.value = null
+    }
+
+    private fun recordDiagnostic(
+        source: DataSource,
+        fragments: List<String>,
+        offer: OfferData,
+        verdict: String,
+    ) {
+        if (!diagnosticsEnabled.value) return
+        _lastDiagnostic.value = DiagnosticSnapshot(
+            source = source,
+            snippets = DiagnosticTextSanitizer.sanitize(fragments),
+            fare = offer.fare.value?.let(Fmt::ars) ?: "no detectada",
+            tripKm = offer.tripKm.value?.let { "${Fmt.num(it)} km" } ?: "no detectada",
+            tripMin = offer.tripMin.value?.let { "${Fmt.num(it)} min" } ?: "no detectada",
+            verdict = verdict,
+        )
+    }
+
     /** @return true si se reconoció una oferta (nueva o repetida). */
     fun onScreenText(fragments: List<String>, source: DataSource): Boolean {
         scans++
-        if (diagnosticsEnabled.value) _lastFragments.value = fragments.take(200)
         _status.value = PipelineStatus.LEYENDO
         val parsed = OfferTextParser.parse(fragments, source)
         if (!parsed.isLikelyOffer) {
+            recordDiagnostic(source, fragments, parsed.offer, "NO ENTENDÍ LA OFERTA")
             _status.value = PipelineStatus.SIN_OFERTA
             return false
         }
@@ -56,6 +99,7 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
         val sig = listOf(o.fare.value, o.tripKm.value, o.tripMin.value, o.pickupKm.value, o.pickupMin.value).joinToString("|")
         val now = clock()
         if (sig == lastSignature && now - lastSignatureAt < DEDUPE_MS) {
+            recordDiagnostic(source, fragments, parsed.offer, _last.value?.evaluation?.verdict?.label ?: "REVISAR")
             _status.value = PipelineStatus.RESULTADO
             return true
         }
@@ -63,6 +107,7 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
         offersDetected++
         _status.value = PipelineStatus.CALCULANDO
         val eval = OfferEvaluator.evaluate(o, g.settings.value, now)
+        recordDiagnostic(source, fragments, parsed.offer, eval.verdict.label)
         publish(EvalRecord(eval, now, source, parsed.notes), showOverlay = true)
         return true
     }
