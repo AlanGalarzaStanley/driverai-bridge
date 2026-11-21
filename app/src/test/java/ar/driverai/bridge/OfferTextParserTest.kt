@@ -20,6 +20,21 @@ class OfferTextParserTest {
         assertNull(OfferTextParser.parseArsAmount("8..5"))
     }
 
+    @Test fun formatoOfertaConCodigoARSAlFinal_enAccesibilidadYOCR() {
+        val lines = listOf("Comfort", "11.405 ARS", "35 min · 12.2 km", "A 6 min (2.1 km)", "Viaje: 29 min (10.1 km)")
+        val accessibility = OfferTextParser.parse(lines, DataSource.ACCESSIBILITY)
+        val ocr = OfferTextParser.parse(lines, DataSource.OCR)
+
+        assertTrue(accessibility.isLikelyOffer)
+        assertTrue(ocr.isLikelyOffer)
+        assertEquals(11_405.0, accessibility.offer.fare.value!!, 0.0)
+        assertEquals(10.1, accessibility.offer.tripKm.value!!, 1e-9)
+        assertEquals(29.0, accessibility.offer.tripMin.value!!, 0.0)
+        assertEquals(2.1, accessibility.offer.pickupKm.value!!, 1e-9)
+        assertEquals(6.0, accessibility.offer.pickupMin.value!!, 0.0)
+        assertEquals(0.9, ocr.offer.fare.confidence, 1e-9)
+    }
+
     @Test fun ofertaClara_espanol() {
         val r = p("UberX", "$ 8.540", "A 4 min (1,2 km)", "Viaje de 18 min (9,3 km)", "Av. Siempre Viva 742", "Toca para aceptar")
         assertTrue(r.isLikelyOffer)

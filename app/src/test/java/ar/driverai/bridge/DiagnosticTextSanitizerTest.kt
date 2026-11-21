@@ -32,6 +32,10 @@ class DiagnosticTextSanitizerTest {
         assertTrue(DiagnosticTextSanitizer.sanitize(listOf("Estás en línea", "Juan Pérez", "Destino desconocido")).isEmpty())
     }
 
+    @Test fun conservaTarifaConCodigoARSAlFinal() {
+        assertEquals(listOf("11.405 ARS"), DiagnosticTextSanitizer.sanitize(listOf("11.405 ARS · solo importe")))
+    }
+
     @Test fun noConvierteMarcadorDeUbicacionKm25EnDistancia() {
         val safe = DiagnosticTextSanitizer.sanitize(listOf("Ruta 8 · Km 25", "Km 25", "viaje · 18 min · 9,3 km"))
 

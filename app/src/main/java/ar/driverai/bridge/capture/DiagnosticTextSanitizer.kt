@@ -6,7 +6,7 @@ package ar.driverai.bridge.capture
  * y tokens numéricos de tarifa, duración o distancia.
  */
 object DiagnosticTextSanitizer {
-    private val money = Regex("""(?i)(?:ARS\s*)?\$\s*\d[\d.,]*""")
+    private val money = Regex("""(?i)(?:ARS\s*)?\$\s*\d[\d.,]*|\d[\d.,]*\s*ARS\b""")
     private val duration = Regex("""(?i)(?:\d{1,2}\s*h(?:s|oras?)?\.?\s*)?\d{1,3}\s*min(?:s|utos)?\.?""")
     private val distance = Regex("""(?i)\d+(?:[.,]\d+)?\s*(?:km|mi|m)\b""")
     private val safeLabels = listOf(

@@ -7,14 +7,14 @@
 | Evaluación manual / demo | Sí | Emulador | Sí | No |
 | Backend Supabase (reporte/posición) | Sí | Unitarias + contrato en vivo | Sí | No |
 | Lectura por accesibilidad (simulador) | Sí | Emulador | Sí | Sí (declaración) |
-| **Lectura por accesibilidad de Uber real** | Sí | **No** | Sí, si Uber expone el texto | Sí |
-| Lectura por captura + OCR | Sí | **No** (requiere consentimiento humano) | Sí, si Uber no bloquea la captura | Revisión de foreground service |
+| **Lectura por accesibilidad de Uber real** | Sí | **Probada; no detectó la oferta aportada** | Sí, si Uber expone el texto | Sí |
+| Lectura por captura + OCR | Sí | **Probada; no detectó la oferta aportada** (requiere consentimiento humano) | Sí, si Uber no bloquea la captura | Revisión de foreground service |
 | Tarjeta flotante | Sí | Emulador | Sí | No |
 | Voz (TTS) / dictado | Sí | **No** en teléfono | Sí | No |
 | Copiloto por reglas | Sí | Unitarias | Sí | No |
 
 ## Limitaciones
-1. **No se verificó con Uber real.** No hubo acceso a un teléfono con Uber Driver ni a capturas de ofertas autorizadas. No se afirma compatibilidad.
+1. **La primera prueba con Uber real falló.** La captura aportada muestra que el formato de tarifa `11.405 ARS` no estaba cubierto por el parser (que solo aceptaba el código de moneda antes del importe o el signo `$`). Eso hacía que el pipeline rechazara la oferta tanto por accesibilidad como por OCR. Se añade soporte y una prueba de regresión, pero falta instalar la nueva versión y confirmar la lectura en el teléfono; no se afirma compatibilidad aún.
 2. El diseño de la tarjeta de Uber puede cambiar; el parser usa patrones genéricos y avisa con baja confianza en vez de inventar.
 3. Si Uber usa `FLAG_SECURE`, el OCR verá la pantalla negra; si no expone texto por accesibilidad, solo quedará OCR o manual.
 4. La tarifa leída es la que muestra Uber (normalmente ya neta de comisión). Si tu cuenta muestra otra cosa, ajustá los umbrales.

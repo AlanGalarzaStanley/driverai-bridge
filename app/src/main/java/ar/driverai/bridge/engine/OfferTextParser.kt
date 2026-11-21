@@ -17,7 +17,10 @@ object OfferTextParser {
         val notes: List<String>,
     )
 
-    private val moneyRegex = Regex("""([+])?\s*(?:ARS|\$)\s?(\d[\d.,]*)(\s*/\s*\w+)?""", RegexOption.IGNORE_CASE)
+    private val moneyRegex = Regex(
+        """([+])?\s*(?:(?:ARS|\$)\s*(\d[\d.,]*)(\s*/\s*\w+)?|(\d[\d.,]*)\s*ARS\b(\s*/\s*\w+)?)""",
+        RegexOption.IGNORE_CASE,
+    )
     private val timeDistRegex = Regex(
         """(?:(\d{1,2})\s*h(?:s|oras?)?\.?\s*)?(\d{1,3})\s*min(?:s|utos)?\.?\s*\(\s*(\d+(?:[.,]\d+)?)\s*(km|mi|m)\s*\)""",
         RegexOption.IGNORE_CASE,
@@ -78,11 +81,12 @@ object OfferTextParser {
         fragments.forEach { f ->
             moneyRegex.findAll(f).forEach { m ->
                 val plus = m.groupValues[1].isNotEmpty()
-                val perUnit = m.groupValues[3].isNotEmpty()
+                val amountText = m.groupValues[2].ifEmpty { m.groupValues[4] }
+                val perUnit = m.groupValues[3].isNotEmpty() || m.groupValues[5].isNotEmpty()
                 val lower = f.lowercase()
                 val bonus = plus || bonusKw.any { kw -> kw != "+" && lower.contains(kw) }
                 if (!perUnit && !bonus) {
-                    parseArsAmount(m.groupValues[2])?.let { a ->
+                    parseArsAmount(amountText)?.let { a ->
                         cands += Cand(a, standalone = f.trim().length <= m.value.trim().length + 2, raw = m.value.trim())
                     }
                 }
