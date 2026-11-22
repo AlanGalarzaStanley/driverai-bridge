@@ -25,6 +25,10 @@ object OfferTextParser {
         """(?:(\d{1,2})\s*h(?:s|oras?)?\.?\s*)?(\d{1,3})\s*min(?:s|utos)?\.?\s*\(\s*(\d+(?:[.,]\d+)?)\s*(km|mi|m)\s*\)""",
         RegexOption.IGNORE_CASE,
     )
+    private val timeDistLooseRegex = Regex(
+        """(?:(\d{1,2})\s*h(?:s|oras?)?\.?\s*)?(\d{1,3})\s*min(?:s|utos)?\.?\s*[•·\-|–—]\s*(\d+(?:[.,]\d+)?)\s*(km|mi)\b""",
+        RegexOption.IGNORE_CASE,
+    )
     private val distTimeRegex = Regex(
         """(\d+(?:[.,]\d+)?)\s*(km|mi)\b[^\d\n]{0,6}(?:(\d{1,2})\s*h(?:s|oras?)?\.?\s*)?(\d{1,3})\s*min""",
         RegexOption.IGNORE_CASE,
@@ -33,7 +37,7 @@ object OfferTextParser {
     private val tripKw = listOf("trip", "viaje", "recorrido", "destino", "con pasajero")
     private val offerKw = listOf("aceptar", "accept", "solicitud", "request", "nuevo viaje", "toca para aceptar", "tap to accept")
     private val bonusKw = listOf("incluid", "incl.", "incluye", "promo", "bonif", "propina", "tip", "dinámica", "boost", "surge", "+")
-    private val products = listOf("UberX", "Comfort", "Black", "Flash", "Moto", "XL", "Planet", "Uber Pet", "Envíos")
+    private val products = listOf("Uber Priority", "UberX", "Comfort", "Black", "Flash", "Moto", "XL", "Planet", "Uber Pet", "Envíos")
 
     /** Interpreta importes con convención argentina (punto de miles, coma decimal). */
     fun parseArsAmount(rawIn: String): Amount? {
@@ -113,12 +117,17 @@ object OfferTextParser {
             val label = fragments.getOrNull(i - 1)?.takeIf { it.length < 40 && it.none(Char::isDigit) } ?: ""
             val ctx = "$label $f"
             val seen = mutableListOf<IntRange>()
-            timeDistRegex.findAll(f).forEach { m ->
+            fun addPair(m: MatchResult) {
                 val h = m.groupValues[1].toDoubleOrNull() ?: 0.0
                 val min = m.groupValues[2].toDouble() + h * 60
-                val km = toKm(parseDecimal(m.groupValues[3]) ?: return@forEach, m.groupValues[4])
+                val km = toKm(parseDecimal(m.groupValues[3]) ?: return, m.groupValues[4])
                 pairs += Pair(min, km, m.value, ctx.lowercase(), i)
                 seen += m.range
+            }
+            timeDistRegex.findAll(f).forEach { addPair(it) }
+            timeDistLooseRegex.findAll(f).forEach { m ->
+                if (seen.any { it.first <= m.range.last && m.range.first <= it.last }) return@forEach
+                addPair(m)
             }
             distTimeRegex.findAll(f).forEach { m ->
                 if (seen.any { it.first <= m.range.last && m.range.first <= it.last }) return@forEach
@@ -154,7 +163,7 @@ object OfferTextParser {
             }
             pickup == null && trip == null && unclassified.size == 1 -> {
                 trip = unclassified[0]; tripConf = 0.45
-                notes += "Un solo par tiempo/distancia sin etiqueta: puede ser recogida o viaje."
+                notes += "Un solo par tiempo/distancia sin etiqueta: puede ser recogida, viaje o resumen total; verificá manualmente."
             }
             pickup == null && trip == null && unclassified.size > 2 -> {
                 pickup = unclassified[0]; pickupConf = 0.5

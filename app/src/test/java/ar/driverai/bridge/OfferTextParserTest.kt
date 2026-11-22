@@ -35,6 +35,42 @@ class OfferTextParserTest {
         assertEquals(0.9, ocr.offer.fare.confidence, 1e-9)
     }
 
+    @Test fun ofertaUberPriority_resumenCompactoYDetalleExplicito() {
+        val lines = listOf(
+            "Uber Priority",
+            "Exclusiva",
+            "15.723 ARS",
+            "32 min · 24.2 km · 650 ARS/km est.",
+            "+2.115,00 ARS incluido para inicio",
+            "A 6 min (2.0 km) de distancia",
+            "Viaje: 26 min (22.2 km)",
+            "Aceptar",
+        )
+        val r = OfferTextParser.parse(lines, DataSource.ACCESSIBILITY)
+        assertTrue(r.isLikelyOffer)
+        assertEquals(15_723.0, r.offer.fare.value!!, 0.0)
+        assertEquals(2.0, r.offer.pickupKm.value!!, 1e-9)
+        assertEquals(6.0, r.offer.pickupMin.value!!, 0.0)
+        assertEquals(22.2, r.offer.tripKm.value!!, 1e-9)
+        assertEquals(26.0, r.offer.tripMin.value!!, 0.0)
+        assertEquals("Uber Priority", r.offer.product)
+        assertNotEquals(650.0, r.offer.fare.value)
+    }
+
+    @Test fun resumenCompactoSinDetalle_seMantieneEnRevisar() {
+        val r = p("$ 8.540", "18 min · 9,3 km", "Toca para aceptar")
+        assertEquals(9.3, r.offer.tripKm.value!!, 1e-9)
+        assertEquals(18.0, r.offer.tripMin.value!!, 0.0)
+        assertEquals(0.45, r.offer.tripKm.confidence, 1e-9)
+        assertTrue(r.notes.any { it.contains("resumen total") })
+
+        val evaluation = OfferEvaluator.evaluate(
+            r.offer,
+            DriverSettings(minGrossPerKm = 100.0, tolerance = UncertaintyTolerance.FLEXIBLE),
+        )
+        assertEquals(Verdict.REVISAR, evaluation.verdict)
+    }
+
     @Test fun ofertaClara_espanol() {
         val r = p("UberX", "$ 8.540", "A 4 min (1,2 km)", "Viaje de 18 min (9,3 km)", "Av. Siempre Viva 742", "Toca para aceptar")
         assertTrue(r.isLikelyOffer)
