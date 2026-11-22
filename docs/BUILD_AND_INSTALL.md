@@ -10,13 +10,15 @@ El repositorio es **privado**. Estos enlaces funcionan en Chrome del teléfono s
 4. Si Android lo pide, permití "Instalar apps desconocidas" solo para Chrome o para Archivos.
 5. Instalar → Abrir. Play Protect puede avisar: es un APK de depuración, fuera de Play. "Instalar de todos modos".
 
+La build de la rama de trabajo más reciente es `0.1.0-be5f8c6` (run 23), disponible como artefacto de Actions [en esta ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/44984165683), dentro de `Artifacts` → `driverai-debug-apk-23`. Requiere sesión de GitHub y el artefacto se conserva 30 días. Esta build **no** se publicó en Releases ni en Play.
+
 Copia fija, que no se reemplaza, del commit `95c4590` (run 22 de Android CI, verificada el 2026-11-21):
 
 <https://github.com/AlanGalarzaStanley/driverai-bridge/releases/download/apk-22/driverai-debug-95c4590.apk>
 
 SHA-256 de ese archivo: `919649f7f645d5b2aa9ac0e16774ce797ebe3ddee21e569e297eed2656911e4f`
 
-Cada push a `main` que deje en verde la compilación, el contrato con el backend y el emulador publica además `apk-<N>` y reemplaza el archivo de `latest-debug`. La build validada de esta tarea se publicó manualmente como `apk-22` y también reemplazó `latest-debug`; el contrato live se omitió y no se publicó en Play. La firma de depuración la genera el runner y **no está fijada**. Si al actualizar dice que el paquete está en conflicto, desinstalá DriverAI y volvé a instalar (se pierden los ajustes).
+Cada push a `main` que deje en verde la compilación, el contrato con el backend y el emulador publica además `apk-<N>` y reemplaza el archivo de `latest-debug`. Actualmente el último release es `apk-22`; run 23 produjo el APK indicado arriba, pero omitió contrato live y publicación release. La firma de depuración la genera el runner y **no está fijada**. Si al actualizar dice que el paquete está en conflicto, desinstalá DriverAI y volvé a instalar (se pierden los ajustes).
 
 Google Play Console y Firebase App Distribution no están conectados. No se creó una cuenta ni se autorizó el pago de Play (25 USD). Play además exige un Android App Bundle firmado para producción y una declaración de la AccessibilityService API, sin garantía de aprobación.
 
