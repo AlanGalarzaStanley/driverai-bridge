@@ -41,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -82,6 +81,7 @@ fun HomeScreen(activity: Activity) {
     val scope = rememberCoroutineScope()
     val settings by g.settings.collectAsState()
     val strategic by g.strategic.state.collectAsState()
+    val weatherState by g.weather.state.collectAsState()
     val status by g.pipeline.status.collectAsState()
     val last by g.pipeline.last.collectAsState()
     val history by g.historyRepo.entries.collectAsState(initial = emptyList())
@@ -101,7 +101,10 @@ fun HomeScreen(activity: Activity) {
         onPauseOrDispose { }
     }
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(30_000) } }
-    LaunchedEffect(Unit) { if (strategic.reporte == null) g.strategic.refreshReporte() }
+    LaunchedEffect(Unit) {
+        if (weatherState.weather == null) g.weather.refresh()
+        if (strategic.reporte == null) g.strategic.refreshReporte()
+    }
 
     val projectionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == Activity.RESULT_OK && r.data != null) ScreenCaptureService.start(activity, r.resultCode, r.data!!)
@@ -130,7 +133,33 @@ fun HomeScreen(activity: Activity) {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
         Text("DriverAI", style = MaterialTheme.typography.titleLarge)
+        Text("Copiloto de ofertas · BA", color = Muted)
         Text("Estado: ${status.label}", modifier = Modifier.testTag("status"))
+
+        Section("Clima (verificado)") {
+            when {
+                weatherState.loading -> Text("Actualizando Open-Meteo…")
+                weatherState.weather != null -> {
+                    val w = weatherState.weather!!
+                    Text(
+                        buildString {
+                            append(w.temperatureC?.let { "${Fmt.num(it)} °C" } ?: "— °C")
+                            append(" · viento ")
+                            append(w.windKmh?.let { "${Fmt.num(it)} km/h" } ?: "—")
+                            append(" · lluvia ")
+                            append(if (w.rainNow) "sí" else "no")
+                            w.precipProbNextHours?.let { append(" · prob. ~3 h $it %") }
+                        },
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text("Fuente: ${w.source}. No es demanda de apps.", style = MaterialTheme.typography.bodySmall, color = Muted)
+                }
+                else -> Text(weatherState.error ?: "Sin clima todavía.", color = Amber)
+            }
+            OutlinedButton(onClick = { scope.launch { g.weather.refresh() } }, modifier = Modifier.fillMaxWidth()) {
+                Text("Actualizar clima")
+            }
+        }
 
         Section("Lectura de ofertas") {
             Text(if (a11yOn) "Lectura automática (accesibilidad): ACTIVADA" else "Lectura automática: desactivada", color = if (a11yOn) Green else Amber)
@@ -187,64 +216,98 @@ fun HomeScreen(activity: Activity) {
             answer?.let { Text(it, modifier = Modifier.testTag("copilot_answer"), fontWeight = FontWeight.SemiBold) }
         }
 
-        Section("Contexto estratégico") {
+        Section("Contexto del servidor") {
             val stale = strategic.isStale(now)
             Text(
                 when {
                     strategic.loading -> "Actualizando…"
-                    strategic.lastError != null -> "Contexto temporalmente desactualizado: ${strategic.lastError}. Las ofertas se siguen evaluando con tus reglas."
-                    stale -> "Contexto desactualizado."
-                    else -> "Actualizado."
-                }, color = if (stale) Amber else Green,
+                    strategic.lastError != null -> "No disponible: ${strategic.lastError}. Las ofertas siguen con tus reglas."
+                    stale -> "Desactualizado."
+                    else -> "Respuesta recibida."
+                },
+                color = if (stale) Amber else Green,
             )
-            Text("Estimaciones generadas por el servidor (incluye IA). No son datos garantizados.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text(
+                "Los puntajes de zona y la demanda del servidor NO están verificados. No son un mapa real de Uber.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Muted,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { scope.launch { g.strategic.refreshReporte() } }) { Text("Actualizar reporte") }
+                Button(onClick = { scope.launch { g.strategic.refreshReporte() } }) { Text("Actualizar") }
                 Column {
                     OutlinedButton(onClick = { zoneMenu = true }) { Text(settings.currentZone ?: "Mi zona") }
                     DropdownMenu(zoneMenu, { zoneMenu = false }) {
-                        Zones.ALL.forEach { z -> DropdownMenuItem(text = { Text(z) }, onClick = {
-                            zoneMenu = false
-                            scope.launch { g.settingsRepo.update { it.copy(currentZone = z) }; g.strategic.refreshPosicion(z) }
-                        }) }
+                        Zones.ALL.forEach { z ->
+                            DropdownMenuItem(text = { Text(z) }, onClick = {
+                                zoneMenu = false
+                                scope.launch {
+                                    g.settingsRepo.update { it.copy(currentZone = z) }
+                                    g.strategic.refreshPosicion(z)
+                                }
+                            })
+                        }
                     }
                 }
             }
             strategic.posicion?.let { p ->
-                Text(if (p.decision == "moverte") "Sugerencia: movete a ${p.zona_recomendada} (puntaje ${Fmt.num(p.score_recomendado ?: 0.0)} vs ${Fmt.num(p.score_actual ?: 0.0)})" else "Sugerencia: quedate en ${p.zona_actual}", fontWeight = FontWeight.Bold)
-                p.espera_estimada_min?.let { Text("Espera estimada: ${Fmt.num(it, 0)} min") }
+                Text(
+                    if (p.decision == "moverte")
+                        "Estimación no verificada: moverte a ${p.zona_recomendada}"
+                    else
+                        "Estimación no verificada: quedarte en ${p.zona_actual}",
+                    fontWeight = FontWeight.SemiBold,
+                )
             }
             strategic.reporte?.let { r ->
-                r.reporte?.resumen?.let { Text(it) }
-                r.reporte?.mejor_zona_ahora?.let { Text("Mejor zona ahora: $it", fontWeight = FontWeight.Bold) }
-                r.reporte?.mejor_zona_en_2h?.let { Text("En 2 h: $it") }
-                r.reporte?.zonas_rankeadas?.take(5)?.forEach { z -> Text("• ${z.zona}: ${z.score?.let { Fmt.num(it) } ?: "—"} — ${z.razon ?: ""}") }
-                r.clima?.let { c -> Text("Clima (dato): ${c.temperatura?.let { Fmt.num(it) } ?: "—"} °C, lluvia ${if (c.lluvia_ahora == true) "sí" else "no"}, prob. 3 h ${c.prob_lluvia_3h?.let { Fmt.num(it, 0) } ?: "—"} %") }
-                Text("Eventos informados: ${r.eventos.size} · Partido: ${if (r.hay_partido == true) "sí" else "no"}")
-                r.reporte?.precio_minimo_sugerido?.let { Text("Precio mínimo sugerido por el servidor: ${Fmt.ars(it)} (referencia no verificada; tus umbrales mandan)", style = MaterialTheme.typography.bodySmall) }
+                val ev = r.eventos.size
+                Text(
+                    when {
+                        ev == 0 && r.hay_partido != true -> "Eventos verificados: ninguno en el servidor."
+                        r.hay_partido == true && ev == 0 -> "El servidor marca partido sin detalle ni fuente."
+                        else -> "Eventos en respuesta del servidor: $ev · partido flag: ${r.hay_partido == true}"
+                    },
+                    color = if (ev == 0) Amber else Green,
+                )
+                r.reporte?.resumen?.let {
+                    Text("Resumen (puede ser generado): $it", style = MaterialTheme.typography.bodySmall, color = Muted)
+                }
+                r.reporte?.zonas_rankeadas?.take(3)?.forEach { z ->
+                    Text("• ${z.zona}: score ${z.score?.let { Fmt.num(it) } ?: "—"} (no verificado)", color = Muted)
+                }
+                r.reporte?.precio_minimo_sugerido?.let {
+                    Text("Precio mín. servidor ${Fmt.ars(it)} — tus umbrales mandan", style = MaterialTheme.typography.bodySmall, color = Muted)
+                }
             }
         }
     }
 
     when (dialog) {
-        "a11y" -> AlertDialog(onDismissRequest = { dialog = null },
+        "a11y" -> AlertDialog(
+            onDismissRequest = { dialog = null },
             title = { Text("Lectura automática de ofertas") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(DISCLOSURE_ACCESSIBILITY) } },
             confirmButton = { Button(onClick = { dialog = null; openAccessibilitySettings(activity) }) { Text("Acepto, ir a Accesibilidad") } },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text("No, gracias") } })
-        "a11y_off" -> AlertDialog(onDismissRequest = { dialog = null },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text("No, gracias") } },
+        )
+        "a11y_off" -> AlertDialog(
+            onDismissRequest = { dialog = null },
             title = { Text("Desactivar lectura") },
             text = { Text("En la pantalla que se abre, elegí DriverAI y desactivalo.") },
-            confirmButton = { Button(onClick = { dialog = null; openAccessibilitySettings(activity) }) { Text("Abrir Accesibilidad") } })
-        "capture" -> AlertDialog(onDismissRequest = { dialog = null },
+            confirmButton = { Button(onClick = { dialog = null; openAccessibilitySettings(activity) }) { Text("Abrir Accesibilidad") } },
+        )
+        "capture" -> AlertDialog(
+            onDismissRequest = { dialog = null },
             title = { Text("Lectura por captura") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(DISCLOSURE_CAPTURE) } },
-            confirmButton = { Button(onClick = {
-                dialog = null
-                if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                else projectionLauncher.launch(activity.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
-            }) { Text("Acepto") } },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancelar") } })
+            confirmButton = {
+                Button(onClick = {
+                    dialog = null
+                    if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else projectionLauncher.launch(activity.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
+                }) { Text("Acepto") }
+            },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancelar") } },
+        )
     }
 }
 
@@ -255,5 +318,7 @@ fun MetricsSummary(m: ar.driverai.bridge.engine.Metrics) {
     Text("Km recogida: ${d(m.pickupKm) { Fmt.num(it) }} · Km con pasajero: ${d(m.tripKm) { Fmt.num(it) }} · Retorno vacío: ${d(m.returnKm) { Fmt.num(it) }}")
     Text("Km totales: ${d(m.totalKm) { Fmt.num(it) }} · Min con pasajero: ${d(m.tripMin) { Fmt.num(it, 0) }} · Min totales: ${d(m.totalMin) { Fmt.num(it, 0) }}")
     Text("Bruto/km: ${d(m.grossPerKm, Fmt::ars)} · Bruto/h: ${d(m.grossPerHour, Fmt::ars)}", fontWeight = FontWeight.Bold, modifier = Modifier.testTag("metrics_gross"))
-    if (m.variableCost != null) Text("Costo variable est.: ${Fmt.ars(m.variableCost)} · Ganancia est. antes de fijos e impuestos: ${d(m.estimatedProfitBeforeFixed, Fmt::ars)} · Margen: ${d(m.marginPct) { Fmt.num(it) + " %" }}")
+    if (m.variableCost != null) {
+        Text("Costo variable est.: ${Fmt.ars(m.variableCost)} · Ganancia est. antes de fijos e impuestos: ${d(m.estimatedProfitBeforeFixed, Fmt::ars)} · Margen: ${d(m.marginPct) { Fmt.num(it) + " %" }}")
+    }
 }
