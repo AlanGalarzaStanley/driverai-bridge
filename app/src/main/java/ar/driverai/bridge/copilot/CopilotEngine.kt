@@ -63,12 +63,20 @@ object CopilotEngine {
                 m.grossPerKm?.let { append("${Fmt.ars(it)} por kilómetro. ") }
                 m.grossPerHour?.let { append("${Fmt.ars(it)} por hora, bruto.") }
                 if (e.verdict == Verdict.REVISAR) append(" Faltan datos o hay dudas en la lectura.")
+                alternativeText(e)?.let { append(" ").append(it) }
             }.trim()
         } ?: "Todavía no evalué ninguna oferta."
         Intent.POR_QUE -> ctx.lastEvaluation?.let { e ->
             val top = e.reasons.filter { it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO }.take(2)
                 .ifEmpty { e.reasons.filter { it.kind == ReasonKind.PASA }.take(2) }
-            if (top.isEmpty()) "No tengo motivos para esa oferta." else top.joinToString(" ") { it.text }
+            val reason = top.joinToString(" ") { it.text }
+            val alternative = alternativeText(e)
+            when {
+                reason.isEmpty() && alternative == null -> "No tengo motivos para esa oferta."
+                reason.isEmpty() -> alternative.orEmpty()
+                alternative == null -> reason
+                else -> "$reason $alternative"
+            }
         } ?: "Todavía no evalué ninguna oferta."
         Intent.POR_HORA -> {
             val s = ctx.shift
@@ -88,6 +96,16 @@ object CopilotEngine {
     private fun staleNote(ctx: CopilotContext, at: Long? = ctx.strategic.reporteAt): String {
         val stale = at == null || ctx.now - at > StrategicRepository.STALE_MS || ctx.strategic.lastError != null
         return if (stale) " (dato posiblemente desactualizado)" else ""
+    }
+
+    private fun alternativeText(e: Evaluation): String? = e.fareAlternative?.let { alternative ->
+        val assumptions = listOfNotNull(
+            alternative.assumedPickupKm?.let { "${Fmt.num(it)} km a la recogida estimados" },
+            alternative.assumedPickupMin?.let { "${Fmt.num(it, 0)} min a la recogida estimados" },
+            if (alternative.emptyReturnFraction > 0.0) "retorno vacío ${Fmt.num(alternative.emptyReturnFraction * 100.0, 0)} %" else null,
+        ).joinToString(" y ")
+        "Piso teórico (no oferta futura): ${Fmt.ars(alternative.minimumFare)} para cumplir tus umbrales" +
+            if (assumptions.isNotEmpty()) " (incluye $assumptions)." else "."
     }
 
     private fun donde(ctx: CopilotContext): String {

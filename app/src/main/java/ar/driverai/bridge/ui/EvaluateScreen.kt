@@ -121,6 +121,17 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
                     val prefix = when (r.kind) { ReasonKind.PASA -> "✓"; ReasonKind.FALLA -> "✗"; ReasonKind.AVISO -> "!"; ReasonKind.INFO -> "i" }
                     Text("$prefix ${r.text}", color = when (r.kind) { ReasonKind.PASA -> Green; ReasonKind.FALLA -> Red; ReasonKind.AVISO -> Amber; else -> Color.LightGray })
                 }
+                e.fareAlternative?.let { alternative ->
+                    val assumptions = listOfNotNull(
+                        alternative.assumedPickupKm?.let { "${Fmt.num(it)} km de recogida estimados" },
+                        alternative.assumedPickupMin?.let { "${Fmt.num(it, 0)} min a la recogida estimados" },
+                        if (alternative.emptyReturnFraction > 0.0) "retorno vacío ${Fmt.num(alternative.emptyReturnFraction * 100.0, 0)} %" else null,
+                    ).joinToString(" y ")
+                    Text("Alternativa según tus umbrales", fontWeight = FontWeight.Bold)
+                    Text("Con los datos disponibles para esta oferta, el piso para cumplir tus umbrales es ${Fmt.ars(alternative.minimumFare)}.")
+                    if (assumptions.isNotEmpty()) Text("Supuestos: $assumptions.", color = Amber)
+                    Text("No predice otra oferta ni incorpora tráfico o demanda.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
                 OutlinedButton(onClick = { g.overlay.showEvaluation(rec, false) }) { Text("Mostrar en tarjeta flotante (demo)") }
             }
         }

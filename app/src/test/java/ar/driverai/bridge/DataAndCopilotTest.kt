@@ -166,6 +166,7 @@ class DataAndCopilotTest {
         val a = CopilotEngine.answer("¿me conviene?", ctx(e))
         assertTrue(a, a.startsWith("No conviene"))
         assertTrue(a.length < 220)
+        assertTrue(a, a.contains("\$6.300"))
         assertTrue(CopilotEngine.answer("¿por qué?", ctx(e)).contains("mínimo"))
         assertEquals("Todavía no evalué ninguna oferta.", CopilotEngine.answer("¿me conviene?", ctx()))
         val p = PosicionResponse(ok = true, zona_actual = "Microcentro", score_actual = 6.0, decision = "moverte", zona_recomendada = "Recoleta", score_recomendado = 10.0)

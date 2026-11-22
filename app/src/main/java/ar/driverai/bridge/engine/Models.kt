@@ -118,8 +118,18 @@ data class Evaluation(
     val metrics: Metrics,
     val reasons: List<Reason>,
     val offer: OfferData,
+    val fareAlternative: FareAlternative? = null,
 ) {
     val headline: String get() = reasons.firstOrNull { it.kind == ReasonKind.FALLA }?.text
         ?: reasons.firstOrNull { it.kind == ReasonKind.AVISO }?.text
         ?: reasons.firstOrNull()?.text ?: ""
 }
+
+/** Tarifa piso calculada para alcanzar los umbrales personales con el mismo recorrido. */
+data class FareAlternative(
+    val minimumFare: Double,
+    val pickupAssumed: Boolean,
+    val emptyReturnFraction: Double,
+    val assumedPickupKm: Double? = null,
+    val assumedPickupMin: Double? = null,
+)

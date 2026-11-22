@@ -83,9 +83,19 @@ class OverlayManager(private val app: Context) {
         val lines = mutableListOf<String>()
         lines += listOfNotNull(m.fare?.let { Fmt.ars(it) }, m.totalKm?.let { Fmt.num(it) + " km tot." }, m.totalMin?.let { Fmt.num(it, 0) + " min tot." }).joinToString(" · ")
         lines += listOfNotNull(m.grossPerKm?.let { Fmt.ars(it) + "/km" }, m.grossPerHour?.let { Fmt.ars(it) + "/h" }).joinToString(" · ").ifEmpty { "Métricas incompletas" } + " (bruto)"
-        e.reasons.firstOrNull { it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO }?.let { lines += it.text }
+        val primaryReason = e.reasons.firstOrNull { it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO }?.text
+        val alternativeLine = e.fareAlternative?.let { alternative ->
+            val assumptions = listOfNotNull(
+                alternative.assumedPickupKm?.let { "recogida ${Fmt.num(it)}km estimada" },
+                alternative.assumedPickupMin?.let { "recogida ${Fmt.num(it, 0)}min estimados" },
+                if (alternative.emptyReturnFraction > 0.0) "retorno vacío ${Fmt.num(alternative.emptyReturnFraction * 100.0, 0)}%" else null,
+            ).joinToString(", ")
+            "Piso teórico (no oferta futura): ${Fmt.ars(alternative.minimumFare)}" + if (assumptions.isNotEmpty()) " ($assumptions)" else ""
+        }
         val src = when (rec.source.name) { "ACCESSIBILITY" -> "leído de pantalla"; "OCR" -> "leído por OCR"; else -> "ingreso manual" }
-        render(e.verdict.label, color, if (compact) listOf(lines[1]) else lines + "Fuente: $src. Vos decidís en Uber.", rec.at, compact)
+        val compactBody = listOfNotNull(lines.getOrNull(1), primaryReason, alternativeLine)
+        val fullBody = lines + listOfNotNull(primaryReason, alternativeLine, "Fuente: $src. Vos decidís en Uber.")
+        render(e.verdict.label, color, if (compact) compactBody else fullBody, rec.at, compact)
     }
 
     fun showMessage(text: String) = main.post { render("DriverAI", 0xFF455A64.toInt(), listOf(text), null, false) }
