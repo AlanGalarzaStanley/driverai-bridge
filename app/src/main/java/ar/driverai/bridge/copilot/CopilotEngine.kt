@@ -13,7 +13,6 @@ object Zones {
     val ALL = listOf("Microcentro", "Palermo", "Belgrano", "Recoleta", "San Telmo", "Caballito", "Flores",
         "Liniers", "Quilmes", "Bernal", "Lomas", "Lanús", "Avellaneda", "San Isidro")
 
-    /** Agrupación geográfica aproximada (para "terminar cerca de casa"). Es una heurística, no ruteo. */
     val GROUPS = mapOf(
         "Norte" to listOf("San Isidro", "Belgrano", "Palermo", "Recoleta"),
         "Centro" to listOf("Microcentro", "San Telmo", "Recoleta", "Puerto Madero"),
@@ -35,8 +34,7 @@ data class CopilotContext(
 )
 
 /**
- * Copiloto por reglas: entiende consultas cortas y responde con frases breves para no distraer.
- * Distingue datos (del motor o del backend) de estimaciones/predicciones.
+ * Copiloto por reglas. No inventa demanda ni eventos.
  */
 object CopilotEngine {
 
@@ -85,27 +83,36 @@ object CopilotEngine {
         Intent.DESCONOCIDA -> "Podés preguntarme: ¿me conviene?, ¿por qué?, ¿cuánto hago por hora?, ¿dónde espero?, ¿hay eventos?"
     }
 
-    private fun staleNote(ctx: CopilotContext) = if (ctx.strategic.isStale(ctx.now)) " (dato posiblemente desactualizado)" else ""
+    private fun staleNote(ctx: CopilotContext) = if (ctx.strategic.isStale(ctx.now)) " (dato del servidor posiblemente desactualizado)" else ""
 
     private fun donde(ctx: CopilotContext): String {
         val p = ctx.strategic.posicion
         if (p != null && p.zona_recomendada != null) {
-            return if (p.decision == "moverte") "Estimación del servidor: movete a ${p.zona_recomendada}, puntaje ${Fmt.num(p.score_recomendado ?: 0.0)} contra ${Fmt.num(p.score_actual ?: 0.0)}.${staleNote(ctx)}"
-            else "Estimación del servidor: quedate en ${p.zona_actual ?: "tu zona"}.${staleNote(ctx)}"
+            val base = if (p.decision == "moverte")
+                "El servidor sugiere moverte a ${p.zona_recomendada} (estimación no verificada de demanda)."
+            else
+                "El servidor sugiere quedarte en ${p.zona_actual ?: "tu zona"} (estimación no verificada)."
+            return base + staleNote(ctx) + " Priorizá ofertas concretas y tus umbrales."
         }
         val best = ctx.strategic.reporte?.reporte?.mejor_zona_ahora
-        return if (best != null) "Estimación del servidor: la mejor zona ahora es $best.${staleNote(ctx)}"
-        else "No tengo contexto del servidor. Elegí tu zona y actualizá."
+        return if (best != null)
+            "El servidor menciona $best como mejor zona, pero ese ranking no está verificado con demanda real.${staleNote(ctx)}"
+        else
+            "No tengo una sugerencia de zona verificada. Usá eventos reales cuando existan y tus umbrales en cada oferta."
     }
 
     private fun eventos(ctx: CopilotContext): String {
-        val r = ctx.strategic.reporte ?: return "No tengo el reporte del servidor. Actualizalo en Inicio."
-        val parts = mutableListOf<String>()
-        val ev = r.eventos.size
-        parts += if (ev == 0) "El servidor no informa eventos." else "El servidor informa $ev eventos."
-        if (r.hay_partido == true) parts += "Hay partido hoy."
-        r.reporte?.nivel_demanda_general?.let { parts += "Demanda estimada: ${it.replace('_', ' ')}." }
-        return parts.joinToString(" ") + staleNote(ctx)
+        val r = ctx.strategic.reporte
+            ?: return "No tengo el reporte del servidor. Actualizalo en Inicio. Aun así: sin fuente verificada no invento eventos."
+        val n = r.eventos.size
+        return when {
+            n == 0 && r.hay_partido != true ->
+                "Sin eventos verificados en el servidor. Si hay partido o recital, todavía no está cableado a una agenda real."
+            r.hay_partido == true && n == 0 ->
+                "El servidor marca partido, pero no trajo detalle ni fuente. Tratalo con reserva."
+            else ->
+                "El servidor informa $n evento(s)${if (r.hay_partido == true) " y marca partido" else ""}. Sin garantía de cobertura completa.${staleNote(ctx)}"
+        }
     }
 
     private fun cercaCasa(ctx: CopilotContext): String {
@@ -116,7 +123,7 @@ object CopilotEngine {
             (r.reporte?.zonas_rankeadas?.map { it.zona to (it.score ?: 0.0) }.orEmpty() + r.demanda_por_zona.map { it.zona to (it.score ?: 0.0) })
         }.orEmpty().filter { (z, _) -> near.any { it.equals(z, true) } }.sortedByDescending { it.second }
         val best = ranked.firstOrNull()
-            ?: return "Tu casa está en zona $group. No tengo puntajes del servidor para esa zona."
-        return "Estimación: para terminar cerca de $home, probá ${best.first} (puntaje ${Fmt.num(best.second)}).${staleNote(ctx)}"
+            ?: return "Tu casa está en zona $group. No hay ranking del servidor para cerrar cerca; priorizá destinos hacia $home."
+        return "Para terminar cerca de $home, el ranking no verificado del servidor apunta a ${best.first}. Usa ofertas reales hacia esa zona.${staleNote(ctx)}"
     }
 }
