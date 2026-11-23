@@ -90,11 +90,11 @@ class DataAndCopilotTest {
         assertEquals("Todavía no evalué ninguna oferta.", CopilotEngine.answer("¿me conviene?", ctx()))
         val p = PosicionResponse(ok = true, zona_actual = "Microcentro", score_actual = 6.0, decision = "moverte", zona_recomendada = "Recoleta", score_recomendado = 10.0)
         val d = CopilotEngine.answer("¿dónde espero?", ctx(posicion = p))
-        assertTrue(d, d.startsWith("Estimación del servidor") && d.contains("Recoleta"))
+        assertTrue(d, d.contains("Recoleta") && d.contains("no verificada"))
         val r = ReporteResponse(ok = true, reporte = Reporte(zonas_rankeadas = listOf(ZonaRank("Bernal", 8.0), ZonaRank("Palermo", 9.0), ZonaRank("Quilmes", 6.0))))
         val c = CopilotEngine.answer("cerca de casa", ctx(reporte = r, settings = DriverSettings(homeZone = "Quilmes")))
         assertTrue(c, c.contains("Bernal"))
         assertTrue(CopilotEngine.answer("cerca de casa", ctx()).contains("Configurá"))
-        assertTrue(CopilotEngine.answer("eventos esta noche", ctx(reporte = r)).contains("no informa eventos"))
+        assertTrue(CopilotEngine.answer("eventos esta noche", ctx(reporte = r)).contains("Sin eventos verificados"))
     }
 }
