@@ -21,6 +21,13 @@ object OfferTextParser {
         """([+])?\s*(?:(?:ARS|\$)\s*(\d[\d.,]*)(\s*/\s*\w+)?|(\d[\d.,]*)\s*ARS\b(\s*/\s*\w+)?)""",
         RegexOption.IGNORE_CASE,
     )
+    private val passengerRatingRegex = Regex(
+        """(?i)(?:calificaci[oó]n\s+(?:del\s+)?pasajero|pasajero\s+(?:calificaci[oó]n|rating)|(?:rider|passenger)\s+rating|rating\s+(?:del\s+)?(?:pasajero|rider|passenger))\s*[:·\-]?\s*([1-5](?:[.,]\d{1,2})?)\b""",
+    )
+    private val ratingLabelOnly = Regex(
+        """(?i)^(?:calificaci[oó]n\s+(?:del\s+)?pasajero|pasajero\s+(?:calificaci[oó]n|rating)|(?:rider|passenger)\s+rating|rating\s+(?:del\s+)?(?:pasajero|rider|passenger))\s*[:·\-]?$""",
+    )
+    private val ratingValueOnly = Regex("""^\s*([1-5](?:[.,]\d{1,2})?)\s*(?:★|⭐)?\s*$""")
     private val timeDistRegex = Regex(
         """(?:(\d{1,2})\s*h(?:s|oras?)?\.?\s*)?(\d{1,3})\s*min(?:s|utos)?\.?\s*\(\s*(\d+(?:[.,]\d+)?)\s*(km|mi|m)\s*\)""",
         RegexOption.IGNORE_CASE,
@@ -35,7 +42,9 @@ object OfferTextParser {
     )
     private val pickupKw = listOf("away", "de distancia", "recog", "para buscar", "hasta el pasajero", "pickup", "pick-up", "llegada")
     private val tripKw = listOf("trip", "viaje", "recorrido", "destino", "con pasajero")
-    private val offerKw = listOf("aceptar", "accept", "solicitud", "request", "nuevo viaje", "toca para aceptar", "tap to accept")
+    private val requestContextRegex = Regex(
+        """(?i)(?<![\p{L}\p{N}])(?:solicitud|request|nuevo viaje|new trip|aceptar|accept|toca para aceptar|tap to accept|acepta en|accept in)(?![\p{L}\p{N}])""",
+    )
     private val bonusKw = listOf("incluid", "incl.", "incluye", "promo", "bonif", "propina", "tip", "dinámica", "boost", "surge", "+")
     private val products = listOf("Uber Priority", "UberX", "Comfort", "Black", "Flash", "Moto", "XL", "Planet", "Uber Pet", "Envíos")
 
@@ -82,7 +91,15 @@ object OfferTextParser {
         // --- Tarifa ---
         data class Cand(val amount: Amount, val standalone: Boolean, val raw: String)
         val cands = mutableListOf<Cand>()
-        fragments.forEach { f ->
+        val moneyInputs = fragments.toMutableList()
+        val amountOnly = Regex("""^\d[\d.,]*$""")
+        fragments.zipWithNext().forEach { (left, right) ->
+            val a = left.trim()
+            val b = right.trim()
+            if ((a == "$" || a.equals("ARS", true)) && amountOnly.matches(b)) moneyInputs += "$a $b"
+            else if (amountOnly.matches(a) && (b == "$" || b.equals("ARS", true))) moneyInputs += "$a $b"
+        }
+        moneyInputs.forEach { f ->
             moneyRegex.findAll(f).forEach { m ->
                 val plus = m.groupValues[1].isNotEmpty()
                 val amountText = m.groupValues[2].ifEmpty { m.groupValues[4] }
@@ -110,11 +127,51 @@ object OfferTextParser {
             fare = Reading(chosen.amount.value, (conf * srcFactor).coerceIn(0.0, 1.0), source, chosen.raw)
         }
 
-        // --- Tiempo y distancia ---
-        val pairs = mutableListOf<Pair>()
+        // Rating solo con etiqueta explícita; un número aislado o el rating del conductor no cuentan.
+        val ratingCandidates = mutableListOf<Pair<Double, String>>()
         fragments.forEachIndexed { i, f ->
+            passengerRatingRegex.findAll(f).forEach { m ->
+                parseDecimal(m.groupValues[1])?.takeIf { it in 1.0..5.0 }?.let { ratingCandidates += it to m.value }
+            }
+            if (ratingLabelOnly.matches(f)) {
+                ratingValueOnly.matchEntire(fragments.getOrNull(i + 1).orEmpty())?.groupValues?.get(1)
+                    ?.let(::parseDecimal)?.takeIf { it in 1.0..5.0 }?.let { ratingCandidates += it to "${f.trim()} ${fragments[i + 1].trim()}" }
+            }
+        }
+        val distinctRatings = ratingCandidates.map { it.first }.distinct()
+        val passengerRating = when {
+            distinctRatings.size == 1 -> {
+                val chosen = ratingCandidates.first()
+                Reading(chosen.first, (0.95 * srcFactor).coerceIn(0.0, 1.0), source, chosen.second)
+            }
+            distinctRatings.size > 1 -> {
+                notes += "Se vieron varias calificaciones de pasajero distintas; no se eligió ninguna."
+                Reading.MISSING
+            }
+            else -> Reading.MISSING
+        }
+
+        // --- Tiempo y distancia ---
+        data class PairInput(val text: String, val previousLabel: String, val sourceIndex: Int)
+        val pairInputs = fragments.mapIndexed { i, f ->
+            PairInput(f, fragments.getOrNull(i - 1)?.takeIf { it.length < 40 && it.none(Char::isDigit) }.orEmpty(), i)
+        }.toMutableList()
+        val timeOnly = Regex("""(?i)^\s*(?:(\d{1,2})\s*h(?:s|oras?)?\.?\s*)?\d{1,3}\s*min(?:s|utos)?\.?\s*$""")
+        val distanceOnly = Regex("""(?i)^\s*\d+(?:[.,]\d+)?\s*(?:km|mi|m)\s*$""")
+        fragments.forEachIndexed { i, left ->
+            val right = fragments.getOrNull(i + 1) ?: return@forEachIndexed
+            if ((timeOnly.matches(left) && distanceOnly.matches(right)) ||
+                (distanceOnly.matches(left) && timeOnly.matches(right))) {
+                val previous = fragments.getOrNull(i - 1)?.takeIf { it.length < 40 && it.none(Char::isDigit) }.orEmpty()
+                pairInputs += PairInput("$left · $right", previous, i)
+            }
+        }
+        val pairs = mutableListOf<Pair>()
+        pairInputs.forEach { input ->
+            val i = input.sourceIndex
+            val f = input.text
             // El fragmento anterior solo cuenta como contexto si es una etiqueta (corta y sin números)
-            val label = fragments.getOrNull(i - 1)?.takeIf { it.length < 40 && it.none(Char::isDigit) } ?: ""
+            val label = input.previousLabel
             val ctx = "$label $f"
             val seen = mutableListOf<IntRange>()
             fun addPair(m: MatchResult) {
@@ -184,9 +241,11 @@ object OfferTextParser {
             tripKm = r(trip?.km, tripConf, trip?.raw),
             tripMin = r(trip?.minutes, tripConf, trip?.raw),
             product = fragments.firstNotNullOfOrNull { f -> products.firstOrNull { p -> f.equals(p, true) || f.startsWith("$p ", true) } },
+            passengerRating = passengerRating,
         )
-        val hasKw = fragments.any { f -> offerKw.any { f.lowercase().contains(it) } }
-        val likely = fare.isPresent && (pairs.isNotEmpty() || hasKw)
+        // No presentar una oferta como entendida si falta cualquiera de los tres datos esenciales.
+        val hasRequestContext = fragments.any { requestContextRegex.containsMatchIn(it) }
+        val likely = hasRequestContext && fare.isPresent && offer.tripKm.isPresent && offer.tripMin.isPresent
         return ParseResult(offer, likely, notes)
     }
 

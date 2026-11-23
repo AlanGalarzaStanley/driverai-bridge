@@ -61,6 +61,7 @@ fun SettingsScreen() {
     var defPmin by remember { mutableStateOf("") }
     var ret by remember { mutableStateOf("0") }
     var margin by remember { mutableStateOf("") }
+    var minPassengerRating by remember { mutableStateOf("") }
     var tol by remember { mutableStateOf(UncertaintyTolerance.NORMAL) }
     var msg by remember { mutableStateOf<String?>(null) }
     var homeMenu by remember { mutableStateOf(false) }
@@ -70,7 +71,7 @@ fun SettingsScreen() {
             val s = g.settingsRepo.current()
             minFare = f(s.minFare); minKm = f(s.minGrossPerKm); minHour = f(s.minGrossPerHour); costKm = f(s.costPerKm)
             fuelL = f(s.fuelLitersPer100Km); fuelP = f(s.fuelPricePerLiter); defPkm = f(s.defaultPickupKm); defPmin = f(s.defaultPickupMin)
-            ret = Fmt.num(s.emptyReturnFraction * 100, 0); margin = f(s.minMarginPct); tol = s.tolerance
+            ret = Fmt.num(s.emptyReturnFraction * 100, 0); margin = f(s.minMarginPct); minPassengerRating = f(s.minPassengerRating); tol = s.tolerance
             loaded = true
         }
     }
@@ -87,6 +88,10 @@ fun SettingsScreen() {
             num("Mínimo \$ por km", minKm, "set_minkm") { minKm = it }
             num("Mínimo \$ por hora", minHour, "set_minhour") { minHour = it }
             num("Margen mínimo (%)", margin, "set_margin") { margin = it }
+        }
+        Section("Preferencias del pasajero") {
+            num("Calificación mínima (1–5)", minPassengerRating, "set_min_passenger_rating") { minPassengerRating = it }
+            Text("Se compara solo si DriverAI lee una calificación explícita del pasajero. Si falta o es ambigua, el resultado será REVISAR; no se completa por inferencia.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
         }
         Section("Costos variables") {
             num("Costo propio por km (\$: desgaste, mantenimiento)", costKm, "set_costkm") { costKm = it }
@@ -121,17 +126,20 @@ fun SettingsScreen() {
             fun p(label: String, s: String, max: Double = 1e9): Double? {
                 if (s.isBlank()) return null
                 val v = parseUserNumber(s)
-                if (v == null || v < 0 || v > max) { errors += label; return null }
+                if (v == null || !v.isFinite() || v < 0 || v > max) { errors += label; return null }
                 return v
             }
             val retPct = p("Retorno vacío", ret, 100.0) ?: 0.0
             val newFuelP = p("Precio combustible", fuelP)
+            val parsedMinPassengerRating = p("Calificación mínima del pasajero", minPassengerRating, 5.0)
+            if (parsedMinPassengerRating != null && parsedMinPassengerRating < 1.0) errors += "Calificación mínima del pasajero"
             val upd: (DriverSettings) -> DriverSettings = { s -> s.copy(
                 minFare = p("Tarifa mínima", minFare), minGrossPerKm = p("Mínimo por km", minKm), minGrossPerHour = p("Mínimo por hora", minHour),
                 costPerKm = p("Costo por km", costKm), fuelLitersPer100Km = p("Consumo", fuelL, 100.0), fuelPricePerLiter = newFuelP,
                 fuelPriceUpdatedAt = if (newFuelP == null) null else if (newFuelP != s.fuelPricePerLiter || s.fuelPriceUpdatedAt == null) System.currentTimeMillis() else s.fuelPriceUpdatedAt,
                 defaultPickupKm = p("Km recogida", defPkm), defaultPickupMin = p("Min recogida", defPmin),
                 emptyReturnFraction = retPct / 100.0, minMarginPct = p("Margen", margin, 100.0), tolerance = tol,
+                minPassengerRating = parsedMinPassengerRating?.takeIf { it >= 1.0 },
             ) }
             // Se valida primero sin guardar
             upd(saved)

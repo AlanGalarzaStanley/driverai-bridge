@@ -62,12 +62,21 @@ object CopilotEngine {
                 append(e.verdict.label.lowercase().replaceFirstChar { it.uppercase() }).append(". ")
                 m.grossPerKm?.let { append("${Fmt.ars(it)} por kilómetro. ") }
                 m.grossPerHour?.let { append("${Fmt.ars(it)} por hora, bruto.") }
+                if (ctx.settings.minPassengerRating != null) {
+                    e.offer.passengerRating.value?.let { append(" Calificación del pasajero ${Fmt.num(it, 2)} sobre 5.") }
+                        ?: append(" Falta leer la calificación del pasajero.")
+                }
                 if (e.verdict == Verdict.REVISAR) append(" Faltan datos o hay dudas en la lectura.")
                 alternativeText(e)?.let { append(" ").append(it) }
             }.trim()
         } ?: "Todavía no evalué ninguna oferta."
         Intent.POR_QUE -> ctx.lastEvaluation?.let { e ->
-            val top = e.reasons.filter { it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO }.take(2)
+            val ratingReason = e.reasons.firstOrNull {
+                it.text.startsWith("Calificación del pasajero") && (it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO)
+            }
+            val otherReasons = e.reasons.filter { it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO }
+                .filterNot { it == ratingReason }
+            val top = (listOfNotNull(ratingReason) + otherReasons).take(2)
                 .ifEmpty { e.reasons.filter { it.kind == ReasonKind.PASA }.take(2) }
             val reason = top.joinToString(" ") { it.text }
             val alternative = alternativeText(e)

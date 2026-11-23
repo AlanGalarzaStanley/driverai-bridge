@@ -114,12 +114,12 @@ fun DiagnosticsScreen(activity: Activity) {
             }
         }
         Section("Textos leídos (calibración)") {
-            Text("Registra temporalmente solo etiquetas permitidas, tarifa, tiempos, distancias y veredicto. No conserva nombres, direcciones ni capturas; no se persiste ni se envía. Al apagarlo, se borra.", style = MaterialTheme.typography.bodySmall)
+            Text("Registra temporalmente solo etiquetas permitidas, tarifa, tiempos, distancias, rating explícito y veredicto. No conserva nombres, direcciones ni capturas; no se persiste ni se envía. Al apagarlo, se borra.", style = MaterialTheme.typography.bodySmall)
             androidx.compose.foundation.layout.Row { Text("Registrar lectura reducida", Modifier.weight(1f)); Switch(diag, { g.pipeline.setDiagnosticsEnabled(it) }) }
             if (diag && diagnostic == null) Text("Esperando una lectura de oferta…", style = MaterialTheme.typography.bodySmall)
             diagnostic?.let { record ->
                 Text("Veredicto: ${record.verdict}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.testTag("diag_verdict"))
-                Text("Tarifa: ${record.fare.displayText()}\nDistancia del viaje: ${record.tripKm.displayText()}\nDuración del viaje: ${record.tripMin.displayText()}", style = MaterialTheme.typography.bodySmall)
+                Text("Tarifa: ${record.fare.displayText()}\nDistancia del viaje: ${record.tripKm.displayText()}\nDuración del viaje: ${record.tripMin.displayText()}\nCalificación del pasajero: ${record.passengerRating.displayText()}", style = MaterialTheme.typography.bodySmall)
                 OutlinedButton(onClick = {
                     val cm = activity.getSystemService(ClipboardManager::class.java)
                     cm.setPrimaryClip(ClipData.newPlainText("DriverAI Chequeo", record.clipboardText()))

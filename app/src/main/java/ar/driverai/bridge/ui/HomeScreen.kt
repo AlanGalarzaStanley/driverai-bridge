@@ -12,7 +12,10 @@ import android.provider.Settings
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -41,13 +45,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import ar.driverai.bridge.DriverAiApp
 import ar.driverai.bridge.backend.ApiResult
+import ar.driverai.bridge.backend.LocalWeatherRepository
 import ar.driverai.bridge.backend.StrategicRepository
 import ar.driverai.bridge.capture.DriverAccessibilityService
 import ar.driverai.bridge.capture.ScreenCaptureService
@@ -65,10 +74,10 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-const val DISCLOSURE_ACCESSIBILITY = """DriverAI usa el servicio de accesibilidad de Android para LEER el texto visible de la app Uber Driver (solo ese paquete) mientras está abierta, con el único fin de detectar la tarifa, distancias y tiempos de una oferta y mostrarte una evaluación económica.
+const val DISCLOSURE_ACCESSIBILITY = """DriverAI usa el servicio de accesibilidad de Android para LEER el texto visible de la app Uber Driver (solo ese paquete) mientras está abierta, con el único fin de detectar tarifa, distancias, tiempos y una calificación del pasajero si está explícitamente etiquetada, y mostrarte una evaluación económica.
 
-• Qué procesa: el texto visible en pantalla de Uber Driver, dentro de tu teléfono.
-• Qué guarda: solo números de la evaluación (tarifa, km, minutos, veredicto) si el historial está activado. Nunca nombres, direcciones ni capturas.
+• Qué procesa: el texto visible de Uber Driver, incluida la calificación del pasajero solo si está etiquetada explícitamente, dentro de tu teléfono.
+• Qué guarda: solo tarifa, km, minutos y veredicto en el historial si lo activás. La calificación no se añade al historial; el Chequeo temporal puede mostrarla reducida. Nunca nombres, direcciones ni capturas.
 • Qué transmite: nada del contenido de pantalla. Al servidor solo se envía la zona que elegís para el reporte estratégico.
 • Qué NO hace: no toca la pantalla, no acepta ni rechaza viajes, no lee otras apps.
 
@@ -90,6 +99,7 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
     val settings by g.settings.collectAsState()
     val strategic by g.strategic.state.collectAsState()
     val status by g.pipeline.status.collectAsState()
+    val weatherState by g.weather.state.collectAsState()
     val last by g.pipeline.last.collectAsState()
     val history by g.historyRepo.entries.collectAsState(initial = emptyList())
     val shiftStart by g.historyRepo.shiftStart.collectAsState(initial = null)
@@ -116,6 +126,7 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
         onPauseOrDispose { }
     }
     LaunchedEffect(Unit) { while (true) { now = System.currentTimeMillis(); delay(30_000) } }
+    LaunchedEffect(Unit) { if (g.weather.state.value.enabled) g.weather.refresh() }
 
     val projectionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == Activity.RESULT_OK && r.data != null) ScreenCaptureService.start(activity, r.resultCode, r.data!!)
@@ -156,25 +167,29 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
         ScreenTitle("DriverAI · AMBA", "Tu jornada", today.format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es-AR"))))
 
-        Section("Turno de trabajo") {
-            Text(if (shiftStart == null) "Listo para empezar" else "Turno activo desde ${formatHomeTime(shiftStart!!)}", color = if (shiftStart == null) TextMuted else AccentMint, fontWeight = FontWeight.SemiBold)
-            Text("Lectura de ofertas: ${status.label}", modifier = Modifier.testTag("status"), style = MaterialTheme.typography.bodySmall, color = if (a11yOn || capturing) Green else TextMuted)
-            Spacer(Modifier.height(8.dp))
-            if (shiftStart == null) {
-                Button(enabled = !strategic.loading, onClick = {
-                    scope.launch {
-                        g.historyRepo.startShift(System.currentTimeMillis())
-                        briefingMessage = "Turno iniciado. Consultando el contexto disponible…"
-                        refreshBriefing()
-                    }
-                }, modifier = Modifier.fillMaxWidth().testTag("start_shift")) { Text("Iniciar turno y consultar contexto") }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(enabled = !strategic.loading, onClick = { scope.launch { refreshBriefing() } }, modifier = Modifier.weight(1f)) { Text("Actualizar contexto") }
-                    TextButton(onClick = { scope.launch { g.historyRepo.endShift() } }, modifier = Modifier.testTag("end_shift")) { Text("Terminar") }
+        ShiftHeroCard(
+            shiftStart = shiftStart,
+            status = status.label,
+            readingActive = a11yOn || capturing,
+            loading = strategic.loading,
+            onStart = {
+                scope.launch {
+                    g.historyRepo.startShift(System.currentTimeMillis())
+                    briefingMessage = "Turno iniciado. Consultando el contexto disponible…"
+                    launch { g.weather.refresh() }
+                    refreshBriefing()
                 }
-            }
-        }
+            },
+            onRefresh = { scope.launch { refreshBriefing(); g.weather.refresh() } },
+            onEnd = { scope.launch { g.historyRepo.endShift() } },
+        )
+
+        WeatherCard(
+            state = weatherState,
+            onRefresh = { scope.launch { g.weather.refresh() } },
+            onOpenSource = { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://open-meteo.com/en/docs"))) },
+            onOpenLicense = { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://creativecommons.org/licenses/by/4.0/"))) },
+        )
 
         Text("CAJA REGISTRADA HOY", style = MaterialTheme.typography.labelSmall, color = AccentMint, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -191,9 +206,21 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
         }
 
         ShiftBriefingCard(briefing, now, briefingMessage)
-        Section("Demanda en contexto") {
-            Text("La estimación disponible proviene del servicio estratégico heredado. No equivale a demanda en vivo por fuente.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-            Text("Clima, eventos, vuelos, barcos y horarios: solo se muestran si el servicio los informa; su fuente, frescura y confianza no están verificadas.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        Section("Contexto del día · cobertura de datos") {
+            Text("No mostramos demanda inventada. El reporte heredado es una estimación del servidor, no un feed de actividad de las apps.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            ContextSignalRow(
+                "Clima meteorológico",
+                when {
+                    weatherState.weather != null && weatherState.error != null -> "Open-Meteo · dato anterior; error al actualizar"
+                    weatherState.weather != null -> "Open-Meteo · estimación modelada"
+                    weatherState.enabled -> "Open-Meteo · sin lectura todavía"
+                    else -> "Requiere fuente/plan autorizado"
+                },
+                if (weatherState.weather != null && weatherState.error == null) Green else Amber,
+            )
+            ContextSignalRow("Eventos deportivos y música", "Sin feed verificado", Amber)
+            ContextSignalRow("Vuelos y cruceros", "Sin fuente integrada", Amber)
+            ContextSignalRow("Patrones por día y hora", "Sin datos propios calibrados", Amber)
             OutlinedButton(onClick = { zoneMenu = true }, modifier = Modifier.fillMaxWidth()) { Text("Zona de trabajo: ${settings.currentZone ?: "Elegir zona"}") }
             DropdownMenu(expanded = zoneMenu, onDismissRequest = { zoneMenu = false }) {
                 Zones.ALL.forEach { zone ->
@@ -268,7 +295,118 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
                 if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else projectionLauncher.launch(activity.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
             }) { Text("Acepto") } },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancelar") } })
+        dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancelar") } })
+    }
+}
+
+@Composable
+private fun ShiftHeroCard(
+    shiftStart: Long?,
+    status: String,
+    readingActive: Boolean,
+    loading: Boolean,
+    onStart: () -> Unit,
+    onRefresh: () -> Unit,
+    onEnd: () -> Unit,
+) {
+    val active = shiftStart != null
+    Box(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF123C3A), Color(0xFF17253C), Color(0xFF20243B))))
+            .padding(20.dp),
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text("DRIVERAI  /  COCKPIT", style = MaterialTheme.typography.labelSmall, color = AccentMint, fontWeight = FontWeight.Bold)
+                    Text(if (active) "Turno en marcha" else "Preparado para salir", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(if (active) "Iniciado ${formatHomeTime(shiftStart!!)}" else "Ingresos, gastos, kilómetros y contexto en un solo lugar", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                }
+                Text(if (readingActive) "LECTOR ACTIVO" else "LECTOR INACTIVO", style = MaterialTheme.typography.labelSmall, color = if (readingActive) Green else Amber, modifier = Modifier.padding(start = 8.dp, top = 4.dp))
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("Lectura de ofertas: $status", modifier = Modifier.testTag("status"), style = MaterialTheme.typography.bodySmall, color = if (readingActive) Green else TextMuted)
+            Spacer(Modifier.height(10.dp))
+            if (!active) {
+                Button(enabled = !loading, onClick = onStart, modifier = Modifier.fillMaxWidth().height(50.dp).testTag("start_shift")) {
+                    Text(if (loading) "Consultando contexto…" else "Iniciar turno y consultar")
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(enabled = !loading, onClick = onRefresh, modifier = Modifier.weight(1f)) { Text("Actualizar contexto") }
+                    TextButton(onClick = onEnd, modifier = Modifier.testTag("end_shift")) { Text("Terminar") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ContextSignalRow(label: String, state: String, color: Color) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(0.9f))
+        Text(
+            state,
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            textAlign = TextAlign.End,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1.1f).padding(start = 8.dp),
+        )
+    }
+}
+
+@Composable
+private fun WeatherCard(
+    state: LocalWeatherRepository.State,
+    onRefresh: () -> Unit,
+    onOpenSource: () -> Unit,
+    onOpenLicense: () -> Unit,
+) {
+    Section("Modelo meteorológico · CABA Centro (punto fijo)") {
+        val weather = state.weather
+        if (weather != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("TEMPERATURA", style = MaterialTheme.typography.labelSmall, color = AccentMint)
+                    Text(weather.temperatureC?.let { "${Fmt.num(it)} °C" } ?: "— °C", style = MaterialTheme.typography.headlineMedium, color = AccentMint)
+                    Text("Viento ${weather.windKmh?.let { "${Fmt.num(it)} km/h" } ?: "sin dato"}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("PRECIPITACIÓN MODELADA", style = MaterialTheme.typography.labelSmall, color = AccentBlue)
+                    Text(weather.precipitationMm?.let { "${Fmt.num(it, 1)} mm" } ?: "Sin dato", style = MaterialTheme.typography.titleMedium)
+                    Text(weather.precipitationIntervalSeconds?.let { seconds ->
+                        val minutes = seconds / 60
+                        "Acumulado reportado · intervalo ${if (seconds % 60 == 0) "$minutes min" else "$seconds s"}"
+                    } ?: "Acumulado/intervalo: sin dato", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    Text(weather.precipProbNextHours?.let { "Máx. en hasta 3 datos horarios: $it %" } ?: "Probabilidad: sin dato", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                }
+            }
+        Text("Estimación modelada por Open-Meteo · última consulta ${formatHomeTime(weather.fetchedAtMs)} · sin GPS · no representa necesariamente tu zona de trabajo", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 8.dp))
+            if (state.error != null) Text("Actualización fallida; se conserva el dato anterior. ${state.error}", style = MaterialTheme.typography.bodySmall, color = Amber)
+        } else {
+            Text(
+                when {
+                    state.loading -> "Consultando Open-Meteo…"
+                    !state.enabled -> "Clima externo desactivado en esta compilación. Una distribución comercial requiere una fuente/plan autorizado."
+                    else -> state.error ?: "Todavía no hay una lectura meteorológica disponible."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (state.enabled) TextMuted else Amber,
+            )
+        }
+        Text("Weather data by Open-Meteo.com · CC BY 4.0. La probabilidad muestra el máximo de hasta 3 datos horarios. Es referencia modelada, no observación de estación, demanda ni alerta oficial del SMN.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(enabled = state.enabled && !state.loading, onClick = onRefresh, modifier = Modifier.weight(1f)) { Text("Actualizar") }
+            TextButton(onClick = onOpenSource) { Text("Fuente") }
+            TextButton(onClick = onOpenLicense) { Text("Licencia") }
+        }
     }
 }
 

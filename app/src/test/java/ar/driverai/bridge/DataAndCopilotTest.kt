@@ -180,6 +180,23 @@ class DataAndCopilotTest {
     assertTrue(missingEvents, missingEvents.contains("no informó una lista de eventos"))
     val emptyEvents = ReporteResponse(ok = true, eventos = emptyList())
     val noEventsListed = CopilotEngine.answer("eventos esta noche", ctx(reporte = emptyEvents))
-    assertTrue(noEventsListed, noEventsListed.contains("no listó eventos"))
+        assertTrue(noEventsListed, noEventsListed.contains("no listó eventos"))
+    }
+
+    @Test fun copiloto_porQue_priorizaFallaEconomicaSobreRatingAprobado() {
+        val offer = OfferData(
+            fare = Reading.manual(2000.0),
+            tripKm = Reading.manual(5.0),
+            tripMin = Reading.manual(20.0),
+            passengerRating = Reading.manual(4.9),
+        )
+        val evaluation = OfferEvaluator.evaluate(
+            offer,
+            DriverSettings(minGrossPerKm = 800.0, minPassengerRating = 4.5),
+        )
+
+        val answer = CopilotEngine.answer("¿por qué?", ctx(evaluation))
+        assertTrue(answer, answer.contains("Bruto por km"))
+        assertFalse(answer, answer.contains("4,9/5"))
     }
 }

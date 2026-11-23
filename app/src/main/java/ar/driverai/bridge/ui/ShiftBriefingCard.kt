@@ -26,17 +26,17 @@ fun ShiftBriefingCard(snapshot: ShiftBriefingSnapshot?, now: Long, message: Stri
             color = if (old) Amber else Color.LightGray,
         )
         Text("Zona inicial elegida: ${snapshot.selectedZone ?: "no elegida"}")
-        Text("Nivel de demanda estimado por el servicio: ${snapshot.demandLevel?.replace('_', ' ') ?: "no informado"}")
-        Text("Zona que el servicio destaca ahora: ${snapshot.bestZoneNow ?: "no informada"}")
-        Text("Zona que el servicio destaca en 2 h: ${snapshot.bestZoneIn2h ?: "no informada"}")
+        Text("Demanda estimada por el servicio: ${snapshot.demandLevel?.replace('_', ' ') ?: "no informada"}")
+        Text("Zona sugerida por el servicio ahora (sin feed verificado): ${snapshot.bestZoneNow ?: "no informada"}")
+        Text("Zona sugerida por el servicio en 2 h (sin feed verificado): ${snapshot.bestZoneIn2h ?: "no informada"}")
 
         val weather = buildList {
             snapshot.temperatureC?.let { add("${Fmt.num(it)} °C") }
             snapshot.rainNow?.let { add("lluvia ahora ${if (it) "sí" else "no"}") }
             snapshot.rainProbability3h?.let { add("probabilidad de lluvia 3 h ${Fmt.num(it, 0)} %") }
         }
-        Text(if (weather.isEmpty()) "Clima: sin datos informados." else "Clima informado: ${weather.joinToString(", ")}")
-        Text("Eventos: ${snapshot.eventsListed?.let { "$it listados por el servicio" } ?: "lista no informada"}.")
+        Text(if (weather.isEmpty()) "Clima estimado por el servicio: sin dato informado." else "Clima estimado por el servicio: ${weather.joinToString(", ")} (fuente/vigencia por variable desconocidas).")
+        Text("Eventos del servicio: ${snapshot.eventsListed?.let { "$it listados; no verificados" } ?: "lista no informada"}.")
 
         if (old) Text("La consulta tiene más de 30 min; no la tomes como actual.", color = Amber)
         Text(

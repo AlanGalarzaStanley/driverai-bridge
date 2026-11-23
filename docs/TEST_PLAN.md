@@ -2,6 +2,12 @@
 
 Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Actions · **P** = pendiente (requiere teléfono real o Uber).
 
+## Cambios de `manus/premium-driver-cockpit` — validación pendiente
+- Lector de accesibilidad: recoge texto efímero de eventos de Uber cuando Android devuelve otra ventana, limpia datos al cambiar de app/ventana y no actúa sobre controles. **CI y prueba física de una solicitud entrante: P.**
+- Rating del pasajero: umbral explícito 1–5; rating ausente/ambiguo/de baja confianza → REVISAR; rating bajo no produce tarifa piso. **CI: P.**
+- Open-Meteo: solo build debug privada, punto fijo CABA Centro, sin GPS, con atribución/licencia; release apagado hasta fuente/plan autorizado. **CI/teléfono: P.**
+- Home/cockpit muestra billetera, km y estado de fuentes; vuelos, cruceros, eventos y demanda por franja siguen sin feed verificado.
+
 ## Resultado de la última ejecución verificada
 - Android CI manual run `45077279565`, commit `b2e5d59`: **unitarias, lint, compilación/verificación del APK y emulador pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45077279565).
   - Añadió el piso de tarifa que alcanza el máximo de los umbrales configurados de tarifa, bruto/km, bruto/h y margen; se omite ante datos incompletos o inciertos, recogida desconocida para métricas de recorrido, costo de combustible vencido para margen, margen sin piso finito o resultados fuera de rango. Se muestran los supuestos y no se presenta como oferta futura.
@@ -27,14 +33,15 @@ Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Action
 ## A. Unitarias (`app/src/test`, JVM)
 | Área | Archivo | Casos | Estado |
 |---|---|---|---|
-| Motor económico | `OfferEvaluatorTest` | ejemplo $8.000/10 km/25 min → $800/km y $19.200/h; desfavorable; límite exacto (≥); justo debajo; sin umbrales; sin recogida (pasa → REVISAR, falla → NO CONVIENE); recogida por defecto y parcial estimada; tarifa piso combinada por km/h/tarifa/margen con redondeo hacia arriba; retorno vacío; umbrales/costos inválidos; OCR con confianza no finita; desbordes; combustible vencido o con fecha futura; margen 100 % sin piso finito; formatos | CI (run 24) |
-| Parser / OCR | `OfferTextParserTest` | importes AR/US/ambiguos y ARS al final; oferta clara es/en (millas); horas+min; metros; sin etiquetas; un solo par ambiguo; texto parcial; no-oferta; bonos y $/h ignorados; varios importes; correcciones OCR (S→$, rn→m); distancia-antes-de-tiempo; espacios no separables | CI (run 24) |
-| Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva solo importes (también ARS al final), tiempos, distancias y etiquetas permitidas; descarta nombres/direcciones/texto libre; no trata “Km 25” como distancia; limita y normaliza fragmentos; copia campos, confianza porcentual y veredicto reducidos | CI (run 24) |
+| Motor económico | `OfferEvaluatorTest` | ejemplos y umbrales existentes; tarifa piso combinada; límites, incertidumbre y desbordes; rating (igualdad, ausente/baja confianza → REVISAR, bajo sin tarifa piso, rating solo no sustituye economía); copiloto prioriza falla económica frente a rating aprobado | Anterior: CI (run 24); casos nuevos: P |
+| Parser / OCR | `OfferTextParserTest` | importes AR/US/ambiguos; tiempo/distancia; no-oferta; correcciones OCR; rating solo con etiqueta inequívoca del pasajero; tarifa y par tiempo/distancia fragmentados entre nodos/eventos; exige señal de solicitud más tarifa, km y minutos, y rechaza historiales completos | Anterior: CI (run 24); casos nuevos: P |
+| Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva métricas/etiquetas permitidas; descarta nombres/direcciones/texto libre; límites/normalización; acepta rating con etiqueta inequívoca de pasajero, no etiquetas genéricas de usuario | Anterior: CI (run 24); casos nuevos: P |
 | Backend | `BackendTest` (MockWebServer) | contrato real de ambos endpoints (JSON capturado), path/método/body, sin `Authorization`; campos nuevos/faltantes; HTTP 500; `ok:false`; JSON inválido; timeout; desconexión; contexto desactualizado y conservación del último dato | CI (run 24) |
 | Briefing | `ShiftBriefingTest` + `BackendTest` | snapshot local minimizado, hora de recepción, campos de contexto, eventos ausentes vs lista vacía | CI (run 24) |
 | Datos y copiloto | `DataAndCopilotTest` | persistencia DataStore; JSON corrupto; historial (límite 100, sin texto); turno $/h; billetera ARS con fechas locales y parseo de miles/decimales; odómetro monotónico/upsert diario; vencimientos por fecha/km; resumen horario de ofertas claramente separado de cobros; intenciones y respuestas del copiloto, incluida tarifa piso | CI (run 24) |
+| Clima de prueba | `OpenMeteoClientTest` | precipitación ausente no equivale a cero; cero explícito; intervalo reportado; probabilidad horaria; timestamp y punto fijo; repositorio release deshabilitado | P |
 
-La validación de esta rama pasó en el runner Linux x86_64 de GitHub Actions (run `45077279565`). En la sandbox local no está configurado Android SDK/`ANDROID_HOME`, por lo que Gradle local no pudo ejecutarse; la validación reproducible de este cambio es la de CI.
+La última validación exitosa previa a los cambios actuales fue el run `45077279565` del commit `b2e5d59` (runner Linux x86_64). No valida este diff; sus pruebas siguen pendientes de un nuevo CI. En la sandbox local no está configurado Android SDK/`ANDROID_HOME`, por lo que Gradle local no pudo ejecutarse.
 
 ## B. Integración
 | Prueba | Estado |

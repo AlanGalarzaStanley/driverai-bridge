@@ -23,7 +23,9 @@ object OfferEvaluator {
         var lowConfidence = false
         val minConf = s.tolerance.minConfidence
         val thresholdValues = listOf(s.minFare, s.minGrossPerKm, s.minGrossPerHour, s.minMarginPct)
-        val invalidThresholds = thresholdValues.any { it != null && (!it.isFinite() || it < 0.0) } || (s.minMarginPct ?: 0.0) > 100.0
+        val invalidRatingThreshold = s.minPassengerRating?.let { !it.isFinite() || it !in 1.0..5.0 } == true
+        val invalidThresholds = thresholdValues.any { it != null && (!it.isFinite() || it < 0.0) } ||
+            (s.minMarginPct ?: 0.0) > 100.0 || invalidRatingThreshold
         if (invalidThresholds) {
             invalid = true
             reasons += Reason(ReasonKind.AVISO, "Hay un umbral personal inválido; corregilo en Ajustes.")
@@ -54,6 +56,13 @@ object OfferEvaluator {
         }
 
         val fare = usable("la tarifa", offer.fare, mustBePositive = true)
+        val passengerRating = if (s.minPassengerRating != null) {
+            usable("la calificación del pasajero", offer.passengerRating, mustBePositive = true)
+        } else null
+        if (passengerRating != null && passengerRating !in 1.0..5.0) {
+            invalid = true
+            reasons += Reason(ReasonKind.AVISO, "La calificación del pasajero está fuera de la escala válida 1–5.")
+        }
         val tripKm = usable("la distancia del viaje", offer.tripKm, mustBePositive = true)
         val tripMin = usable("el tiempo del viaje", offer.tripMin, mustBePositive = true)
         var pickupKm = usable("la distancia a la recogida", offer.pickupKm, mustBePositive = false)
@@ -155,6 +164,21 @@ object OfferEvaluator {
         } else {
             check("Margen", margin, s.minMarginPct, { Fmt.num(it) + " %" }, "faltan tarifa o km")
         }
+        var nonEconomicFailure = false
+        s.minPassengerRating?.let { threshold ->
+            when {
+                passengerRating == null -> {
+                    anyUnknown = true
+                    reasons += Reason(ReasonKind.AVISO, "Calificación del pasajero: no se pudo leer una calificación explícita en esta oferta.")
+                }
+                passengerRating < threshold -> {
+                    anyFail = true
+                    nonEconomicFailure = true
+                    reasons += Reason(ReasonKind.FALLA, "Calificación del pasajero ${Fmt.num(passengerRating, 2)}/5 < mínimo ${Fmt.num(threshold, 2)}/5.")
+                }
+                else -> reasons += Reason(ReasonKind.PASA, "Calificación del pasajero ${Fmt.num(passengerRating, 2)}/5 ≥ mínimo ${Fmt.num(threshold, 2)}/5.")
+            }
+        }
 
         if (s.fuelPricePerLiter != null) {
             val updated = s.fuelPriceUpdatedAt
@@ -177,8 +201,8 @@ object OfferEvaluator {
         }
 
         val verdict = when {
-            !s.hasAnyThreshold -> {
-                reasons.add(0, Reason(ReasonKind.AVISO, "Configurá al menos un umbral en Ajustes para recibir una recomendación."))
+            !s.hasEconomicThreshold -> {
+                reasons.add(0, Reason(ReasonKind.AVISO, "Configurá al menos un umbral económico en Ajustes; la calificación sola no evalúa la rentabilidad."))
                 Verdict.REVISAR
             }
             fare == null -> {
@@ -205,6 +229,7 @@ object OfferEvaluator {
             pickupAssumed = pickupAssumed,
             pickupKmAssumed = pickupKmAssumed,
             pickupMinAssumed = pickupMinAssumed,
+            nonEconomicFailure = nonEconomicFailure,
             nowMillis = nowMillis,
         )
 
@@ -228,9 +253,10 @@ object OfferEvaluator {
         pickupAssumed: Boolean,
         pickupKmAssumed: Boolean,
         pickupMinAssumed: Boolean,
+        nonEconomicFailure: Boolean,
         nowMillis: Long,
     ): FareAlternative? {
-        if (verdict != Verdict.NO_CONVIENE || invalid || lowConfidence || anyUnknown || currentFare == null) return null
+        if (verdict != Verdict.NO_CONVIENE || invalid || lowConfidence || anyUnknown || nonEconomicFailure || currentFare == null) return null
 
         val routeThresholdConfigured = settings.minGrossPerKm != null ||
             settings.minGrossPerHour != null || settings.minMarginPct != null

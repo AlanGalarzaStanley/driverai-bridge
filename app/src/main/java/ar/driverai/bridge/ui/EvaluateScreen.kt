@@ -55,12 +55,14 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
     var pmin by remember { mutableStateOf("") }
     var tkm by remember { mutableStateOf("") }
     var tmin by remember { mutableStateOf("") }
+    var passengerRating by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<EvalRecord?>(null) }
     val focus = androidx.compose.ui.platform.LocalFocusManager.current
 
     fun load(o: OfferData) {
         fare = fmtField(o.fare.value); pkm = fmtField(o.pickupKm.value); pmin = fmtField(o.pickupMin.value)
         tkm = fmtField(o.tripKm.value); tmin = fmtField(o.tripMin.value)
+        passengerRating = fmtField(o.passengerRating.value)
     }
     LaunchedEffect(prefill) { if (prefill) { last?.evaluation?.offer?.let(::load); onPrefillConsumed() } }
 
@@ -76,6 +78,7 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
                 ConfRow("Recogida min", o.pickupMin) { Fmt.num(it, 0) }
                 ConfRow("Viaje km", o.tripKm) { Fmt.num(it) }
                 ConfRow("Viaje min", o.tripMin) { Fmt.num(it, 0) }
+                ConfRow("Calificación del pasajero", o.passengerRating) { "${Fmt.num(it, 2)}/5" }
                 rec.notes.forEach { Text("Nota: $it", style = MaterialTheme.typography.bodySmall) }
                 OutlinedButton(onClick = { load(o) }) { Text("Corregir estos datos abajo") }
             }
@@ -96,9 +99,16 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
             Column(Modifier.weight(1f)) { field("Km del viaje", tkm, "in_tkm") { tkm = it } }
             Column(Modifier.weight(1f)) { field("Min del viaje", tmin, "in_tmin") { tmin = it } }
         }
+        field("Calificación del pasajero (1–5, si está visible)", passengerRating, "in_passenger_rating") { passengerRating = it }
         Button(onClick = {
-            val offer = OfferData(Reading.manual(parseUserNumber(fare)), Reading.manual(parseUserNumber(pkm)), Reading.manual(parseUserNumber(pmin)),
-                Reading.manual(parseUserNumber(tkm)), Reading.manual(parseUserNumber(tmin)))
+            val offer = OfferData(
+                fare = Reading.manual(parseUserNumber(fare)),
+                pickupKm = Reading.manual(parseUserNumber(pkm)),
+                pickupMin = Reading.manual(parseUserNumber(pmin)),
+                tripKm = Reading.manual(parseUserNumber(tkm)),
+                tripMin = Reading.manual(parseUserNumber(tmin)),
+                passengerRating = Reading.manual(parseUserNumber(passengerRating)),
+            )
             result = g.pipeline.evaluateManual(offer)
             focus.clearFocus() // cierra el teclado para que se vea el resultado
         }, modifier = Modifier.fillMaxWidth().height(56.dp).testTag("btn_evaluate")) { Text("Evaluar") }

@@ -34,6 +34,8 @@ data class OfferData(
     val tripKm: Reading = Reading.MISSING,
     val tripMin: Reading = Reading.MISSING,
     val product: String? = null,
+    /** Rating del pasajero solo si aparece explícitamente etiquetado en la oferta. */
+    val passengerRating: Reading = Reading.MISSING,
 )
 
 /** Exigencia de confianza mínima para aceptar datos leídos automáticamente. */
@@ -72,8 +74,13 @@ data class DriverSettings(
     val homeZone: String? = null,
     val currentZone: String? = null,
     val overlayCompact: Boolean = false,
+    /** Umbral opcional de calificación del pasajero, en escala 1–5. */
+    val minPassengerRating: Double? = null,
 ) {
     val hasAnyThreshold: Boolean
+        get() = hasEconomicThreshold || minPassengerRating != null
+
+    val hasEconomicThreshold: Boolean
         get() = minFare != null || minGrossPerKm != null || minGrossPerHour != null || minMarginPct != null
 
     /** Costo variable por km combinando costo propio + combustible, si están configurados. */

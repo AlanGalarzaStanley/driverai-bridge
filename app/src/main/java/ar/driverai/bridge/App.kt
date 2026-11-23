@@ -7,6 +7,7 @@ import android.content.Context
 import android.os.Build
 import androidx.datastore.preferences.preferencesDataStore
 import ar.driverai.bridge.backend.DriverAiApi
+import ar.driverai.bridge.backend.LocalWeatherRepository
 import ar.driverai.bridge.backend.StrategicRepository
 import ar.driverai.bridge.backend.ShiftBriefingRepository
 import ar.driverai.bridge.capture.OfferPipeline
@@ -58,6 +59,7 @@ class AppGraph(val app: DriverAiApp) {
     val vehicleRepo = VehicleRecordsRepository(app.driverStore)
     val api = DriverAiApi(BuildConfig.BACKEND_BASE_URL)
     val strategic = StrategicRepository(api)
+    val weather = LocalWeatherRepository()
     val shiftBriefing = ShiftBriefingRepository(app.driverStore)
     val settings: StateFlow<DriverSettings> = settingsRepo.settings.stateIn(scope, SharingStarted.Eagerly, DriverSettings())
     val tts: TtsManager by lazy { TtsManager(app) }

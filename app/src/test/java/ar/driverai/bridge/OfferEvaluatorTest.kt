@@ -248,6 +248,37 @@ class OfferEvaluatorTest {
         assertNull(e.metrics.grossPerHour)
     }
 
+    @Test fun umbralRatingPasajero_pasaEnIgualdadYNoAlteraLecturasSinUmbral() {
+        val base = offer(8000.0, 1.0, 3.0, 8.0, 20.0)
+        val rated = base.copy(passengerRating = Reading(4.8, 0.95, DataSource.ACCESSIBILITY))
+        assertEquals(Verdict.CONVIENE, OfferEvaluator.evaluate(rated, DriverSettings(minGrossPerKm = 500.0, minPassengerRating = 4.8)).verdict)
+        assertEquals(Verdict.CONVIENE, OfferEvaluator.evaluate(base, DriverSettings(minGrossPerKm = 500.0)).verdict)
+    }
+
+    @Test fun umbralRatingBajoRechazaSinMostrarPisoQueElPrecioNoPuedeResolver() {
+        val rated = offer(8000.0, 1.0, 3.0, 8.0, 20.0).copy(passengerRating = Reading.manual(4.2))
+        val e = OfferEvaluator.evaluate(rated, DriverSettings(minGrossPerKm = 500.0, minPassengerRating = 4.8))
+        assertEquals(Verdict.NO_CONVIENE, e.verdict)
+        assertNull(e.fareAlternative)
+        assertTrue(e.reasons.any { it.kind == ReasonKind.FALLA && it.text.contains("Calificación del pasajero") })
+    }
+
+    @Test fun umbralRatingSinDatoOConBajaConfianza_revisar() {
+        val settings = DriverSettings(minGrossPerKm = 500.0, minPassengerRating = 4.8)
+        val missing = OfferEvaluator.evaluate(offer(8000.0, 1.0, 3.0, 8.0, 20.0), settings)
+        assertEquals(Verdict.REVISAR, missing.verdict)
+        assertTrue(missing.reasons.any { it.text.contains("no se pudo leer una calificación explícita") })
+        val low = offer(8000.0, 1.0, 3.0, 8.0, 20.0).copy(passengerRating = Reading(4.9, 0.4, DataSource.OCR))
+        assertEquals(Verdict.REVISAR, OfferEvaluator.evaluate(low, settings).verdict)
+    }
+
+    @Test fun ratingSoloNoReemplazaUnUmbralEconomico() {
+        val rated = offer(8000.0, 1.0, 3.0, 8.0, 20.0).copy(passengerRating = Reading.manual(4.9))
+        val e = OfferEvaluator.evaluate(rated, DriverSettings(minPassengerRating = 4.8))
+        assertEquals(Verdict.REVISAR, e.verdict)
+        assertTrue(e.reasons.any { it.text.contains("umbral económico") })
+    }
+
     @Test fun formatos() {
         assertEquals("$8.000", Fmt.ars(8000.0))
         assertEquals("$19.200", Fmt.ars(19200.0))

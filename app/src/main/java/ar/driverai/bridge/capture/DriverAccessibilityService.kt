@@ -24,6 +24,9 @@ class DriverAccessibilityService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var lastScanAt = 0L
     private var offerOnScreen = false
+    private var pendingEventPackage: String? = null
+    /** Texto efímero del evento: nunca se persiste ni se envía fuera del teléfono. */
+    private val pendingEventTexts = linkedSetOf<String>()
     private val scanRunnable = Runnable { scan() }
 
     override fun onServiceConnected() {
@@ -31,7 +34,8 @@ class DriverAccessibilityService : AccessibilityService() {
         instance = this
         serviceInfo = serviceInfo.apply {
             packageNames = watchedPackages(this@DriverAccessibilityService).toTypedArray()
-            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+            eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+                AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED or AccessibilityEvent.TYPE_VIEW_SCROLLED
             feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = 250
             flags = flags or AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
@@ -41,32 +45,67 @@ class DriverAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
-        if (pkg !in watchedPackages(this)) return
-        if (pkg == packageName && !SimulatorActivity.isVisible) return
+        if (pkg !in watchedPackages(this) || (pkg == packageName && !SimulatorActivity.isVisible)) {
+            pendingEventTexts.clear()
+            pendingEventPackage = null
+            handler.removeCallbacks(scanRunnable)
+            if (offerOnScreen) DriverAiApp.graph.pipeline.onOfferGone()
+            offerOnScreen = false
+            return
+        }
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) pendingEventTexts.clear()
+        pendingEventPackage = pkg
+        event.text.orEmpty().forEach { addEventText(it.toString()) }
+        event.contentDescription?.toString()?.let(::addEventText)
         handler.removeCallbacks(scanRunnable)
         // Cambio de ventana (aparece una tarjeta) → rápido. Cambios de contenido (mapa animado)
         // sin oferta reciente → se espacian los escaneos para ahorrar batería.
-        val stateChange = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
-        val minGap = if (stateChange || offerOnScreen) MIN_INTERVAL_MS else IDLE_INTERVAL_MS
+        val urgentChange = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
+            event.eventType == AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED
+        val minGap = if (urgentChange || offerOnScreen) MIN_INTERVAL_MS else IDLE_INTERVAL_MS
         val since = System.currentTimeMillis() - lastScanAt
         handler.postDelayed(scanRunnable, if (since > minGap) DEBOUNCE_MS else minGap - since)
     }
 
     private fun scan() {
         lastScanAt = System.currentTimeMillis()
-        val root = rootInActiveWindow ?: return
-        val pkg = root.packageName?.toString()
-        val pipeline = DriverAiApp.graph.pipeline
-        if (pkg == null || pkg !in watchedPackages(this) || (pkg == packageName && !SimulatorActivity.isVisible)) {
-            pipeline.onOfferGone(); return
+        val eventTexts = pendingEventTexts.toList()
+        val eventPackage = pendingEventPackage
+        pendingEventTexts.clear()
+        pendingEventPackage = null
+        val root = rootInActiveWindow
+        val rootPackage = root?.packageName?.toString()
+        if (rootPackage != null && rootPackage != eventPackage) {
+            offerOnScreen = false
+            DriverAiApp.graph.pipeline.onOfferGone()
+            return
         }
-        val texts = collectTexts(root)
+        if (rootPackage != eventPackage || root == null) {
+            if (eventTexts.isEmpty()) {
+                offerOnScreen = false
+                DriverAiApp.graph.pipeline.onOfferGone()
+                return
+            }
+            val found = DriverAiApp.graph.pipeline.onScreenText(eventTexts, DataSource.ACCESSIBILITY)
+            offerOnScreen = found
+            if (!found) DriverAiApp.graph.pipeline.onOfferGone()
+            return
+        }
+        val pipeline = DriverAiApp.graph.pipeline
+        val texts = (collectTexts(root) + eventTexts).distinct()
         val found = pipeline.onScreenText(texts, DataSource.ACCESSIBILITY)
         offerOnScreen = found
         if (!found) pipeline.onOfferGone()
     }
 
     override fun onInterrupt() {}
+
+    private fun addEventText(text: String) {
+        val safeText = text.trim().take(MAX_EVENT_TEXT_CHARS)
+        if (safeText.isBlank()) return
+        if (pendingEventTexts.size >= MAX_EVENT_TEXTS) pendingEventTexts.remove(pendingEventTexts.first())
+        pendingEventTexts += safeText
+    }
 
     override fun onDestroy() {
         handler.removeCallbacks(scanRunnable)
@@ -81,6 +120,8 @@ class DriverAccessibilityService : AccessibilityService() {
         private const val MIN_INTERVAL_MS = 300L
         private const val IDLE_INTERVAL_MS = 900L
         private const val MAX_NODES = 400
+        private const val MAX_EVENT_TEXTS = 80
+        private const val MAX_EVENT_TEXT_CHARS = 300
         @Volatile var instance: DriverAccessibilityService? = null
             private set
 

@@ -32,6 +32,7 @@ data class DiagnosticSnapshot(
     val fare: DiagnosticField,
     val tripKm: DiagnosticField,
     val tripMin: DiagnosticField,
+    val passengerRating: DiagnosticField,
     val verdict: String,
 ) {
     fun clipboardText(): String = buildString {
@@ -41,6 +42,7 @@ data class DiagnosticSnapshot(
         appendLine("Tarifa detectada: ${fare.displayText()}")
         appendLine("Distancia del viaje: ${tripKm.displayText()}")
         appendLine("Duración del viaje: ${tripMin.displayText()}")
+        appendLine("Calificación del pasajero: ${passengerRating.displayText()}")
         appendLine("Fragmentos anonimizados:")
         if (snippets.isEmpty()) appendLine("- ninguno")
         else snippets.forEach { appendLine("- $it") }
@@ -87,6 +89,7 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
             fare = diagnosticField(offer.fare, Fmt::ars),
             tripKm = diagnosticField(offer.tripKm) { "${Fmt.num(it)} km" },
             tripMin = diagnosticField(offer.tripMin) { "${Fmt.num(it)} min" },
+            passengerRating = diagnosticField(offer.passengerRating) { "${Fmt.num(it, 2)}/5" },
             verdict = verdict,
         )
     }
@@ -105,7 +108,7 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
             return false
         }
         val o = parsed.offer
-        val sig = listOf(o.fare.value, o.tripKm.value, o.tripMin.value, o.pickupKm.value, o.pickupMin.value).joinToString("|")
+        val sig = listOf(o.fare.value, o.tripKm.value, o.tripMin.value, o.pickupKm.value, o.pickupMin.value, o.passengerRating.value).joinToString("|")
         val now = clock()
         if (sig == lastSignature && now - lastSignatureAt < DEDUPE_MS) {
             recordDiagnostic(source, fragments, parsed.offer, _last.value?.evaluation?.verdict?.label ?: "REVISAR")

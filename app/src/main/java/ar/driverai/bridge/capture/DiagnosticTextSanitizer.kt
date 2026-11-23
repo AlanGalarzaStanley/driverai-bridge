@@ -9,6 +9,9 @@ object DiagnosticTextSanitizer {
     private val money = Regex("""(?i)(?:ARS\s*)?\$\s*\d[\d.,]*|\d[\d.,]*\s*ARS\b""")
     private val duration = Regex("""(?i)(?:\d{1,2}\s*h(?:s|oras?)?\.?\s*)?\d{1,3}\s*min(?:s|utos)?\.?""")
     private val distance = Regex("""(?i)\d+(?:[.,]\d+)?\s*(?:km|mi|m)\b""")
+    private val passengerRating = Regex(
+        """(?i)(?:calificaci[oó]n\s+(?:del\s+)?pasajero|pasajero\s+(?:calificaci[oó]n|rating)|(?:rider|passenger)\s+rating|rating\s+(?:del\s+)?(?:pasajero|rider|passenger))\s*[:·\-]?\s*[1-5](?:[.,]\d{1,2})?""",
+    )
     private val safeLabels = listOf(
         "tarifa", "fare", "precio", "oferta", "offer", "viaje", "trip", "recogida", "pickup",
         "uberx", "uber x", "comfort", "black", "xl", "solicitud", "request", "tiempo", "distancia",
@@ -32,6 +35,7 @@ object DiagnosticTextSanitizer {
                 money.findAll(text).forEach { add(it.range.first to it.value.trim()) }
                 duration.findAll(text).forEach { add(it.range.first to it.value.trim()) }
                 distance.findAll(text).forEach { add(it.range.first to it.value.trim()) }
+                passengerRating.findAll(text).forEach { add(it.range.first to it.value.trim()) }
             }.sortedBy { it.first }.map { it.second }.distinct()
 
             val labels = safeLabelPattern.findAll(text)

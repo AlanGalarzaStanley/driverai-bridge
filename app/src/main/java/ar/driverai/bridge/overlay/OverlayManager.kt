@@ -83,6 +83,12 @@ class OverlayManager(private val app: Context) {
         val lines = mutableListOf<String>()
         lines += listOfNotNull(m.fare?.let { Fmt.ars(it) }, m.totalKm?.let { Fmt.num(it) + " km tot." }, m.totalMin?.let { Fmt.num(it, 0) + " min tot." }).joinToString(" · ")
         lines += listOfNotNull(m.grossPerKm?.let { Fmt.ars(it) + "/km" }, m.grossPerHour?.let { Fmt.ars(it) + "/h" }).joinToString(" · ").ifEmpty { "Métricas incompletas" } + " (bruto)"
+        val rating = e.offer.passengerRating
+        val ratingLine = when {
+            rating.value != null -> "Calificación del pasajero: ${Fmt.num(rating.value, 2)}/5 · confianza ${(rating.confidence * 100).toInt()} %"
+            DriverAiApp.graph.settings.value.minPassengerRating != null -> "Calificación del pasajero: no detectada"
+            else -> null
+        }
         val primaryReason = e.reasons.firstOrNull { it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO }?.text
         val alternativeLine = e.fareAlternative?.let { alternative ->
             val assumptions = listOfNotNull(
@@ -93,8 +99,8 @@ class OverlayManager(private val app: Context) {
             "Piso teórico (no oferta futura): ${Fmt.ars(alternative.minimumFare)}" + if (assumptions.isNotEmpty()) " ($assumptions)" else ""
         }
         val src = when (rec.source.name) { "ACCESSIBILITY" -> "leído de pantalla"; "OCR" -> "leído por OCR"; else -> "ingreso manual" }
-        val compactBody = listOfNotNull(lines.getOrNull(1), primaryReason, alternativeLine)
-        val fullBody = lines + listOfNotNull(primaryReason, alternativeLine, "Fuente: $src. Vos decidís en Uber.")
+        val compactBody = listOfNotNull(lines.getOrNull(1), ratingLine, primaryReason, alternativeLine)
+        val fullBody = lines + listOfNotNull(ratingLine, primaryReason, alternativeLine, "Fuente: $src. Vos decidís en Uber.")
         render(e.verdict.label, color, if (compact) compactBody else fullBody, rec.at, compact)
     }
 

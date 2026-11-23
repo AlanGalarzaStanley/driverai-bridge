@@ -94,6 +94,16 @@ class AppInstrumentedTest {
         assertTrue(waitFor(3000) { DriverAiApp.graph.settings.value.minGrossPerHour == 15000.0 })
     }
 
+    @Test fun ajustes_rechazanUmbralRatingNoFinito() {
+        compose.onNodeWithTag("tab_mas").performClick()
+        compose.onNodeWithTag("tab_ajustes").performClick()
+        compose.onNodeWithTag("set_min_passenger_rating").performTextInput("NaN")
+        compose.onNodeWithTag("btn_save").performScrollTo().performClick()
+
+        compose.onNodeWithTag("settings_msg").assertTextContains("Valores inválidos")
+        assertNull(DriverAiApp.graph.settings.value.minPassengerRating)
+    }
+
     @Test fun tarjetaFlotante_apareceYSeCierra() {
         compose.onNodeWithTag("tab_mas").performClick()
         compose.onNodeWithTag("tab_diag").performClick()
@@ -171,7 +181,7 @@ class AppInstrumentedTest {
 
     @Test fun deduplicacion_mismaOfertaNoSeRepite() {
         val p = DriverAiApp.graph.pipeline
-        val frags = listOf("$ 7.777", "A 3 min (1 km)", "Viaje de 10 min (5 km)")
+        val frags = listOf("Toca para aceptar", "$ 7.777", "A 3 min (1 km)", "Viaje de 10 min (5 km)")
         val before = p.offersDetected
         assertTrue(p.onScreenText(frags, DataSource.ACCESSIBILITY))
         assertTrue(p.onScreenText(frags, DataSource.ACCESSIBILITY))

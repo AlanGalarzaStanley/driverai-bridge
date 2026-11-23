@@ -21,7 +21,7 @@ class OfferTextParserTest {
     }
 
     @Test fun formatoOfertaConCodigoARSAlFinal_enAccesibilidadYOCR() {
-        val lines = listOf("Comfort", "11.405 ARS", "35 min · 12.2 km", "A 6 min (2.1 km)", "Viaje: 29 min (10.1 km)")
+        val lines = listOf("Comfort", "Nueva solicitud", "11.405 ARS", "35 min · 12.2 km", "A 6 min (2.1 km)", "Viaje: 29 min (10.1 km)")
         val accessibility = OfferTextParser.parse(lines, DataSource.ACCESSIBILITY)
         val ocr = OfferTextParser.parse(lines, DataSource.OCR)
 
@@ -109,16 +109,28 @@ class OfferTextParserTest {
         assertEquals(Verdict.REVISAR, e.verdict)
     }
 
-    @Test fun textoParcial_soloTarifa() {
+    @Test fun textoParcial_soloTarifaNoSePresentaComoOfertaEntendida() {
         val r = p("Comfort", "$ 12.300", "Solicitud nueva", "Toca para aceptar")
-        assertTrue(r.isLikelyOffer)
+        assertFalse(r.isLikelyOffer)
+        assertEquals(12300.0, r.offer.fare.value!!, 0.0)
         assertNull(r.offer.tripKm.value)
-        assertEquals(Verdict.REVISAR, OfferEvaluator.evaluate(r.offer, DriverSettings(minGrossPerKm = 100.0)).verdict)
+        assertNull(r.offer.tripMin.value)
+    }
+
+    @Test fun faltanteTarifaKmOMinutosNoSeCompletaNiSeDeclaraOfertaEntendida() {
+        assertFalse(p("Solicitud nueva", "Viaje de 18 min (9,3 km)").isLikelyOffer)
+        assertFalse(p("$ 8.540", "Solicitud nueva", "Viaje de 18 min").isLikelyOffer)
+        assertFalse(p("$ 8.540", "Solicitud nueva", "Viaje de 9,3 km").isLikelyOffer)
+        val reverseFragments = p("Solicitud nueva", "$ 8.540", "Viaje", "9,3 km", "18 min")
+        assertTrue(reverseFragments.isLikelyOffer)
+        assertEquals(9.3, reverseFragments.offer.tripKm.value!!, 1e-9)
+        assertEquals(18.0, reverseFragments.offer.tripMin.value!!, 0.0)
     }
 
     @Test fun noEsOferta() {
         assertFalse(p("Estás en línea", "Buscando viajes").isLikelyOffer)
         assertFalse(p("Ganancias de hoy", "Ver detalles").isLikelyOffer)
+        assertFalse(p("Viaje completado", "UberX", "$ 8.540", "Viaje: 18 min (9,3 km)").isLikelyOffer)
     }
 
     @Test fun bonosYTarifasPorUnidadSeIgnoran() {
@@ -151,5 +163,24 @@ class OfferTextParserTest {
         val o = p("$\u00A08.540", "A\u00A04\u00A0min (1,2\u00A0km)", "Viaje de 18 min (9,3 km)").offer
         assertEquals(8540.0, o.fare.value!!, 0.0)
         assertEquals(1.2, o.pickupKm.value!!, 1e-9)
+    }
+
+    @Test fun ratingPasajeroSoloConEtiquetaExplicita() {
+        val r = p("Comfort", "$ 13.358", "Solicitud nueva", "Calificación del pasajero: 4,92", "Viaje: 18 min (9,3 km)")
+        assertTrue(r.isLikelyOffer)
+        assertEquals(4.92, r.offer.passengerRating.value!!, 1e-9)
+        assertEquals(DataSource.ACCESSIBILITY, r.offer.passengerRating.source)
+        assertNull(p("UberX", "$ 8.540", "Solicitud nueva", "Tu calificación 4,98", "Conductor 4,9").offer.passengerRating.value)
+        assertNull(p("UberX", "$ 8.540", "Solicitud nueva", "Calificación del pasajero 4,92", "Calificación del usuario 4,80").offer.passengerRating.value)
+        assertNull(p("UberX", "$ 8.540", "Solicitud nueva", "User rating 4.90").offer.passengerRating.value)
+        assertNull(p("UberX", "$ 8.540", "Solicitud nueva", "Calificación del pasajero 5,2").offer.passengerRating.value)
+    }
+
+    @Test fun tarifaYParDeRutaFragmentadosEnEventosDeAccesibilidad() {
+        val r = p("UberX", "$", "13.358", "Solicitud nueva", "Viaje", "18 min", "9,3 km")
+        assertTrue(r.isLikelyOffer)
+        assertEquals(13_358.0, r.offer.fare.value!!, 0.0)
+        assertEquals(9.3, r.offer.tripKm.value!!, 1e-9)
+        assertEquals(18.0, r.offer.tripMin.value!!, 0.0)
     }
 }
