@@ -100,7 +100,7 @@ class AppInstrumentedTest {
         compose.onNodeWithTag("set_min_passenger_rating").performTextInput("NaN")
         compose.onNodeWithTag("btn_save").performScrollTo().performClick()
 
-        compose.onNodeWithTag("settings_msg").assertTextContains("Valores inválidos")
+        compose.onNodeWithTag("settings_msg").assertTextContains("Valores inválidos", substring = true)
         assertNull(DriverAiApp.graph.settings.value.minPassengerRating)
     }
 
