@@ -128,7 +128,7 @@ object OfferTextParser {
         }
 
         // Rating solo con etiqueta explícita; un número aislado o el rating del conductor no cuentan.
-        val ratingCandidates = mutableListOf<Pair<Double, String>>()
+        val ratingCandidates = mutableListOf<kotlin.Pair<Double, String>>()
         fragments.forEachIndexed { i, f ->
             passengerRatingRegex.findAll(f).forEach { m ->
                 parseDecimal(m.groupValues[1])?.takeIf { it in 1.0..5.0 }?.let { ratingCandidates += it to m.value }
