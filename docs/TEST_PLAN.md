@@ -2,13 +2,16 @@
 
 Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Actions · **P** = pendiente (requiere teléfono real o Uber).
 
-## Cambios de `manus/premium-driver-cockpit` — validación pendiente
-- Lector de accesibilidad: recoge texto efímero de eventos de Uber cuando Android devuelve otra ventana, limpia datos al cambiar de app/ventana y no actúa sobre controles. **CI y prueba física de una solicitud entrante: P.**
-- Rating del pasajero: umbral explícito 1–5; rating ausente/ambiguo/de baja confianza → REVISAR; rating bajo no produce tarifa piso. **CI: P.**
-- Open-Meteo: solo build debug privada, punto fijo CABA Centro, sin GPS, con atribución/licencia; release apagado hasta fuente/plan autorizado. **CI/teléfono: P.**
+## Cambios de `manus/premium-driver-cockpit`
+- Lector de accesibilidad: recoge texto efímero de eventos de Uber cuando Android devuelve otra ventana, limpia datos al cambiar de app/ventana y no actúa sobre controles. **CI con simulador: pasó (run 32); prueba física de solicitud entrante: P.**
+- Rating del pasajero: umbral explícito 1–5; rating ausente/ambiguo/de baja confianza → REVISAR; rating bajo no produce tarifa piso; no se confunde una etiqueta genérica de usuario. **Unitarias, lint y emulador: CI (run 32).**
+- Open-Meteo: solo build debug privada, punto fijo CABA Centro, sin GPS, con atribución/licencia; release apagado hasta fuente/plan autorizado. **CI (tests con respuesta simulada): pasó (run 32); petición real/uso en teléfono: P.**
 - Home/cockpit muestra billetera, km y estado de fuentes; vuelos, cruceros, eventos y demanda por franja siguen sin feed verificado.
 
 ## Resultado de la última ejecución verificada
+- Android CI manual run `45235500410` (run 32), commit `c39ba09`: **unitarias, lint, compilación/verificación del APK y emulador API 30 pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45235500410).
+  - APK `0.1.0-c39ba09`: 43.958.669 bytes; SHA-256 `c2b61e61b3fdf89e433eceaded07d06bf1c4d698d35891dff4075c65030d1f82`. Está como artefacto privado `driverai-debug-apk-32` (retención 30 días); no se publicó en GitHub Releases ni reemplazó `latest-debug`.
+  - Se usó `workflow_dispatch` con `run_live_contract=false`: contrato Supabase, chequeo web y job de Release omitidos. La instrumentación valida el simulador, no la lectura de Uber en un teléfono.
 - Android CI manual run `45077279565`, commit `b2e5d59`: **unitarias, lint, compilación/verificación del APK y emulador pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45077279565).
   - Añadió el piso de tarifa que alcanza el máximo de los umbrales configurados de tarifa, bruto/km, bruto/h y margen; se omite ante datos incompletos o inciertos, recogida desconocida para métricas de recorrido, costo de combustible vencido para margen, margen sin piso finito o resultados fuera de rango. Se muestran los supuestos y no se presenta como oferta futura.
   - APK debug `0.1.0-b2e5d59` disponible como artefacto `driverai-debug-apk-24` (43.909.521 bytes; SHA-256 `cd34d4969cb27affe09de1404bb886523155cb827498fb586211fc37cccf6732`); no se publicó en GitHub Releases ni reemplazó `latest-debug`.
@@ -33,38 +36,38 @@ Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Action
 ## A. Unitarias (`app/src/test`, JVM)
 | Área | Archivo | Casos | Estado |
 |---|---|---|---|
-| Motor económico | `OfferEvaluatorTest` | ejemplos y umbrales existentes; tarifa piso combinada; límites, incertidumbre y desbordes; rating (igualdad, ausente/baja confianza → REVISAR, bajo sin tarifa piso, rating solo no sustituye economía); copiloto prioriza falla económica frente a rating aprobado | Anterior: CI (run 24); casos nuevos: P |
-| Parser / OCR | `OfferTextParserTest` | importes AR/US/ambiguos; tiempo/distancia; no-oferta; correcciones OCR; rating solo con etiqueta inequívoca del pasajero; tarifa y par tiempo/distancia fragmentados entre nodos/eventos; exige señal de solicitud más tarifa, km y minutos, y rechaza historiales completos | Anterior: CI (run 24); casos nuevos: P |
-| Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva métricas/etiquetas permitidas; descarta nombres/direcciones/texto libre; límites/normalización; acepta rating con etiqueta inequívoca de pasajero, no etiquetas genéricas de usuario | Anterior: CI (run 24); casos nuevos: P |
+| Motor económico | `OfferEvaluatorTest` | ejemplos y umbrales existentes; tarifa piso combinada; límites, incertidumbre y desbordes; rating (igualdad, ausente/baja confianza → REVISAR, bajo sin tarifa piso, rating solo no sustituye economía); copiloto prioriza falla económica frente a rating aprobado | CI (run 32) |
+| Parser / OCR | `OfferTextParserTest` | importes AR/US/ambiguos; tiempo/distancia; no-oferta; correcciones OCR; rating solo con etiqueta inequívoca del pasajero; tarifa y par tiempo/distancia fragmentados entre nodos/eventos; exige señal de solicitud más tarifa, km y minutos, y rechaza historiales completos | CI (run 32) |
+| Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva métricas/etiquetas permitidas; descarta nombres/direcciones/texto libre; límites/normalización; acepta rating con etiqueta inequívoca de pasajero, no etiquetas genéricas de usuario | CI (run 32) |
 | Backend | `BackendTest` (MockWebServer) | contrato real de ambos endpoints (JSON capturado), path/método/body, sin `Authorization`; campos nuevos/faltantes; HTTP 500; `ok:false`; JSON inválido; timeout; desconexión; contexto desactualizado y conservación del último dato | CI (run 24) |
 | Briefing | `ShiftBriefingTest` + `BackendTest` | snapshot local minimizado, hora de recepción, campos de contexto, eventos ausentes vs lista vacía | CI (run 24) |
 | Datos y copiloto | `DataAndCopilotTest` | persistencia DataStore; JSON corrupto; historial (límite 100, sin texto); turno $/h; billetera ARS con fechas locales y parseo de miles/decimales; odómetro monotónico/upsert diario; vencimientos por fecha/km; resumen horario de ofertas claramente separado de cobros; intenciones y respuestas del copiloto, incluida tarifa piso | CI (run 24) |
-| Clima de prueba | `OpenMeteoClientTest` | precipitación ausente no equivale a cero; cero explícito; intervalo reportado; probabilidad horaria; timestamp y punto fijo; repositorio release deshabilitado | P |
+| Clima de prueba | `OpenMeteoClientTest` | precipitación ausente no equivale a cero; cero explícito; intervalo reportado; probabilidad horaria; timestamp y punto fijo; repositorio release deshabilitado | CI (run 32; respuesta simulada) |
 
-La última validación exitosa previa a los cambios actuales fue el run `45077279565` del commit `b2e5d59` (runner Linux x86_64). No valida este diff; sus pruebas siguen pendientes de un nuevo CI. En la sandbox local no está configurado Android SDK/`ANDROID_HOME`, por lo que Gradle local no pudo ejecutarse.
+El run `45235500410` validó el commit `c39ba09` en runner Linux x86_64 y emulador API 30. En la sandbox local no está configurado Android SDK/`ANDROID_HOME`, por lo que Gradle local no pudo ejecutarse.
 
 ## B. Integración
 | Prueba | Estado |
 |---|---|
-| `LiveBackendContractTest` contra Supabase real (job `backend-contract`) | CI histórico (run 17); omitido en runs 19, 23, 24 para evitar llamada live |
-| Regresión web: `https://driverai-ba.lovable.app` responde 200 (job `backend-contract`) | CI histórico (run 17); omitido en runs 19, 23, 24 |
+| `LiveBackendContractTest` contra Supabase real (job `backend-contract`) | CI histórico (run 17); omitido en runs 19, 23, 24 y 32 para evitar llamada live |
+| Regresión web: `https://driverai-ba.lovable.app` responde 200 (job `backend-contract`) | CI histórico (run 17); omitido en runs 19, 23, 24 y 32 |
 | Sin backend: evaluación local sigue funcionando (por diseño: el motor no depende de la red; `StrategicRepository` marca "desactualizado") | E (unitaria) |
 | Inicio de turno → consulta explícita del reporte heredado → snapshot local | Código compilado; mapeo/persistencia unitaria CI (run `44926383458`). Llamada real al endpoint omitida |
-| Persistencia de configuración | E (unitaria) + CI (instrumentada `ajustes_guardan`) |
+| Persistencia de configuración y rechazo de NaN para rating | CI (run 32; instrumentada `ajustes_guardan` / `ajustes_rechazanUmbralRatingNoFinito`) |
 
 ## C. Android (emulador API 30 AOSP en CI; prueba física parcial: una lectura OCR real; paridad completa pendiente) — `AppInstrumentedTest`
 | Prueba | Estado |
 |---|---|
-| Inicio de la app | CI (run 24) |
-| Tarjeta de briefing: carga, fuente/vigencia desconocida y estado vacío | CI (run 24, API 30) |
-| Evaluación manual de punta a punta en la UI | CI (run 24) |
-| Guardado de ajustes | CI (run 24) |
-| Registrar ingreso/gasto real y mantenerlo separado de ofertas | CI (run 24) |
-| Guardar odómetro diario y alta de recordatorio de service | CI (run 24) |
-| Tarjeta flotante aparece y se cierra con "×" | CI (run 24) |
-| Accesibilidad → parser → motor → tarjeta con el **simulador** (no Uber); rotación con tarjeta visible; ocultamiento al desaparecer la oferta; la app de origen sigue en primer plano (no se tocó nada) | CI (run 24) |
-| Deduplicación (misma oferta 3 veces = 1 evaluación) | CI (run 24) |
-| Capturas de pantalla, logcat, meminfo y batterystats como evidencia | CI (artefacto `emulator-24`) |
+| Inicio de la app | CI (run 32) |
+| Tarjeta de briefing: carga, fuente/vigencia desconocida y estado vacío | CI (run 32, API 30) |
+| Evaluación manual de punta a punta en la UI | CI (run 32) |
+| Guardado de ajustes y rechazo de NaN en rating mínimo | CI (run 32) |
+| Registrar ingreso/gasto real y mantenerlo separado de ofertas | CI (run 32) |
+| Guardar odómetro diario y alta de recordatorio de service | CI (run 32) |
+| Tarjeta flotante aparece y se cierra con "×" | CI (run 32) |
+| Accesibilidad → parser → motor → tarjeta con el **simulador** (no Uber); rotación con tarjeta visible; ocultamiento al desaparecer la oferta; la app de origen sigue en primer plano (no se tocó nada) | CI (run 32) |
+| Deduplicación (misma oferta 3 veces = 1 evaluación) | CI (run 32) |
+| Capturas de pantalla, logcat, meminfo y batterystats como evidencia | CI (artefacto `emulator-32`) |
 | Captura por MediaProjection (requiere diálogo de consentimiento humano) | P |
 | Revocación de permisos y recuperación tras forzar cierre | P |
 
@@ -83,7 +86,7 @@ La última validación exitosa previa a los cambios actuales fue el run `4507727
 | Web y funciones Supabase no modificadas | E (no se tocaron) |
 
 ## Protocolo para la siguiente prueba física
-1. Usar el APK validado `b2e5d59` o posterior (ver `BUILD_AND_INSTALL.md`). Anotar modelo, Android y versión de Uber Driver; no anotar datos personales.
+1. Usar el APK validado `0.1.0-c39ba09` o posterior (ver `BUILD_AND_INSTALL.md`). Anotar modelo, Android y versión de Uber Driver; no anotar datos personales.
 2. En Ajustes, cargar al menos un umbral personal —no usar valores inventados— para que el veredicto pueda evaluarse.
 3. En Inicio, activar la lectura automática y habilitar el servicio de Accesibilidad de DriverAI.
 4. En Diagnóstico, activar **Registrar lectura reducida** antes de abrir Uber Driver.
