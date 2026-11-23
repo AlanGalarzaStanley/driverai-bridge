@@ -171,7 +171,7 @@ class OfferTextParserTest {
         assertEquals(4.92, r.offer.passengerRating.value!!, 1e-9)
         assertEquals(DataSource.ACCESSIBILITY, r.offer.passengerRating.source)
         assertNull(p("UberX", "$ 8.540", "Solicitud nueva", "Tu calificación 4,98", "Conductor 4,9").offer.passengerRating.value)
-        assertNull(p("UberX", "$ 8.540", "Solicitud nueva", "Calificación del pasajero 4,92", "Calificación del usuario 4,80").offer.passengerRating.value)
+        assertEquals(4.92, p("UberX", "$ 8.540", "Solicitud nueva", "Calificación del pasajero 4,92", "Calificación del usuario 4,80").offer.passengerRating.value!!, 1e-9)
         assertNull(p("UberX", "$ 8.540", "Solicitud nueva", "User rating 4.90").offer.passengerRating.value)
         assertNull(p("UberX", "$ 8.540", "Solicitud nueva", "Calificación del pasajero 5,2").offer.passengerRating.value)
     }
