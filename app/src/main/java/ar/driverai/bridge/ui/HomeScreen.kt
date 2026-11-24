@@ -15,20 +15,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -131,151 +125,164 @@ fun HomeScreen(activity: Activity) {
         if (r.resultCode == Activity.RESULT_OK && !text.isNullOrBlank()) { question = text; ask(text) }
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Text("DriverAI", style = MaterialTheme.typography.titleLarge)
-        Text("Copiloto de ofertas · BA", color = Muted)
-        Text("Estado: ${status.label}", modifier = Modifier.testTag("status"))
+    val statusTone = when {
+        a11yOn || capturing -> DriverColors.Go
+        else -> DriverColors.Caution
+    }
 
-        Section("Clima (verificado)") {
-            when {
-                weatherState.loading -> Text("Actualizando Open-Meteo…")
-                weatherState.weather != null -> {
-                    val w = weatherState.weather!!
-                    Text(
-                        buildString {
-                            append(w.temperatureC?.let { "${Fmt.num(it)} °C" } ?: "— °C")
-                            append(" · viento ")
-                            append(w.windKmh?.let { "${Fmt.num(it)} km/h" } ?: "—")
-                            append(" · lluvia ")
-                            append(if (w.rainNow) "sí" else "no")
-                            w.precipProbNextHours?.let { append(" · prob. ~3 h $it %") }
-                        },
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text("Fuente: ${w.source}. No es demanda de apps.", style = MaterialTheme.typography.bodySmall, color = Muted)
-                }
-                else -> Text(weatherState.error ?: "Sin clima todavía.", color = Amber)
-            }
-            OutlinedButton(onClick = { scope.launch { g.weather.refresh() } }, modifier = Modifier.fillMaxWidth()) {
-                Text("Actualizar clima")
-            }
-        }
-
-        Section("Lectura de ofertas") {
-            Text(if (a11yOn) "Lectura automática (accesibilidad): ACTIVADA" else "Lectura automática: desactivada", color = if (a11yOn) Green else Amber)
-            Text(if (capturing) "Lectura por captura: ACTIVA (botón \"Leer oferta\")" else "Lectura por captura: inactiva")
-            Text(if (overlayOk || a11yOn) "Tarjeta flotante: disponible" else "Tarjeta flotante: falta permiso (se usará notificación)")
-            Spacer(Modifier.height(6.dp))
-            Button(onClick = { dialog = if (a11yOn) "a11y_off" else "a11y" }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text(if (a11yOn) "Desactivar lectura automática" else "Activar lectura automática")
-            }
-            OutlinedButton(onClick = { if (capturing) ScreenCaptureService.stop(activity) else dialog = "capture" }, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text(if (capturing) "Detener lectura por captura" else "Activar lectura por captura (OCR)")
-            }
-            if (!overlayOk) OutlinedButton(onClick = { openOverlaySettings(activity) }, modifier = Modifier.fillMaxWidth()) { Text("Permitir mostrar sobre otras apps") }
-        }
-
-        last?.let { rec ->
-            Section("Última oferta") {
-                Text(rec.evaluation.verdict.label, color = verdictColor(rec.evaluation.verdict), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                MetricsSummary(rec.evaluation.metrics)
-                Text(rec.evaluation.headline)
-            }
-        }
-
-        Section("Turno") {
-            val stats = ShiftCalculator.compute(history, shiftStart, now)
-            if (shiftStart == null) {
-                Text("Iniciá el turno para medir tu ingreso bruto por hora (viajes marcados como \"La tomé\").")
-                Button(onClick = { scope.launch { g.historyRepo.startShift(System.currentTimeMillis()) } }, modifier = Modifier.fillMaxWidth()) { Text("Iniciar turno") }
-            } else {
-                Text("Viajes tomados: ${stats.trips} · Bruto: ${Fmt.ars(stats.grossFare)}")
-                Text("Horas: ${Fmt.num(stats.hours ?: 0.0)} · Bruto/h: ${stats.grossPerHour?.let { Fmt.ars(it) } ?: "—"}")
-                OutlinedButton(onClick = { scope.launch { g.historyRepo.endShift() } }) { Text("Terminar turno") }
-            }
-        }
-
-        Section("Copiloto") {
-            OutlinedTextField(question, { question = it }, label = { Text("Preguntá algo") }, modifier = Modifier.fillMaxWidth().testTag("copilot_input"), singleLine = true)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { if (question.isNotBlank()) ask(question) }, modifier = Modifier.testTag("copilot_ask")) { Text("Preguntar") }
-                OutlinedButton(onClick = {
-                    val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                        .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-AR")
-                        .putExtra(RecognizerIntent.EXTRA_PROMPT, "¿Qué querés saber?")
-                    try { speechLauncher.launch(i) } catch (e: ActivityNotFoundException) { answer = "Reconocimiento de voz no disponible en este teléfono. Escribí la pregunta." }
-                }) { Text("Hablar") }
-                TextButton(onClick = { g.tts.stop() }) { Text("Callar") }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf("¿Me conviene?", "¿Por qué?", "¿Dónde espero?").forEach { q ->
-                    TextButton(onClick = { question = q; ask(q) }) { Text(q) }
-                }
-            }
-            answer?.let { Text(it, modifier = Modifier.testTag("copilot_answer"), fontWeight = FontWeight.SemiBold) }
-        }
-
-        Section("Contexto del servidor") {
-            val stale = strategic.isStale(now)
-            Text(
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        ScreenScaffold(
+            title = "Cockpit",
+            subtitle = "Copiloto de ofertas · Buenos Aires",
+            trailing = { StatusPill(status.label, statusTone, Modifier.testTag("status")) },
+        ) {
+            Section("Clima", accent = DriverColors.Ice) {
                 when {
-                    strategic.loading -> "Actualizando…"
-                    strategic.lastError != null -> "No disponible: ${strategic.lastError}. Las ofertas siguen con tus reglas."
-                    stale -> "Desactualizado."
-                    else -> "Respuesta recibida."
-                },
-                color = if (stale) Amber else Green,
-            )
-            Text(
-                "Los puntajes de zona y la demanda del servidor NO están verificados. No son un mapa real de Uber.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Muted,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { scope.launch { g.strategic.refreshReporte() } }) { Text("Actualizar") }
-                Column {
-                    OutlinedButton(onClick = { zoneMenu = true }) { Text(settings.currentZone ?: "Mi zona") }
-                    DropdownMenu(zoneMenu, { zoneMenu = false }) {
-                        Zones.ALL.forEach { z ->
-                            DropdownMenuItem(text = { Text(z) }, onClick = {
-                                zoneMenu = false
-                                scope.launch {
-                                    g.settingsRepo.update { it.copy(currentZone = z) }
-                                    g.strategic.refreshPosicion(z)
-                                }
-                            })
+                    weatherState.loading -> Text("Actualizando Open-Meteo…", color = DriverColors.InkDim)
+                    weatherState.weather != null -> {
+                        val w = weatherState.weather!!
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            MetricTile("Temp", w.temperatureC?.let { "${Fmt.num(it)}°" } ?: "—", Modifier.weight(1f), emphasis = true)
+                            MetricTile("Viento", w.windKmh?.let { "${Fmt.num(it)}" } ?: "—", Modifier.weight(1f))
+                            MetricTile("Lluvia", if (w.rainNow) "Sí" else "No", Modifier.weight(1f))
+                        }
+                        VSpace(6.dp)
+                        Text("Fuente: ${w.source}", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkFaint)
+                    }
+                    else -> Text(weatherState.error ?: "Sin clima todavía.", color = DriverColors.Caution)
+                }
+                VSpace(8.dp)
+                GhostCta("Actualizar clima") { scope.launch { g.weather.refresh() } }
+            }
+
+            Section("Lectura", accent = if (a11yOn) DriverColors.Go else DriverColors.Cyan) {
+                StatusPill(if (a11yOn) "Automática ON" else "Automática OFF", if (a11yOn) DriverColors.Go else DriverColors.Caution)
+                VSpace(6.dp)
+                Text(if (capturing) "OCR por captura: activo" else "OCR por captura: inactivo", color = DriverColors.InkDim)
+                Text(if (overlayOk || a11yOn) "Tarjeta flotante disponible" else "Falta permiso de overlay", color = DriverColors.InkDim)
+                VSpace(10.dp)
+                PrimaryCta(if (a11yOn) "Desactivar lectura automática" else "Activar lectura automática") {
+                    dialog = if (a11yOn) "a11y_off" else "a11y"
+                }
+                VSpace(8.dp)
+                GhostCta(if (capturing) "Detener captura OCR" else "Activar captura OCR") {
+                    if (capturing) ScreenCaptureService.stop(activity) else dialog = "capture"
+                }
+                if (!overlayOk) {
+                    VSpace(8.dp)
+                    GhostCta("Permitir sobre otras apps") { openOverlaySettings(activity) }
+                }
+            }
+
+            last?.let { rec ->
+                Section("Última oferta", accent = verdictColor(rec.evaluation.verdict)) {
+                    VerdictBanner(rec.evaluation.verdict.label, verdictColor(rec.evaluation.verdict), rec.evaluation.headline)
+                    VSpace(10.dp)
+                    MetricsSummary(rec.evaluation.metrics)
+                }
+            }
+
+            Section("Turno") {
+                val stats = ShiftCalculator.compute(history, shiftStart, now)
+                if (shiftStart == null) {
+                    Text("Iniciá el turno para medir bruto por hora.", color = DriverColors.InkDim)
+                    VSpace(8.dp)
+                    PrimaryCta("Iniciar turno") { scope.launch { g.historyRepo.startShift(System.currentTimeMillis()) } }
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MetricTile("Viajes", "${stats.trips}", Modifier.weight(1f))
+                        MetricTile("Bruto", Fmt.ars(stats.grossFare), Modifier.weight(1f), emphasis = true)
+                        MetricTile("Bruto/h", stats.grossPerHour?.let { Fmt.ars(it) } ?: "—", Modifier.weight(1f))
+                    }
+                    VSpace(8.dp)
+                    GhostCta("Terminar turno") { scope.launch { g.historyRepo.endShift() } }
+                }
+            }
+
+            Section("Copiloto") {
+                CockpitField(question, { question = it }, "Preguntá algo", Modifier.testTag("copilot_input"))
+                VSpace(8.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    PrimaryCta("Preguntar", { if (question.isNotBlank()) ask(question) }, Modifier.weight(1f).testTag("copilot_ask"))
+                    GhostCta("Hablar", {
+                        val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-AR")
+                            .putExtra(RecognizerIntent.EXTRA_PROMPT, "¿Qué querés saber?")
+                        try { speechLauncher.launch(i) } catch (_: ActivityNotFoundException) {
+                            answer = "Reconocimiento de voz no disponible. Escribí la pregunta."
+                        }
+                    }, Modifier.weight(1f))
+                }
+                VSpace(6.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    listOf("¿Me conviene?", "¿Por qué?", "¿Dónde espero?").forEach { q ->
+                        TextButton(onClick = { question = q; ask(q) }) {
+                            Text(q, color = DriverColors.Cyan, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
+                answer?.let {
+                    VSpace(8.dp)
+                    Text(it, modifier = Modifier.testTag("copilot_answer"), fontWeight = FontWeight.SemiBold, color = DriverColors.Ink)
+                }
             }
-            strategic.posicion?.let { p ->
-                Text(
-                    if (p.decision == "moverte")
-                        "Estimación no verificada: moverte a ${p.zona_recomendada}"
-                    else
-                        "Estimación no verificada: quedarte en ${p.zona_actual}",
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-            strategic.reporte?.let { r ->
-                val ev = r.eventos.size
-                Text(
+
+            Section("Servidor", accent = DriverColors.InkFaint) {
+                val stale = strategic.isStale(now)
+                StatusPill(
                     when {
-                        ev == 0 && r.hay_partido != true -> "Eventos verificados: ninguno en el servidor."
-                        r.hay_partido == true && ev == 0 -> "El servidor marca partido sin detalle ni fuente."
-                        else -> "Eventos en respuesta del servidor: $ev · partido flag: ${r.hay_partido == true}"
+                        strategic.loading -> "Actualizando"
+                        strategic.lastError != null -> "Error"
+                        stale -> "Desactualizado"
+                        else -> "Online"
                     },
-                    color = if (ev == 0) Amber else Green,
+                    when {
+                        strategic.loading -> DriverColors.Ice
+                        strategic.lastError != null || stale -> DriverColors.Caution
+                        else -> DriverColors.Go
+                    },
                 )
-                r.reporte?.resumen?.let {
-                    Text("Resumen (puede ser generado): $it", style = MaterialTheme.typography.bodySmall, color = Muted)
+                VSpace(6.dp)
+                Text("Puntajes de zona no verificados. No son demanda real de Uber.", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkFaint)
+                VSpace(8.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GhostCta("Actualizar", { scope.launch { g.strategic.refreshReporte() } }, Modifier.weight(1f))
+                    Column(Modifier.weight(1f)) {
+                        GhostCta(settings.currentZone ?: "Mi zona") { zoneMenu = true }
+                        DropdownMenu(zoneMenu, { zoneMenu = false }) {
+                            Zones.ALL.forEach { z ->
+                                DropdownMenuItem(text = { Text(z) }, onClick = {
+                                    zoneMenu = false
+                                    scope.launch {
+                                        g.settingsRepo.update { it.copy(currentZone = z) }
+                                        g.strategic.refreshPosicion(z)
+                                    }
+                                })
+                            }
+                        }
+                    }
                 }
-                r.reporte?.zonas_rankeadas?.take(3)?.forEach { z ->
-                    Text("• ${z.zona}: score ${z.score?.let { Fmt.num(it) } ?: "—"} (no verificado)", color = Muted)
+                strategic.posicion?.let { p ->
+                    VSpace(8.dp)
+                    Text(
+                        if (p.decision == "moverte") "Estimación: moverte a ${p.zona_recomendada}"
+                        else "Estimación: quedarte en ${p.zona_actual}",
+                        fontWeight = FontWeight.SemiBold,
+                        color = DriverColors.InkDim,
+                    )
                 }
-                r.reporte?.precio_minimo_sugerido?.let {
-                    Text("Precio mín. servidor ${Fmt.ars(it)} — tus umbrales mandan", style = MaterialTheme.typography.bodySmall, color = Muted)
+                strategic.reporte?.let { r ->
+                    val ev = r.eventos.size
+                    VSpace(6.dp)
+                    Text(
+                        when {
+                            ev == 0 && r.hay_partido != true -> "Eventos verificados: ninguno"
+                            r.hay_partido == true && ev == 0 -> "Partido marcado sin fuente"
+                            else -> "Eventos en servidor: $ev"
+                        },
+                        color = if (ev == 0) DriverColors.Caution else DriverColors.Go,
+                    )
                 }
             }
         }
@@ -284,27 +291,27 @@ fun HomeScreen(activity: Activity) {
     when (dialog) {
         "a11y" -> AlertDialog(
             onDismissRequest = { dialog = null },
-            title = { Text("Lectura automática de ofertas") },
+            title = { Text("Lectura automática") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(DISCLOSURE_ACCESSIBILITY) } },
-            confirmButton = { Button(onClick = { dialog = null; openAccessibilitySettings(activity) }) { Text("Acepto, ir a Accesibilidad") } },
-            dismissButton = { TextButton(onClick = { dialog = null }) { Text("No, gracias") } },
+            confirmButton = { TextButton(onClick = { dialog = null; openAccessibilitySettings(activity) }) { Text("Acepto", color = DriverColors.Cyan) } },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text("No") } },
         )
         "a11y_off" -> AlertDialog(
             onDismissRequest = { dialog = null },
             title = { Text("Desactivar lectura") },
             text = { Text("En la pantalla que se abre, elegí DriverAI y desactivalo.") },
-            confirmButton = { Button(onClick = { dialog = null; openAccessibilitySettings(activity) }) { Text("Abrir Accesibilidad") } },
+            confirmButton = { TextButton(onClick = { dialog = null; openAccessibilitySettings(activity) }) { Text("Abrir") } },
         )
         "capture" -> AlertDialog(
             onDismissRequest = { dialog = null },
             title = { Text("Lectura por captura") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(DISCLOSURE_CAPTURE) } },
             confirmButton = {
-                Button(onClick = {
+                TextButton(onClick = {
                     dialog = null
                     if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     else projectionLauncher.launch(activity.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
-                }) { Text("Acepto") }
+                }) { Text("Acepto", color = DriverColors.Cyan) }
             },
             dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancelar") } },
         )
@@ -314,11 +321,23 @@ fun HomeScreen(activity: Activity) {
 @Composable
 fun MetricsSummary(m: ar.driverai.bridge.engine.Metrics) {
     fun d(v: Double?, f: (Double) -> String) = v?.let(f) ?: "—"
-    Text("Tarifa: ${d(m.fare, Fmt::ars)}")
-    Text("Km recogida: ${d(m.pickupKm) { Fmt.num(it) }} · Km con pasajero: ${d(m.tripKm) { Fmt.num(it) }} · Retorno vacío: ${d(m.returnKm) { Fmt.num(it) }}")
-    Text("Km totales: ${d(m.totalKm) { Fmt.num(it) }} · Min con pasajero: ${d(m.tripMin) { Fmt.num(it, 0) }} · Min totales: ${d(m.totalMin) { Fmt.num(it, 0) }}")
-    Text("Bruto/km: ${d(m.grossPerKm, Fmt::ars)} · Bruto/h: ${d(m.grossPerHour, Fmt::ars)}", fontWeight = FontWeight.Bold, modifier = Modifier.testTag("metrics_gross"))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        MetricTile("Tarifa", d(m.fare, Fmt::ars), Modifier.weight(1f), emphasis = true)
+        MetricTile("$/km", d(m.grossPerKm, Fmt::ars), Modifier.weight(1f))
+        MetricTile("$/h", d(m.grossPerHour, Fmt::ars), Modifier.weight(1f))
+    }
+    VSpace(8.dp)
+    Text(
+        "Km total ${d(m.totalKm) { Fmt.num(it) }} · Min total ${d(m.totalMin) { Fmt.num(it, 0) }} · Recogida ${d(m.pickupKm) { Fmt.num(it) }} km",
+        style = MaterialTheme.typography.bodySmall,
+        color = DriverColors.InkDim,
+        modifier = Modifier.testTag("metrics_gross"),
+    )
     if (m.variableCost != null) {
-        Text("Costo variable est.: ${Fmt.ars(m.variableCost)} · Ganancia est. antes de fijos e impuestos: ${d(m.estimatedProfitBeforeFixed, Fmt::ars)} · Margen: ${d(m.marginPct) { Fmt.num(it) + " %" }}")
+        Text(
+            "Costo var. ${Fmt.ars(m.variableCost)} · Margen ${d(m.marginPct) { Fmt.num(it) + "%" }}",
+            style = MaterialTheme.typography.bodySmall,
+            color = DriverColors.InkFaint,
+        )
     }
 }
