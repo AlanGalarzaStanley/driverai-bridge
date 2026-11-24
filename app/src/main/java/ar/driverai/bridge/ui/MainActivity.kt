@@ -5,18 +5,23 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,7 +29,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
@@ -38,7 +46,10 @@ class MainActivity : ComponentActivity() {
         setContent { DriverTheme { Root() } }
     }
 
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handle(intent) }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handle(intent)
+    }
 
     private fun handle(i: Intent?) {
         i?.getStringExtra(EXTRA_TAB)?.let { tab = it }
@@ -49,20 +60,56 @@ class MainActivity : ComponentActivity() {
     private fun Root() {
         val tabs = listOf(
             Triple("inicio", "Inicio", Icons.Filled.Home),
-            Triple("evaluar", "Evaluar", Icons.Filled.Check),
+            Triple("evaluar", "Evaluar", Icons.Filled.CheckCircle),
             Triple("ajustes", "Ajustes", Icons.Filled.Settings),
-            Triple("historial", "Historial", Icons.Filled.List),
+            Triple("historial", "Historial", Icons.Filled.History),
             Triple("diag", "Chequeo", Icons.Filled.Build),
         )
-        Scaffold(bottomBar = {
-            NavigationBar {
-                tabs.forEach { (id, label, icon) ->
-                    NavigationBarItem(selected = tab == id, onClick = { tab = id }, icon = { Icon(icon, null) },
-                        label = { Text(label, maxLines = 1, softWrap = false, fontSize = 11.sp) }, modifier = Modifier.testTag("tab_$id"))
+        Scaffold(
+            containerColor = DriverColors.Void,
+            bottomBar = {
+                Column {
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(DriverColors.Rail))
+                    NavigationBar(
+                        containerColor = DriverColors.Hull,
+                        contentColor = DriverColors.Ink,
+                        tonalElevation = 0.dp,
+                    ) {
+                        tabs.forEach { (id, label, icon) ->
+                            val selected = tab == id
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = { tab = id },
+                                icon = { Icon(icon, contentDescription = label) },
+                                label = {
+                                    Text(
+                                        label,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        fontSize = 10.sp,
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                                    )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = DriverColors.Cyan,
+                                    selectedTextColor = DriverColors.Cyan,
+                                    unselectedIconColor = DriverColors.InkFaint,
+                                    unselectedTextColor = DriverColors.InkFaint,
+                                    indicatorColor = DriverColors.PanelRaised,
+                                ),
+                                modifier = Modifier.testTag("tab_$id"),
+                            )
+                        }
+                    }
                 }
-            }
-        }) { pad ->
-            Box(Modifier.fillMaxSize().padding(pad)) {
+            },
+        ) { pad ->
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(DriverColors.Void)
+                    .padding(pad),
+            ) {
                 when (tab) {
                     "inicio" -> HomeScreen(this@MainActivity)
                     "evaluar" -> EvaluateScreen(prefill) { prefill = false }
