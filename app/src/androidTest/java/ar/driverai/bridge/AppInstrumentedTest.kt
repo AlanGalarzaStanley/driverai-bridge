@@ -109,9 +109,11 @@ class AppInstrumentedTest {
         compose.onNodeWithText("Respuestas locales por reglas").assertExists()
         compose.onNodeWithTag("external_report").performClick()
         compose.onNodeWithText("DriverAI no hizo la búsqueda. Copiá este pedido y pegalo en una IA externa con navegación.").assertExists()
-        compose.onNodeWithTag("external_prompt").assertTextContains("Objetivo de ingresos registrado")
         compose.onNodeWithTag("copy_external_prompt").performClick()
         compose.onNodeWithText("Copiado").assertExists()
+        val clipboard = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val copiedPrompt = clipboard.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty()
+        assertTrue("El prompt copiado conserva la meta diaria", copiedPrompt.contains("Objetivo de ingresos registrado"))
         compose.onNodeWithText("Volver al chat").performClick()
         compose.onNodeWithTag("copilot_back").performClick()
         compose.onNodeWithTag("status").assertExists()
