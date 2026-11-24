@@ -57,8 +57,11 @@ import ar.driverai.bridge.copilot.CopilotEngine
 import ar.driverai.bridge.copilot.ExternalBriefingPrompt
 import ar.driverai.bridge.copilot.Intent as CopilotIntent
 import ar.driverai.bridge.data.ShiftCalculator
+import ar.driverai.bridge.data.MoneyLedgerRepository
+import ar.driverai.bridge.data.VehicleRecordsRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 private data class CopilotMessage(val fromDriver: Boolean, val text: String)
 
@@ -82,12 +85,17 @@ fun CopilotScreen(onBack: () -> Unit) {
     val latest by g.pipeline.last.collectAsState()
     val history by g.historyRepo.entries.collectAsState(initial = emptyList())
     val shiftStart by g.historyRepo.shiftStart.collectAsState(initial = null)
+    val moneyEntries by g.walletRepo.entries.collectAsState(initial = emptyList())
+    val odometerEntries by g.vehicleRepo.odometerEntries.collectAsState(initial = emptyList())
     val listState = rememberLazyListState()
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var reportMode by remember { mutableStateOf(false) }
     var copied by remember { mutableStateOf(false) }
     var clock by remember { mutableStateOf(System.currentTimeMillis()) }
+    val today = remember(clock) { LocalDate.now() }
+    val moneyToday = remember(moneyEntries, today) { MoneyLedgerRepository.summarize(moneyEntries, today) }
+    val odometerToday = remember(odometerEntries, today) { VehicleRecordsRepository.entryForDay(odometerEntries, today) }
 
     LaunchedEffect(Unit) { while (true) { clock = System.currentTimeMillis(); delay(30_000) } }
     LaunchedEffect(CopilotConversation.messages.size, busy) {
@@ -111,7 +119,11 @@ fun CopilotScreen(onBack: () -> Unit) {
                 }
                 val now = System.currentTimeMillis()
                 val shiftStats = ShiftCalculator.compute(history, shiftStart, now)
-                val copilotContext = CopilotContext(latest?.evaluation, shiftStats, g.strategic.state.value, settings, now)
+                val copilotContext = CopilotContext(
+                    latest?.evaluation, shiftStats, g.strategic.state.value, settings, now,
+                    moneyToday = moneyToday,
+                    odometerTodayKm = odometerToday?.drivenKm,
+                )
                 val answer = CopilotEngine.answer(clean, copilotContext)
                 CopilotConversation.append(CopilotMessage(false, answer))
                 if (settings.voiceEnabled) g.tts.speak(answer, settings.voiceVolume)
@@ -185,8 +197,8 @@ fun CopilotScreen(onBack: () -> Unit) {
             if (CopilotConversation.messages.isEmpty()) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 18.dp)) {
                     Text("¿Qué necesitás decidir en este turno?", style = MaterialTheme.typography.titleMedium)
-                    Text("Preguntá por la última oferta, tus tarifas registradas o la zona elegida. La lectura y evaluación no aceptan ni rechazan viajes.", style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
-                    listOf("¿Me conviene la última oferta?", "¿Por qué da ese resultado?", "¿Cuánto llevo por hora?", "¿Dónde me conviene esperar?").forEach { suggestion ->
+                    Text("Preguntá por la última oferta, tu meta, la caja anotada o la zona elegida. La lectura y evaluación no aceptan ni rechazan viajes.", style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
+                    listOf("¿Cómo va mi jornada hoy?", "¿Cómo va mi objetivo diario?", "¿Me conviene la última oferta?", "¿Por qué da ese resultado?", "¿Cuánto llevo por hora?", "¿Dónde me conviene esperar?").forEach { suggestion ->
                         OutlinedButton(onClick = { ask(suggestion) }, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) { Text(suggestion) }
                     }
                     Text("Para consultar eventos, vuelos o clima en la web, prepará un informe externo. DriverAI no afirma haberlos buscado.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 12.dp))

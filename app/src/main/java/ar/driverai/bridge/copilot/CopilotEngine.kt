@@ -1,6 +1,7 @@
 package ar.driverai.bridge.copilot
 
 import ar.driverai.bridge.backend.StrategicRepository
+import ar.driverai.bridge.data.MoneyDaySummary
 import ar.driverai.bridge.data.ShiftStats
 import ar.driverai.bridge.engine.DriverSettings
 import ar.driverai.bridge.engine.Evaluation
@@ -24,7 +25,7 @@ object Zones {
     fun groupOf(zone: String): String? = GROUPS.entries.firstOrNull { (_, z) -> z.any { it.equals(zone, true) } }?.key
 }
 
-enum class Intent { CONVIENE, POR_QUE, POR_HORA, DONDE_ESPERAR, EVENTOS, CERCA_CASA, DESCONOCIDA }
+enum class Intent { RESUMEN_JORNADA, OBJETIVO, CONVIENE, POR_QUE, POR_HORA, DONDE_ESPERAR, EVENTOS, CERCA_CASA, DESCONOCIDA }
 
 data class CopilotContext(
     val lastEvaluation: Evaluation?,
@@ -32,6 +33,8 @@ data class CopilotContext(
     val strategic: StrategicRepository.State,
     val settings: DriverSettings,
     val now: Long,
+    val moneyToday: MoneyDaySummary? = null,
+    val odometerTodayKm: Double? = null,
 )
 
 /**
@@ -45,6 +48,8 @@ object CopilotEngine {
     fun intentOf(query: String): Intent {
         val q = fold(query)
         return when {
+            q.contains("objetivo") || q.contains("meta diaria") -> Intent.OBJETIVO
+            q.contains("resumen") || q.contains("jornada") || q.contains("mi dia") || q.contains("hoy") && q.contains("como va") -> Intent.RESUMEN_JORNADA
             q.contains("por que") || q.contains("porque") || q.contains("motivo") -> Intent.POR_QUE
             q.contains("por hora") || q.contains("estoy haciendo") || q.contains("llevo") || q.contains("cuanto hice") -> Intent.POR_HORA
             q.contains("casa") || q.contains("terminar") -> Intent.CERCA_CASA
@@ -56,6 +61,8 @@ object CopilotEngine {
     }
 
     fun answer(query: String, ctx: CopilotContext): String = when (intentOf(query)) {
+        Intent.RESUMEN_JORNADA -> resumenJornada(ctx)
+        Intent.OBJETIVO -> objetivo(ctx)
         Intent.CONVIENE -> ctx.lastEvaluation?.let { e ->
             val m = e.metrics
             buildString {
@@ -99,7 +106,35 @@ object CopilotEngine {
         Intent.DONDE_ESPERAR -> donde(ctx)
         Intent.EVENTOS -> eventos(ctx)
         Intent.CERCA_CASA -> cercaCasa(ctx)
-        Intent.DESCONOCIDA -> "Podés preguntarme: ¿me conviene?, ¿por qué?, ¿cuánto hago por hora?, ¿dónde espero?, ¿hay eventos?"
+        Intent.DESCONOCIDA -> "Podés preguntarme: ¿me conviene?, ¿por qué?, ¿cómo va mi jornada?, ¿cómo va mi objetivo diario?, ¿cuánto hago por hora?, ¿dónde espero?"
+    }
+
+    private fun resumenJornada(ctx: CopilotContext): String {
+        val wallet = ctx.moneyToday
+        val parts = mutableListOf<String>()
+        if (wallet != null) {
+            parts += "En Billetera anotaste ${Fmt.ars(wallet.incomeArs)} de ingresos y ${Fmt.ars(wallet.expensesArs)} de gastos; diferencia ${Fmt.ars(wallet.cashBalanceArs)}, no ganancia neta."
+        } else parts += "No tengo el resumen de la billetera de hoy."
+        parts += ctx.odometerTodayKm?.let { "Odómetro manual de hoy: ${Fmt.num(it, 1)} km." } ?: "No hay odómetro manual de hoy."
+        val shift = ctx.shift
+        if (shift != null) {
+            parts += "En el turno: ${shift.trips} ofertas marcadas tomadas y tarifas leídas ${Fmt.ars(shift.grossFare)}; no confirma cobros."
+        }
+        val target = ctx.settings.dailyTargetArs?.takeIf { it.isFinite() && it > 0.0 }
+        if (target != null && wallet != null) {
+            parts += "Meta de ingresos registrados: ${Fmt.ars(target)}; progreso ${(wallet.incomeArs / target * 100.0).let { Fmt.num(it, 0) }} %."
+        }
+        return parts.joinToString(" ")
+    }
+
+    private fun objetivo(ctx: CopilotContext): String {
+        val target = ctx.settings.dailyTargetArs?.takeIf { it.isFinite() && it > 0.0 }
+            ?: return "No configuraste una meta diaria. Si querés, definila en Ajustes; no afecta el veredicto de una oferta."
+        val income = ctx.moneyToday?.incomeArs ?: return "Tu meta es ${Fmt.ars(target)}, pero no tengo el ingreso de hoy de Billetera."
+        val remaining = (target - income).coerceAtLeast(0.0)
+        return "Meta ${Fmt.ars(target)}; ingresos anotados ${Fmt.ars(income)} (${Fmt.num(income / target * 100.0, 0)} %). " +
+            if (remaining > 0.0) "Faltan ${Fmt.ars(remaining)} según la billetera. No es una predicción de viajes ni de ganancia neta."
+            else "Meta alcanzada según los ingresos anotados; no es una medida de ganancia neta."
     }
 
     private fun staleNote(ctx: CopilotContext, at: Long? = ctx.strategic.reporteAt): String {

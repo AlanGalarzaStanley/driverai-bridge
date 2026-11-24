@@ -157,11 +157,36 @@ class DataAndCopilotTest {
     @Test fun copiloto_intenciones() {
         assertEquals(Intent.CONVIENE, CopilotEngine.intentOf("¿Me conviene este viaje?"))
         assertEquals(Intent.POR_QUE, CopilotEngine.intentOf("¿Por qué no conviene?"))
+        assertEquals(Intent.RESUMEN_JORNADA, CopilotEngine.intentOf("¿Cómo va mi jornada hoy?"))
+        assertEquals(Intent.OBJETIVO, CopilotEngine.intentOf("¿Cómo va mi objetivo diario?"))
         assertEquals(Intent.POR_HORA, CopilotEngine.intentOf("¿Cuánto estoy haciendo por hora?"))
         assertEquals(Intent.DONDE_ESPERAR, CopilotEngine.intentOf("¿Dónde me conviene esperar ahora?"))
         assertEquals(Intent.EVENTOS, CopilotEngine.intentOf("¿Qué eventos pueden generar demanda esta noche?"))
         assertEquals(Intent.CERCA_CASA, CopilotEngine.intentOf("¿Qué zona me queda mejor para terminar cerca de casa?"))
         assertEquals(Intent.DESCONOCIDA, CopilotEngine.intentOf("hola"))
+    }
+
+    @Test fun copiloto_resumenCruzaRegistrosDeHoyConMetaYAclaraLimites() {
+        val day = ar.driverai.bridge.data.MoneyDaySummary(10000.0, 2500.0, 7500.0, emptyList())
+        val copilotContext = ctx().copy(
+            settings = DriverSettings(dailyTargetArs = 15000.0),
+            moneyToday = day,
+            odometerTodayKm = 12.5,
+            shift = ShiftCalculator.compute(
+                listOf(HistoryEntry(3_600_000, "CONVIENE", 8000.0, 10.0, 25.0, 800.0, 19200.0, DataSource.ACCESSIBILITY, taken = true)),
+                shiftStart = 0L,
+                now = 2 * 3_600_000L,
+            ),
+        )
+        val summary = CopilotEngine.answer("¿Cómo va mi jornada hoy?", copilotContext)
+        assertTrue(summary, summary.contains("10.000"))
+        assertTrue(summary, summary.contains("no ganancia neta"))
+        assertTrue(summary, summary.contains("12,5 km"))
+        assertTrue(summary, summary.contains("no confirma cobros"))
+        assertTrue(summary, summary.contains("67 %"))
+        val objective = CopilotEngine.answer("¿Cómo va mi objetivo diario?", copilotContext)
+        assertTrue(objective, objective.contains("Faltan"))
+        assertTrue(objective, objective.contains("no es una predicción"))
     }
 
     @Test fun informeExterno_contextualizaSinAfirmarBusquedaNiGps() {
