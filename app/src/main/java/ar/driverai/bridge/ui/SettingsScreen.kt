@@ -81,9 +81,9 @@ fun SettingsScreen() {
     fun num(label: String, v: String, tag: String, set: (String) -> Unit) = OutlinedTextField(v, set, label = { Text(label) }, singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth().testTag(tag))
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Text("Ajustes", style = MaterialTheme.typography.titleLarge)
-        Text("Dejá vacío lo que no quieras usar. La app no trae tarifas ni costos precargados.", color = Color.Gray)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
+        ScreenTitle("TU CONFIGURACIÓN", "Ajustes", "Personalizá cuándo una oferta encaja con tus mínimos")
+        Text("Dejá vacío lo que no quieras usar. DriverAI no trae tarifas ni costos precargados.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         Section("Umbrales (ingreso bruto)") {
             num("Tarifa mínima (\$)", minFare, "set_minfare") { minFare = it }
             num("Mínimo \$ por km", minKm, "set_minkm") { minKm = it }
@@ -92,11 +92,11 @@ fun SettingsScreen() {
         }
         Section("Preferencias del pasajero") {
             num("Calificación mínima (1–5)", minPassengerRating, "set_min_passenger_rating") { minPassengerRating = it }
-            Text("Se compara solo si DriverAI lee una calificación explícita del pasajero. Si falta o es ambigua, el resultado será REVISAR; no se completa por inferencia.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text("Se compara solo si DriverAI lee una calificación explícita del pasajero. Si falta o es ambigua, el resultado será REVISAR; no se completa por inferencia.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
         Section("Objetivo del día") {
             num("Objetivo de ingresos registrados (ARS)", dailyTarget, "set_daily_target") { dailyTarget = it }
-            Text("Opcional. El progreso se compara solo con ingresos que cargues en Billetera; no es una predicción ni una medida de ganancia neta.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text("Opcional. El progreso se compara solo con ingresos que cargues en Billetera; no es una predicción ni una medida de ganancia neta.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
         Section("Costos variables") {
             num("Costo propio por km (\$: desgaste, mantenimiento)", costKm, "set_costkm") { costKm = it }

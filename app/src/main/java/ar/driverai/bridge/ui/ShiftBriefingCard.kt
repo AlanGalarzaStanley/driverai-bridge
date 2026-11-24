@@ -21,22 +21,25 @@ fun ShiftBriefingCard(snapshot: ShiftBriefingSnapshot?, now: Long, message: Stri
         }
 
         val old = now - snapshot.retrievedAt > MAX_DISPLAY_AGE_MS
+        StatusPill(if (old) "CONSULTA ANTERIOR" else "RESPUESTA RECIBIDA", if (old) Amber else AccentMint)
         Text(
             "Respuesta recibida ${formatBriefingTime(snapshot.retrievedAt)}. La hora de actualización de las fuentes no está disponible.",
-            color = if (old) Amber else Color.LightGray,
+            color = TextMuted,
         )
-        Text("Zona inicial elegida: ${snapshot.selectedZone ?: "no elegida"}")
-        Text("Demanda estimada por el servicio: ${snapshot.demandLevel?.replace('_', ' ') ?: "no informada"}")
-        Text("Zona sugerida por el servicio ahora (sin feed verificado): ${snapshot.bestZoneNow ?: "no informada"}")
-        Text("Zona sugerida por el servicio en 2 h (sin feed verificado): ${snapshot.bestZoneIn2h ?: "no informada"}")
+        Text("Zona inicial · ${snapshot.selectedZone ?: "no elegida"}", style = MaterialTheme.typography.labelLarge)
+        Text("Demanda estimada por el servicio", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        Text(snapshot.demandLevel?.replace('_', ' ') ?: "No informada", style = MaterialTheme.typography.titleLarge, color = AccentMint)
+        Text("Zona sugerida ahora · ${snapshot.bestZoneNow ?: "no informada"}")
+        Text("Zona sugerida en 2 h · ${snapshot.bestZoneIn2h ?: "no informada"}")
 
         val weather = buildList {
             snapshot.temperatureC?.let { add("${Fmt.num(it)} °C") }
             snapshot.rainNow?.let { add("lluvia ahora ${if (it) "sí" else "no"}") }
             snapshot.rainProbability3h?.let { add("probabilidad de lluvia 3 h ${Fmt.num(it, 0)} %") }
         }
-        Text(if (weather.isEmpty()) "Clima estimado por el servicio: sin dato informado." else "Clima estimado por el servicio: ${weather.joinToString(", ")} (fuente/vigencia por variable desconocidas).")
-        Text("Eventos del servicio: ${snapshot.eventsListed?.let { "$it listados; no verificados" } ?: "lista no informada"}.")
+        Text("Contexto meteorológico", style = MaterialTheme.typography.labelLarge)
+        Text(if (weather.isEmpty()) "Sin dato informado." else "${weather.joinToString(" · ")} · fuente y vigencia por variable desconocidas.")
+        Text("Eventos · ${snapshot.eventsListed?.let { "$it listados, no verificados" } ?: "sin lista informada"}.", color = TextMuted)
 
         if (old) Text("La consulta tiene más de 30 min; no la tomes como actual.", color = Amber)
         Text(

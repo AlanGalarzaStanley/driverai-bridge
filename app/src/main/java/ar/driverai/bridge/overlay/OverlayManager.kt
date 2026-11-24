@@ -79,7 +79,7 @@ class OverlayManager(private val app: Context) {
     fun showEvaluation(rec: EvalRecord, compact: Boolean) = main.post {
         val e = rec.evaluation
         val m = e.metrics
-        val color = when (e.verdict) { Verdict.CONVIENE -> 0xFF2E7D32.toInt(); Verdict.NO_CONVIENE -> 0xFFC62828.toInt(); Verdict.REVISAR -> 0xFFF9A825.toInt() }
+        val color = when (e.verdict) { Verdict.CONVIENE -> 0xFF62E6A4.toInt(); Verdict.NO_CONVIENE -> 0xFFFF777D.toInt(); Verdict.REVISAR -> 0xFFFFC66D.toInt() }
         val lines = mutableListOf<String>()
         lines += listOfNotNull(m.fare?.let { Fmt.ars(it) }, m.totalKm?.let { Fmt.num(it) + " km tot." }, m.totalMin?.let { Fmt.num(it, 0) + " min tot." }).joinToString(" · ")
         lines += listOfNotNull(m.grossPerKm?.let { Fmt.ars(it) + "/km" }, m.grossPerHour?.let { Fmt.ars(it) + "/h" }).joinToString(" · ").ifEmpty { "Métricas incompletas" } + " (bruto)"
@@ -104,7 +104,7 @@ class OverlayManager(private val app: Context) {
         render(e.verdict.label, color, if (compact) compactBody else fullBody, rec.at, compact)
     }
 
-    fun showMessage(text: String) = main.post { render("DriverAI", 0xFF455A64.toInt(), listOf(text), null, false) }
+        fun showMessage(text: String) = main.post { render("DriverAI", 0xFF62E6A4.toInt(), listOf(text), null, false) }
 
     @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
     private fun render(title: String, color: Int, body: List<String>, recordAt: Long?, compact: Boolean) {
@@ -118,7 +118,7 @@ class OverlayManager(private val app: Context) {
         val root = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(10), dp(10), dp(10))
-            background = GradientDrawable().apply { setColor(0xF0161A20.toInt()); cornerRadius = dp(16).toFloat(); setStroke(dp(3), color) }
+            background = GradientDrawable().apply { setColor(0xF20D1410.toInt()); cornerRadius = dp(20).toFloat(); setStroke(dp(2), color) }
             minimumWidth = dp(220)
             contentDescription = "Tarjeta DriverAI"
         }
@@ -200,8 +200,8 @@ class OverlayManager(private val app: Context) {
         val (ctx, type) = wc
         val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val b = Button(ctx).apply {
-            text = "Leer oferta"; textSize = 15f; setTextColor(Color.BLACK); contentDescription = "Leer oferta con captura"
-            background = GradientDrawable().apply { setColor(0xFFFFC107.toInt()); cornerRadius = dp(24).toFloat() }
+            text = "Leer oferta"; textSize = 15f; setTextColor(0xFF062013.toInt()); contentDescription = "Leer oferta con captura"
+            background = GradientDrawable().apply { setColor(0xFF62E6A4.toInt()); cornerRadius = dp(24).toFloat() }
             setPadding(dp(16), dp(8), dp(16), dp(8))
             setOnClickListener {
                 // Se ocultan el botón y la tarjeta durante la captura para que no tapen la oferta

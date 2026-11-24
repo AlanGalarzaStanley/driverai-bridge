@@ -66,9 +66,8 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
     }
     LaunchedEffect(prefill) { if (prefill) { last?.evaluation?.offer?.let(::load); onPrefillConsumed() } }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Text("Evaluar oferta (manual / demo)", style = MaterialTheme.typography.titleLarge)
-        Text("Estos datos los ingresás vos: no fueron leídos automáticamente de Uber.", color = Color.Gray)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
+        ScreenTitle("CENTRO DE DECISIÓN", "Evaluar oferta", "Modo manual / demo · los datos los ingresás vos")
 
         last?.takeIf { it.source != DataSource.MANUAL }?.let { rec ->
             Section("Última lectura automática (${if (rec.source == DataSource.OCR) "OCR" else "accesibilidad"})") {
@@ -90,35 +89,40 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
             modifier = Modifier.fillMaxWidth().testTag(tag),
         )
-        field("Tarifa ofrecida (\$)", fare, "in_fare") { fare = it }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) { field("Km a recogida", pkm, "in_pkm") { pkm = it } }
-            Column(Modifier.weight(1f)) { field("Min a recogida", pmin, "in_pmin") { pmin = it } }
+        Section("Datos de la oferta") {
+            Text("La evaluación usa lo visible o lo que cargues acá. Si no conocés un valor, dejalo vacío: no se completa por inferencia.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            field("Tarifa ofrecida (\$)", fare, "in_fare") { fare = it }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) { field("Km a recogida", pkm, "in_pkm") { pkm = it } }
+                Column(Modifier.weight(1f)) { field("Min a recogida", pmin, "in_pmin") { pmin = it } }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(Modifier.weight(1f)) { field("Km del viaje", tkm, "in_tkm") { tkm = it } }
+                Column(Modifier.weight(1f)) { field("Min del viaje", tmin, "in_tmin") { tmin = it } }
+            }
+            field("Calificación del pasajero (1–5, si está visible)", passengerRating, "in_passenger_rating") { passengerRating = it }
+            Button(onClick = {
+                val offer = OfferData(
+                    fare = Reading.manual(parseUserNumber(fare)),
+                    pickupKm = Reading.manual(parseUserNumber(pkm)),
+                    pickupMin = Reading.manual(parseUserNumber(pmin)),
+                    tripKm = Reading.manual(parseUserNumber(tkm)),
+                    tripMin = Reading.manual(parseUserNumber(tmin)),
+                    passengerRating = Reading.manual(parseUserNumber(passengerRating)),
+                )
+                result = g.pipeline.evaluateManual(offer)
+                focus.clearFocus() // cierra el teclado para que se vea el resultado
+            }, modifier = Modifier.fillMaxWidth().height(56.dp).testTag("btn_evaluate")) { Text("Evaluar oferta") }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Column(Modifier.weight(1f)) { field("Km del viaje", tkm, "in_tkm") { tkm = it } }
-            Column(Modifier.weight(1f)) { field("Min del viaje", tmin, "in_tmin") { tmin = it } }
-        }
-        field("Calificación del pasajero (1–5, si está visible)", passengerRating, "in_passenger_rating") { passengerRating = it }
-        Button(onClick = {
-            val offer = OfferData(
-                fare = Reading.manual(parseUserNumber(fare)),
-                pickupKm = Reading.manual(parseUserNumber(pkm)),
-                pickupMin = Reading.manual(parseUserNumber(pmin)),
-                tripKm = Reading.manual(parseUserNumber(tkm)),
-                tripMin = Reading.manual(parseUserNumber(tmin)),
-                passengerRating = Reading.manual(parseUserNumber(passengerRating)),
-            )
-            result = g.pipeline.evaluateManual(offer)
-            focus.clearFocus() // cierra el teclado para que se vea el resultado
-        }, modifier = Modifier.fillMaxWidth().height(56.dp).testTag("btn_evaluate")) { Text("Evaluar") }
 
-        Text("Ejemplos de demostración (valores ficticios):", style = MaterialTheme.typography.bodySmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val pad = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
-            OutlinedButton(onClick = { fare = "8000"; pkm = "1,5"; pmin = "5"; tkm = "8,5"; tmin = "20" }, Modifier.weight(1f), contentPadding = pad) { Text("Demo A", maxLines = 1) }
-            OutlinedButton(onClick = { fare = "2500"; pkm = "3"; pmin = "10"; tkm = "6"; tmin = "18" }, Modifier.weight(1f), contentPadding = pad) { Text("Demo B", maxLines = 1) }
-            OutlinedButton(onClick = { fare = "9000"; pkm = ""; pmin = ""; tkm = "12"; tmin = "" }, Modifier.weight(1f), contentPadding = pad) { Text("Parcial", maxLines = 1) }
+        Section("Práctica segura") {
+            Text("Ejemplos de demostración (valores ficticios):", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val pad = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp)
+                OutlinedButton(onClick = { fare = "8000"; pkm = "1,5"; pmin = "5"; tkm = "8,5"; tmin = "20" }, Modifier.weight(1f), contentPadding = pad) { Text("Demo A", maxLines = 1) }
+                OutlinedButton(onClick = { fare = "2500"; pkm = "3"; pmin = "10"; tkm = "6"; tmin = "18" }, Modifier.weight(1f), contentPadding = pad) { Text("Demo B", maxLines = 1) }
+                OutlinedButton(onClick = { fare = "9000"; pkm = ""; pmin = ""; tkm = "12"; tmin = "" }, Modifier.weight(1f), contentPadding = pad) { Text("Parcial", maxLines = 1) }
+            }
         }
 
         result?.let { rec ->

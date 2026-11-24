@@ -64,12 +64,21 @@ fun DiagnosticsScreen(activity: Activity) {
     LifecycleResumeEffect(Unit) { refresh++; onPauseOrDispose { } }
 
     @Composable fun row(label: String, ok: Boolean?, detail: String) {
-        Text("${when (ok) { true -> "OK"; false -> "FALTA"; null -> "—" }}  $label: $detail",
-            color = when (ok) { true -> Green; false -> Amber; null -> Color.LightGray })
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(10.dp),
+        ) {
+            StatusPill(when (ok) { true -> "OK"; false -> "FALTA"; null -> "—" }, when (ok) { true -> Green; false -> Amber; null -> TextMuted })
+            androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
+                Text(label, style = MaterialTheme.typography.labelLarge)
+                Text(detail, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+        }
     }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Text("Diagnóstico", style = MaterialTheme.typography.titleLarge)
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
+        ScreenTitle("ESTADO DEL DISPOSITIVO", "Chequeo", "Permisos y módulos locales · Uber no verificado en un teléfono real")
         refresh.let { }
         Section("Dispositivo y app") {
             Text("${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")

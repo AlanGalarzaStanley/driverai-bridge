@@ -11,6 +11,8 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,10 +22,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
@@ -46,13 +50,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import ar.driverai.bridge.DriverAiApp
+import ar.driverai.bridge.R
 import ar.driverai.bridge.backend.ApiResult
 import ar.driverai.bridge.backend.LocalWeatherRepository
 import ar.driverai.bridge.backend.StrategicRepository
@@ -161,7 +168,6 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
             onEnd = { scope.launch { g.historyRepo.endShift() } },
         )
 
-        LatestOfferCard(last, onEvaluate = { onNavigate("evaluar") })
         DailySummaryCard(
             incomeArs = moneyToday.incomeArs,
             expensesArs = moneyToday.expensesArs,
@@ -169,6 +175,7 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
             dailyTargetArs = settings.dailyTargetArs,
             drivenKm = todayOdometer?.drivenKm,
         )
+        LatestOfferCard(last, onEvaluate = { onNavigate("evaluar") })
         CopilotEntryCard(onOpen = { onNavigate("copiloto") })
 
         WeatherCard(
@@ -276,28 +283,46 @@ private fun ShiftHeroCard(
             java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
     } == true
     Box(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Color(0xFF192521))
-            .padding(20.dp),
+        Modifier.fillMaxWidth().padding(vertical = 7.dp)
+            .clip(RoundedCornerShape(DriverRadius.hero))
+            .background(Brush.linearGradient(listOf(Color(0xFF12291C), Color(0xFF0D1A13), Color(0xFF111914))))
+            .border(1.dp, AccentMint.copy(alpha = 0.2f), RoundedCornerShape(DriverRadius.hero))
+            .heightIn(min = 290.dp),
     ) {
-        Column {
-            Row(verticalAlignment = Alignment.Top) {
-                Column(Modifier.weight(1f)) {
-                    Text("DRIVERAI  /  COCKPIT", style = MaterialTheme.typography.labelSmall, color = AccentMint, fontWeight = FontWeight.Bold)
-                    Text(if (active) "Turno en marcha" else "Preparado para salir", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(if (active) "Iniciado ${formatHomeTime(shiftStart!!)}" else "Ingresos, gastos, kilómetros y contexto en un solo lugar", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                }
-                Text(if (readingActive) "LECTOR ACTIVO" else "LECTOR INACTIVO", style = MaterialTheme.typography.labelSmall, color = if (readingActive) Green else Amber, modifier = Modifier.padding(start = 8.dp, top = 4.dp))
+        Box(
+            Modifier.align(Alignment.CenterEnd).padding(end = 8.dp)
+                .fillMaxWidth(0.72f).height(210.dp)
+                .background(Brush.radialGradient(listOf(AccentMint.copy(alpha = 0.18f), Color.Transparent))),
+        )
+        Image(
+            painter = painterResource(R.drawable.driverai_hero_car),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            alpha = 0.94f,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 4.dp, bottom = 60.dp)
+                .fillMaxWidth(0.78f).height(166.dp),
+        )
+        Column(Modifier.fillMaxWidth().padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("DRIVERAI  /  COCKPIT", style = MaterialTheme.typography.labelSmall, color = AccentMint, fontWeight = FontWeight.Bold)
+                StatusPill(if (readingActive) "LECTOR ACTIVO" else "LECTOR INACTIVO", if (readingActive) Green else Amber)
             }
-            Spacer(Modifier.height(18.dp))
-            Text("Lectura de ofertas: $status", modifier = Modifier.testTag("status"), style = MaterialTheme.typography.bodySmall, color = if (readingActive) Green else TextMuted)
+            Text(if (active) "Turno en marcha" else "Tu día, bajo control", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 10.dp))
+            Text(
+                if (active) "Iniciado ${formatHomeTime(shiftStart!!)}" else "Ingresos, gastos y kilómetros en un solo lugar.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+                modifier = Modifier.padding(top = 3.dp),
+            )
+            Spacer(Modifier.height(13.dp))
+            Text("LECTURA DE OFERTAS", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+            Text("$status", modifier = Modifier.testTag("status"), style = MaterialTheme.typography.bodyMedium, color = if (readingActive) Green else TextMuted)
             if (startedPreviousDay) {
                 Text("Turno iniciado en un día anterior. Las horas cuentan tiempo de reloj desde el inicio y no descuentan pausas; revisalo antes de usar el promedio.", style = MaterialTheme.typography.bodySmall, color = Amber, modifier = Modifier.padding(top = 6.dp))
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(70.dp))
             if (!active) {
-                Button(enabled = !loading, onClick = onStart, modifier = Modifier.fillMaxWidth().height(50.dp).testTag("start_shift")) {
+                Button(enabled = !loading, onClick = onStart, modifier = Modifier.fillMaxWidth().height(52.dp).testTag("start_shift")) {
                     Text(if (loading) "Consultando contexto…" else "Iniciar turno y consultar")
                 }
             } else {
@@ -321,11 +346,13 @@ private fun LatestOfferCard(record: EvalRecord?, onEvaluate: () -> Unit) {
             val metrics = evaluation.metrics
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f)) {
-                    Text(evaluation.verdict.label, style = MaterialTheme.typography.labelLarge, color = verdictColor(evaluation.verdict), fontWeight = FontWeight.Bold)
-                    Text(metrics.fare?.let(Fmt::ars) ?: "Falta tarifa", style = MaterialTheme.typography.headlineMedium)
+                    StatusPill(evaluation.verdict.label, verdictColor(evaluation.verdict))
+                    Text(metrics.fare?.let(Fmt::ars) ?: "Falta tarifa", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.padding(top = 8.dp))
+                    Text("Tarifa de la oferta", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(metrics.grossPerHour?.let { "${Fmt.ars(it)}/h" } ?: "— /h", style = MaterialTheme.typography.titleMedium)
+                    Text("BRUTO ESTIMADO", style = MaterialTheme.typography.labelSmall, color = TextMuted)
+                    Text(metrics.grossPerHour?.let { "${Fmt.ars(it)}/h" } ?: "— /h", style = MaterialTheme.typography.titleMedium, color = AccentMint)
                     Text(metrics.grossPerKm?.let { "${Fmt.ars(it)}/km" } ?: "— /km", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                 }
             }
@@ -367,28 +394,29 @@ private fun DailySummaryCard(
     dailyTargetArs: Double?,
     drivenKm: Double?,
 ) {
-    Section("Jornada · datos registrados") {
+    Section("Tu día · registros reales") {
         Text("INGRESOS ANOTADOS", style = MaterialTheme.typography.labelSmall, color = AccentMint)
         Text(Fmt.ars(incomeArs), style = MaterialTheme.typography.headlineMedium, color = Green, modifier = Modifier.testTag("home_daily_income"))
-        Text("Cargados en Billetera por vos; no se derivan de ofertas leídas.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        Text("Cargados por vos en Billetera; no se derivan de ofertas leídas.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         dailyTargetArs?.let { target ->
             val progress = (incomeArs / target).coerceIn(0.0, 1.0).toFloat()
-            Text("Meta ${Fmt.ars(target)} · ${(progress * 100).toInt()} %", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp))
-            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth().padding(top = 5.dp), color = AccentMint)
+            Text("Meta ${Fmt.ars(target)} · ${(progress * 100).toInt()} %", style = MaterialTheme.typography.labelLarge, color = AccentMint, modifier = Modifier.padding(top = 4.dp))
+            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth().padding(top = 2.dp), color = AccentMint)
         } ?: Text("Meta diaria: no configurada", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-            MetricCard("Gastos anotados", Fmt.ars(expensesArs), "Billetera", Modifier.weight(1f), Amber)
-            MetricCard("Diferencia", Fmt.ars(cashBalanceArs), "No es ganancia neta", Modifier.weight(1f), if (cashBalanceArs < 0) Red else AccentMint)
+            MetricCard("Gastos", Fmt.ars(expensesArs), "Anotados", Modifier.weight(1f), Amber)
+            MetricCard("Caja", Fmt.ars(cashBalanceArs), "No es ganancia neta", Modifier.weight(1f), if (cashBalanceArs < 0) Red else AccentMint)
         }
-        Text("Odómetro de hoy: ${drivenKm?.let { Fmt.num(it, 1) + " km" } ?: "pendiente de cargar"}. No se completa con las distancias de ofertas.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 9.dp))
+        Text("Odómetro de hoy: ${drivenKm?.let { Fmt.num(it, 1) + " km" } ?: "pendiente de cargar"}. No se completa con las distancias de ofertas.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 3.dp))
     }
 }
 
 @Composable
 private fun CopilotEntryCard(onOpen: () -> Unit) {
     Section("Copiloto de jornada") {
-        Text("Consultá la última oferta, tus promedios o la zona elegida. Las respuestas actuales son locales y aclaran cuándo una fuente es una estimación.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        Button(onClick = onOpen, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("home_open_copilot")) { Text("Abrir conversación") }
+        Text("Una vista rápida de tus datos del día, tus ofertas y el contexto disponible.", style = MaterialTheme.typography.bodyMedium)
+        Text("Respuestas por reglas locales; sin inventar fuentes ni demandar certeza donde falta información.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        Button(onClick = onOpen, modifier = Modifier.fillMaxWidth().padding(top = 4.dp).testTag("home_open_copilot")) { Text("Abrir copiloto") }
     }
 }
 

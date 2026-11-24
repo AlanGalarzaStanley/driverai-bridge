@@ -77,13 +77,15 @@ fun VehicleScreen() {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
         ScreenTitle("Tu vehículo", "Kilómetros y service", "Carga manual del odómetro · sin ubicación en segundo plano")
 
+        MetricCard("Recorrido de hoy", todayEntry?.let { "${Fmt.num(it.drivenKm, 1)} km" } ?: "—", if (todayEntry == null) "Todavía no registrado" else "Inicio a fin · cargado por vos", Modifier.fillMaxWidth(), AccentMint)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("Odómetro actual", currentKm?.let { "${Fmt.num(it, 0)} km" } ?: "—", if (currentKm == null) "Registrá la primera lectura" else "Última lectura cargada", Modifier.weight(1f), AccentMint)
-            MetricCard("Recorrido de hoy", todayEntry?.let { "${Fmt.num(it.drivenKm, 1)} km" } ?: "—", if (todayEntry == null) "Todavía no registrado" else "Inicio a fin", Modifier.weight(1f), AccentBlue)
+            MetricCard("Odómetro actual", currentKm?.let { "${Fmt.num(it, 0)} km" } ?: "—", if (currentKm == null) "Primera lectura" else "Última lectura", Modifier.weight(1f), AccentBlue)
+            MetricCard("Recordatorios", records.count { it.completedAt == null }.toString(), "Service pendientes", Modifier.weight(1f), Amber)
         }
         Spacer(Modifier.height(10.dp))
 
         Section("Registrar odómetro de hoy") {
+            StatusPill(if (todayEntry == null) "PENDIENTE" else "REGISTRADO", if (todayEntry == null) Amber else AccentMint)
             Text("Ingresá la lectura del tablero al empezar y al terminar. El kilometraje del día es la diferencia; no se estima desde viajes ni GPS.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {

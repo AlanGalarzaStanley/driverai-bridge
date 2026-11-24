@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,7 +28,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 class MainActivity : ComponentActivity() {
@@ -61,39 +66,56 @@ class MainActivity : ComponentActivity() {
             "ajustes", "diag", "historial" -> "mas"
             else -> tab
         }
-        Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = {
-                if (tab != "copiloto") {
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                        tabs.forEach { (id, label, icon) ->
-                            NavigationBarItem(
-                                selected = selectedTab == id,
-                                onClick = { tab = id },
-                                icon = { Icon(icon, contentDescription = label) },
-                                label = { Text(label, maxLines = 1, softWrap = false, fontSize = 10.sp) },
-                                modifier = Modifier.testTag("tab_$id"),
-                            )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    0f to Color(0xFF0C1911),
+                    0.32f to MaterialTheme.colorScheme.background,
+                    1f to MaterialTheme.colorScheme.background,
+                ),
+            ),
+        ) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                bottomBar = {
+                    if (tab != "copiloto") {
+                        NavigationBar(containerColor = Color(0xF20D1410), tonalElevation = 0.dp) {
+                            tabs.forEach { (id, label, icon) ->
+                                NavigationBarItem(
+                                    selected = selectedTab == id,
+                                    onClick = { tab = id },
+                                    icon = { Icon(icon, contentDescription = label) },
+                                    label = { Text(label, maxLines = 1, softWrap = false, fontSize = 10.sp) },
+                                    modifier = Modifier.testTag("tab_$id"),
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = DriverPalette.mint,
+                                        selectedTextColor = DriverPalette.mint,
+                                        indicatorColor = DriverPalette.mint.copy(alpha = 0.12f),
+                                        unselectedIconColor = DriverPalette.textMuted,
+                                        unselectedTextColor = DriverPalette.textMuted,
+                                    ),
+                                )
+                            }
                         }
                     }
-                }
-            },
-        ) { pad ->
-            Box(Modifier.fillMaxSize().padding(pad)) {
-                when (tab) {
-                    "inicio" -> HomeScreen(this@MainActivity) { destination ->
-                        if (destination == "evaluar") prefill = true
-                        tab = destination
+                },
+            ) { pad ->
+                Box(Modifier.fillMaxSize().padding(pad)) {
+                    when (tab) {
+                        "inicio" -> HomeScreen(this@MainActivity) { destination ->
+                            if (destination == "evaluar") prefill = true
+                            tab = destination
+                        }
+                        "evaluar" -> EvaluateScreen(prefill) { prefill = false }
+                        "billetera" -> WalletScreen()
+                        "vehiculo" -> VehicleScreen()
+                        "mas" -> ToolsScreen { destination -> tab = destination }
+                        "copiloto" -> CopilotScreen { tab = "inicio" }
+                        "ajustes" -> SettingsScreen()
+                        "historial" -> HistoryScreen()
+                        "diag" -> DiagnosticsScreen(this@MainActivity)
+                        else -> HomeScreen(this@MainActivity)
                     }
-                    "evaluar" -> EvaluateScreen(prefill) { prefill = false }
-                    "billetera" -> WalletScreen()
-                    "vehiculo" -> VehicleScreen()
-                    "mas" -> ToolsScreen { destination -> tab = destination }
-                    "copiloto" -> CopilotScreen { tab = "inicio" }
-                    "ajustes" -> SettingsScreen()
-                    "historial" -> HistoryScreen()
-                    "diag" -> DiagnosticsScreen(this@MainActivity)
-                    else -> HomeScreen(this@MainActivity)
                 }
             }
         }

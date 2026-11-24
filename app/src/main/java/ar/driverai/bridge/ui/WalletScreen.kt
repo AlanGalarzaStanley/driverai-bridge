@@ -62,12 +62,11 @@ fun WalletScreen() {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
         ScreenTitle("Control diario", "Billetera", today.format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es-AR"))))
+        MetricCard("Diferencia de caja", Fmt.ars(summary.cashBalanceArs), "Saldo entre movimientos que anotaste · no es ganancia neta", Modifier.fillMaxWidth().testTag("wallet_balance_metric"), if (summary.cashBalanceArs < 0) Red else AccentMint)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard("Ingresos cargados", Fmt.ars(summary.incomeArs), "Confirmados por vos", Modifier.weight(1f).testTag("wallet_income_metric"), Green)
             MetricCard("Gastos cargados", Fmt.ars(summary.expensesArs), "Registrados hoy", Modifier.weight(1f).testTag("wallet_expense_metric"), Amber)
         }
-        Spacer(Modifier.height(10.dp))
-        MetricCard("Diferencia de caja", Fmt.ars(summary.cashBalanceArs), "No equivale a ganancia neta", Modifier.fillMaxWidth().testTag("wallet_balance_metric"), if (summary.cashBalanceArs < 0) Red else AccentMint)
         Text(
             "Solo suma movimientos que registrás. No convierte ofertas leídas o marcadas como tomadas en ingresos, ni estima gastos que todavía no cargaste.",
             style = MaterialTheme.typography.bodySmall,
@@ -75,10 +74,10 @@ fun WalletScreen() {
             modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(onClick = { editingType = MoneyKind.INCOME; category = MoneyCategory.TRIP_INCOME; amountText = ""; formError = null }, modifier = Modifier.weight(1f).testTag("wallet_add_income")) {
+            Button(onClick = { editingType = MoneyKind.INCOME; category = MoneyCategory.TRIP_INCOME; amountText = ""; formError = null }, modifier = Modifier.weight(1f).height(54.dp).testTag("wallet_add_income")) {
                 Text("+ Ingreso real")
             }
-            OutlinedButton(onClick = { editingType = MoneyKind.EXPENSE; category = MoneyCategory.FUEL; amountText = ""; formError = null }, modifier = Modifier.weight(1f).testTag("wallet_add_expense")) {
+            OutlinedButton(onClick = { editingType = MoneyKind.EXPENSE; category = MoneyCategory.FUEL; amountText = ""; formError = null }, modifier = Modifier.weight(1f).height(54.dp).testTag("wallet_add_expense")) {
                 Text("+ Gasto")
             }
         }

@@ -153,8 +153,9 @@ fun CopilotScreen(onBack: () -> Unit) {
         Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = { reportMode = false; copied = false }) { Text("Volver al chat") }
-                Text("Informe externo", style = MaterialTheme.typography.titleLarge)
+                Text("Informe externo", style = MaterialTheme.typography.titleLarge, color = AccentMint)
             }
+            StatusPill("PREPARADO PARA COPIAR", AccentMint, Modifier.padding(vertical = 7.dp))
             Text("DriverAI no hizo la búsqueda. Copiá este pedido y pegalo en una IA externa con navegación.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
             OutlinedTextField(
                 value = prompt,
@@ -175,11 +176,11 @@ fun CopilotScreen(onBack: () -> Unit) {
             Text("El prompt usa únicamente contexto disponible en el teléfono; no adjunta capturas, nombres ni direcciones.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 8.dp))
         }
     } else {
-        Column(Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 8.dp)) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack, modifier = Modifier.testTag("copilot_back")) { Text("Inicio") }
                 Column(Modifier.weight(1f)) {
-                    Text("Copiloto", style = MaterialTheme.typography.titleLarge)
+                    Text("Copiloto", style = MaterialTheme.typography.titleLarge, color = AccentMint)
                     Text("Contexto de tu jornada", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                 }
                 TextButton(onClick = { reportMode = true }, modifier = Modifier.testTag("external_report")) { Text("Informe web") }
@@ -252,8 +253,12 @@ fun CopilotScreen(onBack: () -> Unit) {
 private fun MessageBubble(message: CopilotMessage, index: Int) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = if (message.fromDriver) Arrangement.End else Arrangement.Start) {
         Surface(
-            color = if (message.fromDriver) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(18.dp),
+            color = if (message.fromDriver) MaterialTheme.colorScheme.primary.copy(alpha = 0.13f) else MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(if (message.fromDriver) 22.dp else 16.dp),
+            border = androidx.compose.foundation.BorderStroke(
+                1.dp,
+                if (message.fromDriver) AccentMint.copy(alpha = 0.2f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
+            ),
             modifier = Modifier.fillMaxWidth(if (message.fromDriver) 0.86f else 0.94f),
         ) {
             Column(Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
