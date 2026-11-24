@@ -1,5 +1,6 @@
 package ar.driverai.bridge.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -30,7 +30,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -40,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ar.driverai.bridge.engine.Verdict
 
-/** Tokens visuales — identidad Cockpit (tecnología automotriz de precisión). */
 object DriverColors {
     val Void = Color(0xFF070A0E)
     val Hull = Color(0xFF0D1218)
@@ -51,7 +49,6 @@ object DriverColors {
     val InkDim = Color(0xFF9AA8B5)
     val InkFaint = Color(0xFF6B7A89)
     val Cyan = Color(0xFF3DE0D0)
-    val CyanDim = Color(0xFF1FA89C)
     val Go = Color(0xFF2EE59D)
     val Stop = Color(0xFFFF5E6C)
     val Caution = Color(0xFFFFC857)
@@ -89,14 +86,14 @@ fun DriverTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = colors,
         typography = Typography(
-            displayLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.Bold, fontSize = 34.sp, letterSpacing = (-0.5).sp, color = DriverColors.Ink),
+            displayLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.Bold, fontSize = 34.sp, letterSpacing = (-0.5).sp),
             headlineLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.Bold, fontSize = 28.sp, letterSpacing = (-0.3).sp),
             headlineMedium = TextStyle(fontFamily = mono, fontWeight = FontWeight.SemiBold, fontSize = 24.sp),
             titleLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = (-0.2).sp),
             titleMedium = TextStyle(fontFamily = mono, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 0.2.sp),
             bodyLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
             bodyMedium = TextStyle(fontFamily = mono, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
-            bodySmall = TextStyle(fontFamily = mono, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp, color = DriverColors.InkDim),
+            bodySmall = TextStyle(fontFamily = mono, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp),
             labelLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, letterSpacing = 0.4.sp),
             labelMedium = TextStyle(fontFamily = mono, fontWeight = FontWeight.Medium, fontSize = 11.sp, letterSpacing = 0.6.sp),
         ),
@@ -119,16 +116,9 @@ fun ScreenScaffold(
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    "DRIVER AI",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = DriverColors.Cyan,
-                    letterSpacing = 2.sp,
-                )
+                Text("DRIVER AI", style = MaterialTheme.typography.labelMedium, color = DriverColors.Cyan, letterSpacing = 2.sp)
                 Text(title, style = MaterialTheme.typography.titleLarge, color = DriverColors.Ink)
-                if (subtitle != null) {
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = DriverColors.InkDim)
-                }
+                if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = DriverColors.InkDim)
             }
             trailing?.invoke()
         }
@@ -161,36 +151,16 @@ fun Section(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
-        modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
+        modifier.fillMaxWidth().padding(vertical = 6.dp),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = DriverColors.Panel),
+        border = BorderStroke(1.dp, DriverColors.Rail),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
-        Row(Modifier.fillMaxWidth()) {
-            Box(
-                Modifier
-                    .width(3.dp)
-                    .height(0.dp)
-                    .weight(0.001f)
-            )
-            Box(
-                Modifier
-                    .width(3.dp)
-                    .background(
-                        Brush.verticalGradient(listOf(accent, accent.copy(alpha = 0.2f))),
-                        RoundedCornerShape(topStart = 18.dp, bottomStart = 18.dp),
-                    )
-                    .align(Alignment.Stretch),
-            )
-            Column(Modifier.padding(16.dp).weight(1f)) {
-                Text(
-                    title.uppercase(),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = accent,
-                    letterSpacing = 1.2.sp,
-                )
+        Column {
+            Box(Modifier.fillMaxWidth().height(2.dp).background(accent.copy(alpha = 0.85f)))
+            Column(Modifier.padding(16.dp)) {
+                Text(title.uppercase(), style = MaterialTheme.typography.labelMedium, color = accent, letterSpacing = 1.2.sp)
                 Spacer(Modifier.height(10.dp))
                 content()
             }
@@ -230,9 +200,7 @@ fun PrimaryCta(text: String, onClick: () -> Unit, modifier: Modifier = Modifier,
             contentColor = DriverColors.Void,
             disabledContainerColor = DriverColors.Rail,
         ),
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-    }
+    ) { Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
 }
 
 @Composable
@@ -242,10 +210,8 @@ fun GhostCta(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth().height(48.dp),
         shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = DriverColors.Ink),
-        border = androidx.compose.foundation.BorderStroke(1.dp, DriverColors.Rail),
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge)
-    }
+        border = BorderStroke(1.dp, DriverColors.Rail),
+    ) { Text(text, style = MaterialTheme.typography.labelLarge) }
 }
 
 @Composable
