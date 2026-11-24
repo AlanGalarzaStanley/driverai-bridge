@@ -5,9 +5,13 @@
 - Cliente **Open-Meteo** en el teléfono (sin API key) para clima real de BA.
 - Sección **Clima (verificado)** en Inicio, separada del reporte del servidor.
 - `docs/TRUTH_LAYER.md`: contrato de hechos vs estimaciones.
+- **Design system Cockpit** centralizado en `Theme.kt`: `DriverColors`, `ScreenScaffold`, `Section`, `MetricTile`, `PrimaryCta`, `GhostCta`, `StatusPill`, `VerdictBanner`, `CockpitField`.
 
 ### Mejorado
-- UI más sobria (theme, tarjetas redondeadas).
+- **Rediseño visual integral (Cockpit)** en todas las pantallas:
+  - Inicio, Evaluar, Historial, Ajustes y Chequeo usan el mismo lenguaje visual.
+  - Fondo void/hull, acentos cyan/go, tipografía mono-sans, métricas en tiles, CTAs consistentes.
+  - Ajustes y Chequeo dejan de usar Material genérico suelto (botones, campos y grises planos).
 - Contexto del servidor etiquetado como **no verificado**; no se presenta la demanda inventada como dato.
 - Copiloto: sin eventos verificados dice la verdad en lugar de rellenar.
 - Chequeo conserva y copia únicamente métricas de oferta y etiquetas permitidas; nombres, direcciones y texto libre se descartan en el dispositivo.
