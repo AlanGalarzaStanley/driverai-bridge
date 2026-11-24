@@ -71,9 +71,9 @@ fun DiagnosticsScreen(activity: Activity) {
     @Composable
     fun CheckRow(label: String, ok: Boolean?, detail: String) {
         val tone = when (ok) {
-            true -> DriverColors.Go
-            false -> DriverColors.Caution
-            null -> DriverColors.InkFaint
+            true -> DriverColors.Positive
+            false -> DriverColors.Warning
+            null -> DriverColors.TextTertiary
         }
         val tag = when (ok) {
             true -> "OK"
@@ -82,12 +82,12 @@ fun DiagnosticsScreen(activity: Activity) {
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             StatusPill(tag, tone)
-            Column(Modifier.weight(1f).padding(start = 10.dp)) {
-                Text(label, color = DriverColors.Ink, style = MaterialTheme.typography.bodyMedium)
-                Text(detail, color = DriverColors.InkDim, style = MaterialTheme.typography.bodySmall)
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text(label, color = DriverColors.TextPrimary, style = MaterialTheme.typography.bodyMedium)
+                Text(detail, color = DriverColors.TextSecondary, style = MaterialTheme.typography.bodySmall)
             }
         }
-        VSpace(8.dp)
+        VSpace(10.dp)
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -97,19 +97,19 @@ fun DiagnosticsScreen(activity: Activity) {
         ) {
             refresh.let { }
 
-            Section("Dispositivo y app", accent = DriverColors.Ice) {
+            Section("Dispositivo y app", accent = DriverColors.Info) {
                 Text(
                     "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
-                    color = DriverColors.Ink,
+                    color = DriverColors.TextPrimary,
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                VSpace(4.dp)
+                VSpace(6.dp)
                 Text(
                     "DriverAI ${BuildConfig.VERSION_NAME} · ${BuildConfig.GIT_SHA} · ${BuildConfig.BUILD_TYPE}",
-                    color = DriverColors.InkDim,
+                    color = DriverColors.TextSecondary,
                     style = MaterialTheme.typography.bodySmall,
                 )
-                VSpace(10.dp)
+                VSpace(12.dp)
                 val uv = uberVersion(activity)
                 CheckRow("Uber Driver", uv != null, uv?.let { "versión $it" } ?: "no instalado o no visible")
             }
@@ -156,12 +156,12 @@ fun DiagnosticsScreen(activity: Activity) {
                 )
                 Text(
                     "Escaneos: ${g.pipeline.scans} · Ofertas detectadas: ${g.pipeline.offersDetected}",
-                    color = DriverColors.InkFaint,
+                    color = DriverColors.TextTertiary,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
 
-            Section("Backend Supabase", accent = DriverColors.Cyan) {
+            Section("Backend Supabase", accent = DriverColors.Accent) {
                 PrimaryCta("Probar backend", {
                     backendMsg = "Probando…"
                     scope.launch {
@@ -176,12 +176,12 @@ fun DiagnosticsScreen(activity: Activity) {
                     }
                 }, Modifier.testTag("btn_backend"))
                 backendMsg?.let {
-                    VSpace(8.dp)
-                    Text(it, modifier = Modifier.testTag("backend_msg"), color = DriverColors.InkDim, style = MaterialTheme.typography.bodySmall)
+                    VSpace(10.dp)
+                    Text(it, modifier = Modifier.testTag("backend_msg"), color = DriverColors.TextSecondary, style = MaterialTheme.typography.bodySmall)
                 }
             }
 
-            Section("Pruebas", accent = DriverColors.InkFaint) {
+            Section("Pruebas", accent = DriverColors.TextTertiary) {
                 GhostCta("Probar tarjeta flotante (demo)", {
                     val demo = OfferData(
                         Reading.manual(8000.0),
@@ -196,65 +196,65 @@ fun DiagnosticsScreen(activity: Activity) {
                         false,
                     )
                 }, Modifier.testTag("btn_overlay_demo"))
-                VSpace(8.dp)
+                VSpace(10.dp)
                 GhostCta("Ocultar tarjetas") { g.overlay.hideAll() }
                 if (BuildConfig.SIMULATOR_WATCH) {
-                    VSpace(8.dp)
+                    VSpace(10.dp)
                     GhostCta("Abrir simulador de oferta (no es Uber)", {
                         activity.startActivity(Intent(activity, SimulatorActivity::class.java))
                     }, Modifier.testTag("btn_simulator"))
                 }
             }
 
-            Section("Textos leídos (calibración)", accent = DriverColors.Caution) {
+            Section("Textos leídos (calibración)", accent = DriverColors.Warning) {
                 Text(
                     "Registra temporalmente solo etiquetas permitidas, tarifa, tiempos, distancias y veredicto. No conserva nombres, direcciones ni capturas; no se persiste ni se envía. Al apagarlo, se borra.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = DriverColors.InkDim,
+                    color = DriverColors.TextSecondary,
                 )
-                VSpace(10.dp)
+                VSpace(12.dp)
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text("Registrar lectura reducida", Modifier.weight(1f), color = DriverColors.Ink)
+                    Text("Registrar lectura reducida", Modifier.weight(1f), color = DriverColors.TextPrimary)
                     Switch(
                         diag,
                         { g.pipeline.setDiagnosticsEnabled(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = DriverColors.Void,
-                            checkedTrackColor = DriverColors.Cyan,
-                            uncheckedThumbColor = DriverColors.InkDim,
-                            uncheckedTrackColor = DriverColors.Rail,
+                            checkedTrackColor = DriverColors.Accent,
+                            uncheckedThumbColor = DriverColors.TextSecondary,
+                            uncheckedTrackColor = DriverColors.Border,
                         ),
                     )
                 }
                 if (diag && diagnostic == null) {
-                    VSpace(6.dp)
-                    Text("Esperando una lectura de oferta…", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkFaint)
+                    VSpace(8.dp)
+                    Text("Esperando una lectura de oferta…", style = MaterialTheme.typography.bodySmall, color = DriverColors.TextTertiary)
                 }
                 diagnostic?.let { record ->
-                    VSpace(10.dp)
+                    VSpace(12.dp)
                     Text(
                         "Veredicto: ${record.verdict}",
                         style = MaterialTheme.typography.titleMedium,
-                        color = DriverColors.Ink,
+                        color = DriverColors.TextPrimary,
                         modifier = Modifier.testTag("diag_verdict"),
                     )
-                    VSpace(4.dp)
+                    VSpace(6.dp)
                     Text(
                         "Tarifa: ${record.fare.displayText()}\nDistancia del viaje: ${record.tripKm.displayText()}\nDuración del viaje: ${record.tripMin.displayText()}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = DriverColors.InkDim,
+                        color = DriverColors.TextSecondary,
                     )
-                    VSpace(8.dp)
+                    VSpace(10.dp)
                     GhostCta("Copiar registro reducido", {
                         val cm = activity.getSystemService(ClipboardManager::class.java)
                         cm.setPrimaryClip(ClipData.newPlainText("DriverAI Chequeo", record.clipboardText()))
                     }, Modifier.testTag("btn_copy_diagnostic"))
                     if (record.snippets.isEmpty()) {
-                        VSpace(6.dp)
-                        Text("No se encontraron fragmentos de tarifa, tiempo o distancia.", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkFaint)
+                        VSpace(8.dp)
+                        Text("No se encontraron fragmentos de tarifa, tiempo o distancia.", style = MaterialTheme.typography.bodySmall, color = DriverColors.TextTertiary)
                     }
                     record.snippets.forEach {
-                        Text("· $it", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkDim)
+                        Text("· $it", style = MaterialTheme.typography.bodySmall, color = DriverColors.TextSecondary)
                     }
                 }
             }
