@@ -126,41 +126,41 @@ fun HomeScreen(activity: Activity) {
     }
 
     val statusTone = when {
-        a11yOn || capturing -> DriverColors.Go
-        else -> DriverColors.Caution
+        a11yOn || capturing -> DriverColors.Positive
+        else -> DriverColors.Warning
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         ScreenScaffold(
-            title = "Cockpit",
+            title = "Inicio",
             subtitle = "Copiloto de ofertas · Buenos Aires",
             trailing = { StatusPill(status.label, statusTone, Modifier.testTag("status")) },
         ) {
-            Section("Clima", accent = DriverColors.Ice) {
+            Section("Clima", accent = DriverColors.Info) {
                 when {
-                    weatherState.loading -> Text("Actualizando Open-Meteo…", color = DriverColors.InkDim)
+                    weatherState.loading -> Text("Actualizando Open-Meteo…", color = DriverColors.TextSecondary)
                     weatherState.weather != null -> {
                         val w = weatherState.weather!!
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             MetricTile("Temp", w.temperatureC?.let { "${Fmt.num(it)}°" } ?: "—", Modifier.weight(1f), emphasis = true)
                             MetricTile("Viento", w.windKmh?.let { "${Fmt.num(it)}" } ?: "—", Modifier.weight(1f))
                             MetricTile("Lluvia", if (w.rainNow) "Sí" else "No", Modifier.weight(1f))
                         }
-                        VSpace(6.dp)
-                        Text("Fuente: ${w.source}", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkFaint)
+                        VSpace(8.dp)
+                        Text("Fuente: ${w.source}", style = MaterialTheme.typography.bodySmall, color = DriverColors.TextTertiary)
                     }
-                    else -> Text(weatherState.error ?: "Sin clima todavía.", color = DriverColors.Caution)
+                    else -> Text(weatherState.error ?: "Sin clima todavía.", color = DriverColors.Warning)
                 }
-                VSpace(8.dp)
+                VSpace(10.dp)
                 GhostCta("Actualizar clima") { scope.launch { g.weather.refresh() } }
             }
 
-            Section("Lectura", accent = if (a11yOn) DriverColors.Go else DriverColors.Cyan) {
-                StatusPill(if (a11yOn) "Automática ON" else "Automática OFF", if (a11yOn) DriverColors.Go else DriverColors.Caution)
-                VSpace(6.dp)
-                Text(if (capturing) "OCR por captura: activo" else "OCR por captura: inactivo", color = DriverColors.InkDim)
-                Text(if (overlayOk || a11yOn) "Tarjeta flotante disponible" else "Falta permiso de overlay", color = DriverColors.InkDim)
-                VSpace(10.dp)
+            Section("Lectura", accent = if (a11yOn) DriverColors.Positive else DriverColors.Accent) {
+                StatusPill(if (a11yOn) "Automática ON" else "Automática OFF", if (a11yOn) DriverColors.Positive else DriverColors.Warning)
+                VSpace(8.dp)
+                Text(if (capturing) "OCR por captura: activo" else "OCR por captura: inactivo", color = DriverColors.TextSecondary)
+                Text(if (overlayOk || a11yOn) "Tarjeta flotante disponible" else "Falta permiso de overlay", color = DriverColors.TextSecondary)
+                VSpace(12.dp)
                 PrimaryCta(if (a11yOn) "Desactivar lectura automática" else "Activar lectura automática") {
                     dialog = if (a11yOn) "a11y_off" else "a11y"
                 }
@@ -177,7 +177,7 @@ fun HomeScreen(activity: Activity) {
             last?.let { rec ->
                 Section("Última oferta", accent = verdictColor(rec.evaluation.verdict)) {
                     VerdictBanner(rec.evaluation.verdict.label, verdictColor(rec.evaluation.verdict), rec.evaluation.headline)
-                    VSpace(10.dp)
+                    VSpace(12.dp)
                     MetricsSummary(rec.evaluation.metrics)
                 }
             }
@@ -185,24 +185,24 @@ fun HomeScreen(activity: Activity) {
             Section("Turno") {
                 val stats = ShiftCalculator.compute(history, shiftStart, now)
                 if (shiftStart == null) {
-                    Text("Iniciá el turno para medir bruto por hora.", color = DriverColors.InkDim)
-                    VSpace(8.dp)
+                    Text("Iniciá el turno para medir bruto por hora.", color = DriverColors.TextSecondary)
+                    VSpace(10.dp)
                     PrimaryCta("Iniciar turno") { scope.launch { g.historyRepo.startShift(System.currentTimeMillis()) } }
                 } else {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         MetricTile("Viajes", "${stats.trips}", Modifier.weight(1f))
                         MetricTile("Bruto", Fmt.ars(stats.grossFare), Modifier.weight(1f), emphasis = true)
                         MetricTile("Bruto/h", stats.grossPerHour?.let { Fmt.ars(it) } ?: "—", Modifier.weight(1f))
                     }
-                    VSpace(8.dp)
+                    VSpace(10.dp)
                     GhostCta("Terminar turno") { scope.launch { g.historyRepo.endShift() } }
                 }
             }
 
             Section("Copiloto") {
                 CockpitField(question, { question = it }, "Preguntá algo", Modifier.testTag("copilot_input"))
-                VSpace(8.dp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VSpace(10.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     PrimaryCta("Preguntar", { if (question.isNotBlank()) ask(question) }, Modifier.weight(1f).testTag("copilot_ask"))
                     GhostCta("Hablar", {
                         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -214,21 +214,21 @@ fun HomeScreen(activity: Activity) {
                         }
                     }, Modifier.weight(1f))
                 }
-                VSpace(6.dp)
+                VSpace(8.dp)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     listOf("¿Me conviene?", "¿Por qué?", "¿Dónde espero?").forEach { q ->
                         TextButton(onClick = { question = q; ask(q) }) {
-                            Text(q, color = DriverColors.Cyan, style = MaterialTheme.typography.labelLarge)
+                            Text(q, color = DriverColors.Accent, style = MaterialTheme.typography.labelLarge)
                         }
                     }
                 }
                 answer?.let {
-                    VSpace(8.dp)
-                    Text(it, modifier = Modifier.testTag("copilot_answer"), fontWeight = FontWeight.SemiBold, color = DriverColors.Ink)
+                    VSpace(10.dp)
+                    Text(it, modifier = Modifier.testTag("copilot_answer"), fontWeight = FontWeight.SemiBold, color = DriverColors.TextPrimary)
                 }
             }
 
-            Section("Servidor", accent = DriverColors.InkFaint) {
+            Section("Servidor", accent = DriverColors.TextTertiary) {
                 val stale = strategic.isStale(now)
                 StatusPill(
                     when {
@@ -238,15 +238,15 @@ fun HomeScreen(activity: Activity) {
                         else -> "Online"
                     },
                     when {
-                        strategic.loading -> DriverColors.Ice
-                        strategic.lastError != null || stale -> DriverColors.Caution
-                        else -> DriverColors.Go
+                        strategic.loading -> DriverColors.Info
+                        strategic.lastError != null || stale -> DriverColors.Warning
+                        else -> DriverColors.Positive
                     },
                 )
-                VSpace(6.dp)
-                Text("Puntajes de zona no verificados. No son demanda real de Uber.", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkFaint)
                 VSpace(8.dp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Puntajes de zona no verificados. No son demanda real de Uber.", style = MaterialTheme.typography.bodySmall, color = DriverColors.TextTertiary)
+                VSpace(10.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     GhostCta("Actualizar", { scope.launch { g.strategic.refreshReporte() } }, Modifier.weight(1f))
                     Column(Modifier.weight(1f)) {
                         GhostCta(settings.currentZone ?: "Mi zona") { zoneMenu = true }
@@ -264,24 +264,24 @@ fun HomeScreen(activity: Activity) {
                     }
                 }
                 strategic.posicion?.let { p ->
-                    VSpace(8.dp)
+                    VSpace(10.dp)
                     Text(
                         if (p.decision == "moverte") "Estimación: moverte a ${p.zona_recomendada}"
                         else "Estimación: quedarte en ${p.zona_actual}",
                         fontWeight = FontWeight.SemiBold,
-                        color = DriverColors.InkDim,
+                        color = DriverColors.TextSecondary,
                     )
                 }
                 strategic.reporte?.let { r ->
                     val ev = r.eventos.size
-                    VSpace(6.dp)
+                    VSpace(8.dp)
                     Text(
                         when {
                             ev == 0 && r.hay_partido != true -> "Eventos verificados: ninguno"
                             r.hay_partido == true && ev == 0 -> "Partido marcado sin fuente"
                             else -> "Eventos en servidor: $ev"
                         },
-                        color = if (ev == 0) DriverColors.Caution else DriverColors.Go,
+                        color = if (ev == 0) DriverColors.Warning else DriverColors.Positive,
                     )
                 }
             }
@@ -293,7 +293,7 @@ fun HomeScreen(activity: Activity) {
             onDismissRequest = { dialog = null },
             title = { Text("Lectura automática") },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) { Text(DISCLOSURE_ACCESSIBILITY) } },
-            confirmButton = { TextButton(onClick = { dialog = null; openAccessibilitySettings(activity) }) { Text("Acepto", color = DriverColors.Cyan) } },
+            confirmButton = { TextButton(onClick = { dialog = null; openAccessibilitySettings(activity) }) { Text("Acepto", color = DriverColors.Accent) } },
             dismissButton = { TextButton(onClick = { dialog = null }) { Text("No") } },
         )
         "a11y_off" -> AlertDialog(
@@ -311,7 +311,7 @@ fun HomeScreen(activity: Activity) {
                     dialog = null
                     if (Build.VERSION.SDK_INT >= 33) notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     else projectionLauncher.launch(activity.getSystemService(MediaProjectionManager::class.java).createScreenCaptureIntent())
-                }) { Text("Acepto", color = DriverColors.Cyan) }
+                }) { Text("Acepto", color = DriverColors.Accent) }
             },
             dismissButton = { TextButton(onClick = { dialog = null }) { Text("Cancelar") } },
         )
@@ -321,23 +321,23 @@ fun HomeScreen(activity: Activity) {
 @Composable
 fun MetricsSummary(m: ar.driverai.bridge.engine.Metrics) {
     fun d(v: Double?, f: (Double) -> String) = v?.let(f) ?: "—"
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         MetricTile("Tarifa", d(m.fare, Fmt::ars), Modifier.weight(1f), emphasis = true)
         MetricTile("$/km", d(m.grossPerKm, Fmt::ars), Modifier.weight(1f))
         MetricTile("$/h", d(m.grossPerHour, Fmt::ars), Modifier.weight(1f))
     }
-    VSpace(8.dp)
+    VSpace(10.dp)
     Text(
         "Km total ${d(m.totalKm) { Fmt.num(it) }} · Min total ${d(m.totalMin) { Fmt.num(it, 0) }} · Recogida ${d(m.pickupKm) { Fmt.num(it) }} km",
         style = MaterialTheme.typography.bodySmall,
-        color = DriverColors.InkDim,
+        color = DriverColors.TextSecondary,
         modifier = Modifier.testTag("metrics_gross"),
     )
     if (m.variableCost != null) {
         Text(
             "Costo var. ${Fmt.ars(m.variableCost)} · Margen ${d(m.marginPct) { Fmt.num(it) + "%" }}",
             style = MaterialTheme.typography.bodySmall,
-            color = DriverColors.InkFaint,
+            color = DriverColors.TextTertiary,
         )
     }
 }
