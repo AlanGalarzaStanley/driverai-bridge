@@ -37,10 +37,10 @@ fun HistoryScreen() {
             subtitle = "Solo números y veredicto · máx. 100",
         ) {
             GhostCta("Borrar historial") { scope.launch { g.historyRepo.clear() } }
-            VSpace(10.dp)
+            VSpace(12.dp)
             if (items.isEmpty()) {
-                Section("Sin datos", accent = DriverColors.InkFaint) {
-                    Text("Todavía no hay evaluaciones guardadas.", color = DriverColors.InkDim)
+                Section("Sin datos", accent = DriverColors.TextTertiary) {
+                    Text("Todavía no hay evaluaciones guardadas.", color = DriverColors.TextSecondary)
                 }
             } else {
                 LazyColumn(Modifier.fillMaxSize()) {
@@ -56,19 +56,19 @@ fun HistoryScreen() {
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                             )
-                            VSpace(6.dp)
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            VSpace(8.dp)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 MetricTile("Tarifa", e.fare?.let { Fmt.ars(it) } ?: "—", Modifier.weight(1f))
                                 MetricTile("Km", e.totalKm?.let { Fmt.num(it) } ?: "—", Modifier.weight(1f))
                                 MetricTile("Min", e.totalMin?.let { Fmt.num(it, 0) } ?: "—", Modifier.weight(1f))
                             }
-                            VSpace(8.dp)
+                            VSpace(10.dp)
                             Text(
                                 "${e.grossPerKm?.let { Fmt.ars(it) + "/km" } ?: "—"} · ${e.grossPerHour?.let { Fmt.ars(it) + "/h" } ?: "—"} · ${e.source.name.lowercase()}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = DriverColors.InkDim,
+                                color = DriverColors.TextSecondary,
                             )
-                            VSpace(8.dp)
+                            VSpace(10.dp)
                             GhostCta(if (e.taken) "Desmarcar tomado" else "Marcar tomado") {
                                 scope.launch { g.historyRepo.markTaken(e.at, !e.taken) }
                             }
