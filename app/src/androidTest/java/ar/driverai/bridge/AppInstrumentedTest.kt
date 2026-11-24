@@ -108,7 +108,7 @@ class AppInstrumentedTest {
         compose.onNodeWithTag("home_open_copilot").performScrollTo().performClick()
         compose.onNodeWithText("Respuestas locales por reglas").assertExists()
         compose.onNodeWithTag("external_report").performClick()
-        compose.onNodeWithTag("external_prompt").assertTextContains("DriverAI no realizó esta búsqueda")
+        compose.onNodeWithText("DriverAI no hizo la búsqueda. Copiá este pedido y pegalo en una IA externa con navegación.").assertExists()
         compose.onNodeWithTag("external_prompt").assertTextContains("Objetivo de ingresos registrado")
         compose.onNodeWithTag("copy_external_prompt").performClick()
         compose.onNodeWithText("Copiado").assertExists()
