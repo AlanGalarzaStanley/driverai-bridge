@@ -62,6 +62,7 @@ fun SettingsScreen() {
     var ret by remember { mutableStateOf("0") }
     var margin by remember { mutableStateOf("") }
     var minPassengerRating by remember { mutableStateOf("") }
+    var dailyTarget by remember { mutableStateOf("") }
     var tol by remember { mutableStateOf(UncertaintyTolerance.NORMAL) }
     var msg by remember { mutableStateOf<String?>(null) }
     var homeMenu by remember { mutableStateOf(false) }
@@ -71,7 +72,7 @@ fun SettingsScreen() {
             val s = g.settingsRepo.current()
             minFare = f(s.minFare); minKm = f(s.minGrossPerKm); minHour = f(s.minGrossPerHour); costKm = f(s.costPerKm)
             fuelL = f(s.fuelLitersPer100Km); fuelP = f(s.fuelPricePerLiter); defPkm = f(s.defaultPickupKm); defPmin = f(s.defaultPickupMin)
-            ret = Fmt.num(s.emptyReturnFraction * 100, 0); margin = f(s.minMarginPct); minPassengerRating = f(s.minPassengerRating); tol = s.tolerance
+            ret = Fmt.num(s.emptyReturnFraction * 100, 0); margin = f(s.minMarginPct); minPassengerRating = f(s.minPassengerRating); dailyTarget = f(s.dailyTargetArs); tol = s.tolerance
             loaded = true
         }
     }
@@ -92,6 +93,10 @@ fun SettingsScreen() {
         Section("Preferencias del pasajero") {
             num("Calificación mínima (1–5)", minPassengerRating, "set_min_passenger_rating") { minPassengerRating = it }
             Text("Se compara solo si DriverAI lee una calificación explícita del pasajero. Si falta o es ambigua, el resultado será REVISAR; no se completa por inferencia.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+        }
+        Section("Objetivo del día") {
+            num("Objetivo de ingresos registrados (ARS)", dailyTarget, "set_daily_target") { dailyTarget = it }
+            Text("Opcional. El progreso se compara solo con ingresos que cargues en Billetera; no es una predicción ni una medida de ganancia neta.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
         }
         Section("Costos variables") {
             num("Costo propio por km (\$: desgaste, mantenimiento)", costKm, "set_costkm") { costKm = it }
@@ -132,7 +137,9 @@ fun SettingsScreen() {
             val retPct = p("Retorno vacío", ret, 100.0) ?: 0.0
             val newFuelP = p("Precio combustible", fuelP)
             val parsedMinPassengerRating = p("Calificación mínima del pasajero", minPassengerRating, 5.0)
+            val parsedDailyTarget = p("Objetivo diario", dailyTarget, 100_000_000.0)
             if (parsedMinPassengerRating != null && parsedMinPassengerRating < 1.0) errors += "Calificación mínima del pasajero"
+            if (parsedDailyTarget != null && parsedDailyTarget <= 0.0) errors += "Objetivo diario"
             val upd: (DriverSettings) -> DriverSettings = { s -> s.copy(
                 minFare = p("Tarifa mínima", minFare), minGrossPerKm = p("Mínimo por km", minKm), minGrossPerHour = p("Mínimo por hora", minHour),
                 costPerKm = p("Costo por km", costKm), fuelLitersPer100Km = p("Consumo", fuelL, 100.0), fuelPricePerLiter = newFuelP,
@@ -140,6 +147,7 @@ fun SettingsScreen() {
                 defaultPickupKm = p("Km recogida", defPkm), defaultPickupMin = p("Min recogida", defPmin),
                 emptyReturnFraction = retPct / 100.0, minMarginPct = p("Margen", margin, 100.0), tolerance = tol,
                 minPassengerRating = parsedMinPassengerRating?.takeIf { it >= 1.0 },
+                dailyTargetArs = parsedDailyTarget?.takeIf { it > 0.0 },
             ) }
             // Se valida primero sin guardar
             upd(saved)

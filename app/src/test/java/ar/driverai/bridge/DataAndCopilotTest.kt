@@ -8,6 +8,7 @@ import ar.driverai.bridge.backend.StrategicRepository
 import ar.driverai.bridge.backend.ZonaRank
 import ar.driverai.bridge.copilot.CopilotContext
 import ar.driverai.bridge.copilot.CopilotEngine
+import ar.driverai.bridge.copilot.ExternalBriefingPrompt
 import ar.driverai.bridge.copilot.Intent
 import ar.driverai.bridge.data.HistoryEntry
 import ar.driverai.bridge.data.HistoryRepository
@@ -44,16 +45,18 @@ class DataAndCopilotTest {
     @Test fun settings_persistenYRecargan() = runBlocking {
         val repo = SettingsRepository(store("s1"))
         assertEquals(DriverSettings(), repo.current())
-        repo.update { it.copy(minGrossPerKm = 700.0, tolerance = UncertaintyTolerance.ESTRICTA, homeZone = "Bernal") }
+        repo.update { it.copy(minGrossPerKm = 700.0, tolerance = UncertaintyTolerance.ESTRICTA, homeZone = "Bernal", dailyTargetArs = 15000.0) }
         val again = repo.current()
         assertEquals(700.0, again.minGrossPerKm!!, 0.0)
         assertEquals(UncertaintyTolerance.ESTRICTA, again.tolerance)
         assertEquals("Bernal", again.homeZone)
+        assertEquals(15000.0, again.dailyTargetArs!!, 0.0)
     }
 
     @Test fun settings_jsonCorrupto_vuelveADefaults() {
         assertEquals(DriverSettings(), SettingsRepository.decode("{no es json"))
         assertEquals(DriverSettings(), SettingsRepository.decode(null))
+        assertNull(SettingsRepository.decode("""{"minGrossPerKm":500.0}""").dailyTargetArs)
     }
 
     @Test fun historial_limiteYNoGuardaTexto() = runBlocking {
@@ -159,6 +162,23 @@ class DataAndCopilotTest {
         assertEquals(Intent.EVENTOS, CopilotEngine.intentOf("¿Qué eventos pueden generar demanda esta noche?"))
         assertEquals(Intent.CERCA_CASA, CopilotEngine.intentOf("¿Qué zona me queda mejor para terminar cerca de casa?"))
         assertEquals(Intent.DESCONOCIDA, CopilotEngine.intentOf("hola"))
+    }
+
+    @Test fun informeExterno_contextualizaSinAfirmarBusquedaNiGps() {
+        val prompt = ExternalBriefingPrompt.build(
+            now = 1_800_000_000_000L,
+            zoneId = ZoneId.of("America/Argentina/Buenos_Aires"),
+            selectedWorkZone = "Palermo",
+            dailyTargetArs = 15000.0,
+            shiftStart = null,
+            lastEvaluation = null,
+        )
+        assertTrue(prompt.contains("Palermo"))
+        assertTrue(prompt.contains("No es ubicación GPS"))
+        assertTrue(prompt.contains("Objetivo de ingresos registrado"))
+        assertTrue(prompt.contains("DriverAI no realizó esta búsqueda"))
+        assertTrue(prompt.contains("HECHOS CONFIRMADOS, ESTIMACIONES/PATRONES e HIPÓTESIS"))
+        assertTrue(prompt.contains("No hay una evaluación de oferta disponible"))
     }
 
     @Test fun copiloto_respuestasBrevesYConFuente() {

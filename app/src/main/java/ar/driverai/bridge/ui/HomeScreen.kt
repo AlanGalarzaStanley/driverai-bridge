@@ -2,14 +2,12 @@ package ar.driverai.bridge.ui
 
 import android.Manifest
 import android.app.Activity
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -28,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -46,7 +45,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -59,15 +57,14 @@ import ar.driverai.bridge.backend.ApiResult
 import ar.driverai.bridge.backend.LocalWeatherRepository
 import ar.driverai.bridge.backend.StrategicRepository
 import ar.driverai.bridge.capture.DriverAccessibilityService
+import ar.driverai.bridge.capture.EvalRecord
 import ar.driverai.bridge.capture.ScreenCaptureService
-import ar.driverai.bridge.copilot.CopilotContext
-import ar.driverai.bridge.copilot.CopilotEngine
-import ar.driverai.bridge.copilot.Intent as CIntent
 import ar.driverai.bridge.copilot.Zones
 import ar.driverai.bridge.data.MoneyLedgerRepository
-import ar.driverai.bridge.data.ShiftCalculator
 import ar.driverai.bridge.data.VehicleRecordsRepository
 import ar.driverai.bridge.engine.Fmt
+import ar.driverai.bridge.engine.DataSource
+import ar.driverai.bridge.engine.Evaluation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -101,7 +98,6 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
     val status by g.pipeline.status.collectAsState()
     val weatherState by g.weather.state.collectAsState()
     val last by g.pipeline.last.collectAsState()
-    val history by g.historyRepo.entries.collectAsState(initial = emptyList())
     val shiftStart by g.historyRepo.shiftStart.collectAsState(initial = null)
     val briefing by g.shiftBriefing.snapshot.collectAsState(initial = null)
     val moneyEntries by g.walletRepo.entries.collectAsState(initial = emptyList())
@@ -111,8 +107,6 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
     var overlayOk by remember { mutableStateOf(false) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var dialog by remember { mutableStateOf<String?>(null) }
-    var question by remember { mutableStateOf("") }
-    var answer by remember { mutableStateOf<String?>(null) }
     var briefingMessage by remember { mutableStateOf<String?>(null) }
     var zoneMenu by remember { mutableStateOf(false) }
 
@@ -136,24 +130,6 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
         projectionLauncher.launch(mpm.createScreenCaptureIntent())
     }
 
-    fun ask(q: String) {
-        scope.launch {
-            val intent = CopilotEngine.intentOf(q)
-            if (intent == CIntent.DONDE_ESPERAR && settings.currentZone != null) g.strategic.refreshPosicion(settings.currentZone!!)
-            if ((intent == CIntent.EVENTOS || intent == CIntent.CERCA_CASA) && g.strategic.state.value.isStale(System.currentTimeMillis())) g.strategic.refreshReporte()
-            val t = System.currentTimeMillis()
-            val shiftEstimate = ShiftCalculator.compute(history, shiftStart, t)
-            val ctx = CopilotContext(g.pipeline.last.value?.evaluation, shiftEstimate, g.strategic.state.value, settings, t)
-            val a = CopilotEngine.answer(q, ctx)
-            answer = a
-            if (settings.voiceEnabled) g.tts.speak(a, settings.voiceVolume)
-        }
-    }
-    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
-        val text = r.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if (r.resultCode == Activity.RESULT_OK && !text.isNullOrBlank()) { question = text; ask(text) }
-    }
-
     suspend fun refreshBriefing() {
         when (val result = g.strategic.refreshReporte()) {
             is ApiResult.Ok -> {
@@ -165,10 +141,11 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
-        ScreenTitle("DriverAI · AMBA", "Tu jornada", today.format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es-AR"))))
+        ScreenTitle("DriverAI · COPILOTO", "Tu jornada", today.format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es-AR"))))
 
         ShiftHeroCard(
             shiftStart = shiftStart,
+            now = now,
             status = status.label,
             readingActive = a11yOn || capturing,
             loading = strategic.loading,
@@ -184,6 +161,16 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
             onEnd = { scope.launch { g.historyRepo.endShift() } },
         )
 
+        LatestOfferCard(last, onEvaluate = { onNavigate("evaluar") })
+        DailySummaryCard(
+            incomeArs = moneyToday.incomeArs,
+            expensesArs = moneyToday.expensesArs,
+            cashBalanceArs = moneyToday.cashBalanceArs,
+            dailyTargetArs = settings.dailyTargetArs,
+            drivenKm = todayOdometer?.drivenKm,
+        )
+        CopilotEntryCard(onOpen = { onNavigate("copiloto") })
+
         WeatherCard(
             state = weatherState,
             onRefresh = { scope.launch { g.weather.refresh() } },
@@ -191,15 +178,6 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
             onOpenLicense = { activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://creativecommons.org/licenses/by/4.0/"))) },
         )
 
-        Text("CAJA REGISTRADA HOY", style = MaterialTheme.typography.labelSmall, color = AccentMint, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("Ingresos", Fmt.ars(moneyToday.incomeArs), "Cargados por vos", Modifier.weight(1f), Green)
-            MetricCard("Gastos", Fmt.ars(moneyToday.expensesArs), "Cargados por vos", Modifier.weight(1f), Amber)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
-            MetricCard("Diferencia de caja", Fmt.ars(moneyToday.cashBalanceArs), "No es ganancia neta", Modifier.weight(1f), if (moneyToday.cashBalanceArs < 0) Red else AccentMint)
-            MetricCard("Km de hoy", todayOdometer?.let { "${Fmt.num(it.drivenKm, 1)} km" } ?: "—", if (todayOdometer == null) "Pendiente de cargar" else "Odómetro manual", Modifier.weight(1f), AccentBlue)
-        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
             OutlinedButton(onClick = { onNavigate("billetera") }, modifier = Modifier.weight(1f).testTag("home_wallet")) { Text("Abrir billetera") }
             OutlinedButton(onClick = { onNavigate("vehiculo") }, modifier = Modifier.weight(1f).testTag("home_vehicle")) { Text("Vehículo y service") }
@@ -257,24 +235,6 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
             }
         }
 
-        Section("Copiloto") {
-            OutlinedTextField(question, { question = it }, label = { Text("Preguntá algo") }, modifier = Modifier.fillMaxWidth().testTag("copilot_input"), singleLine = true)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { if (question.isNotBlank()) ask(question) }, modifier = Modifier.testTag("copilot_ask")) { Text("Preguntar") }
-                OutlinedButton(onClick = {
-                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-                        .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-AR")
-                        .putExtra(RecognizerIntent.EXTRA_PROMPT, "¿Qué querés saber?")
-                    try { speechLauncher.launch(intent) } catch (e: ActivityNotFoundException) { answer = "Reconocimiento de voz no disponible. Escribí la pregunta." }
-                }) { Text("Hablar") }
-                TextButton(onClick = { g.tts.stop() }) { Text("Callar") }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                listOf("¿Me conviene?", "¿Por qué?", "¿Dónde espero?").forEach { q -> TextButton(onClick = { question = q; ask(q) }) { Text(q) } }
-            }
-            answer?.let { Text(it, modifier = Modifier.testTag("copilot_answer"), fontWeight = FontWeight.SemiBold) }
-        }
     }
 
     when (dialog) {
@@ -302,6 +262,7 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
 @Composable
 private fun ShiftHeroCard(
     shiftStart: Long?,
+    now: Long,
     status: String,
     readingActive: Boolean,
     loading: Boolean,
@@ -310,10 +271,14 @@ private fun ShiftHeroCard(
     onEnd: () -> Unit,
 ) {
     val active = shiftStart != null
+    val startedPreviousDay = shiftStart?.let {
+        java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault()).toLocalDate() <
+            java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
+    } == true
     Box(
         Modifier.fillMaxWidth().padding(vertical = 6.dp)
             .clip(RoundedCornerShape(28.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF123C3A), Color(0xFF17253C), Color(0xFF20243B))))
+            .background(Color(0xFF192521))
             .padding(20.dp),
     ) {
         Column {
@@ -327,6 +292,9 @@ private fun ShiftHeroCard(
             }
             Spacer(Modifier.height(18.dp))
             Text("Lectura de ofertas: $status", modifier = Modifier.testTag("status"), style = MaterialTheme.typography.bodySmall, color = if (readingActive) Green else TextMuted)
+            if (startedPreviousDay) {
+                Text("Turno iniciado en un día anterior. Las horas cuentan tiempo de reloj desde el inicio y no descuentan pausas; revisalo antes de usar el promedio.", style = MaterialTheme.typography.bodySmall, color = Amber, modifier = Modifier.padding(top = 6.dp))
+            }
             Spacer(Modifier.height(10.dp))
             if (!active) {
                 Button(enabled = !loading, onClick = onStart, modifier = Modifier.fillMaxWidth().height(50.dp).testTag("start_shift")) {
@@ -339,6 +307,88 @@ private fun ShiftHeroCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LatestOfferCard(record: EvalRecord?, onEvaluate: () -> Unit) {
+    Section("Última oferta") {
+        if (record == null) {
+            Text("Todavía no hay una oferta evaluada.", style = MaterialTheme.typography.bodyMedium, color = TextMuted)
+            Text("Cuando llegue una lectura, vas a ver el veredicto, sus métricas y qué dato pudo faltar.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 4.dp))
+        } else {
+            val evaluation = record.evaluation
+            val metrics = evaluation.metrics
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text(evaluation.verdict.label, style = MaterialTheme.typography.labelLarge, color = verdictColor(evaluation.verdict), fontWeight = FontWeight.Bold)
+                    Text(metrics.fare?.let(Fmt::ars) ?: "Falta tarifa", style = MaterialTheme.typography.headlineMedium)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(metrics.grossPerHour?.let { "${Fmt.ars(it)}/h" } ?: "— /h", style = MaterialTheme.typography.titleMedium)
+                    Text(metrics.grossPerKm?.let { "${Fmt.ars(it)}/km" } ?: "— /km", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                }
+            }
+            Text(evaluation.headline.ifBlank { "La evaluación usa tus umbrales configurados." }, style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 6.dp))
+            Text("Total: ${metrics.totalKm?.let { Fmt.num(it) + " km" } ?: "km no identificado"} · ${metrics.totalMin?.let { Fmt.num(it, 0) + " min" } ?: "tiempo no identificado"}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            val confidence = minimumReadConfidence(evaluation)
+            Text("Fuente: ${sourceLabel(record.source)}${confidence?.let { " · confianza mínima entre campos detectados ${(it * 100).toInt()} %" } ?: " · lectura incompleta o confianza no disponible"}", style = MaterialTheme.typography.labelSmall, color = TextMuted, modifier = Modifier.padding(top = 4.dp))
+        }
+        OutlinedButton(onClick = onEvaluate, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("home_open_evaluate")) {
+            Text(if (record == null) "Evaluar una oferta" else "Revisar o corregir datos")
+        }
+    }
+}
+
+private fun sourceLabel(source: DataSource): String = when (source) {
+    DataSource.ACCESSIBILITY -> "Accesibilidad"
+    DataSource.OCR -> "OCR local"
+    DataSource.MANUAL -> "Manual"
+    DataSource.DEFAULT_SETTING -> "Ajustes"
+}
+
+private fun minimumReadConfidence(evaluation: Evaluation): Double? {
+    val readings = listOf(
+        evaluation.offer.fare,
+        evaluation.offer.pickupKm,
+        evaluation.offer.pickupMin,
+        evaluation.offer.tripKm,
+        evaluation.offer.tripMin,
+    ).filter { it.value != null }
+    if (readings.isEmpty() || readings.size < 5) return null
+    return readings.minOf { it.confidence }
+}
+
+@Composable
+private fun DailySummaryCard(
+    incomeArs: Double,
+    expensesArs: Double,
+    cashBalanceArs: Double,
+    dailyTargetArs: Double?,
+    drivenKm: Double?,
+) {
+    Section("Jornada · datos registrados") {
+        Text("INGRESOS ANOTADOS", style = MaterialTheme.typography.labelSmall, color = AccentMint)
+        Text(Fmt.ars(incomeArs), style = MaterialTheme.typography.headlineMedium, color = Green, modifier = Modifier.testTag("home_daily_income"))
+        Text("Cargados en Billetera por vos; no se derivan de ofertas leídas.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        dailyTargetArs?.let { target ->
+            val progress = (incomeArs / target).coerceIn(0.0, 1.0).toFloat()
+            Text("Meta ${Fmt.ars(target)} · ${(progress * 100).toInt()} %", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 12.dp))
+            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth().padding(top = 5.dp), color = AccentMint)
+        } ?: Text("Meta diaria: no configurada", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
+            MetricCard("Gastos anotados", Fmt.ars(expensesArs), "Billetera", Modifier.weight(1f), Amber)
+            MetricCard("Diferencia", Fmt.ars(cashBalanceArs), "No es ganancia neta", Modifier.weight(1f), if (cashBalanceArs < 0) Red else AccentMint)
+        }
+        Text("Odómetro de hoy: ${drivenKm?.let { Fmt.num(it, 1) + " km" } ?: "pendiente de cargar"}. No se completa con las distancias de ofertas.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 9.dp))
+    }
+}
+
+@Composable
+private fun CopilotEntryCard(onOpen: () -> Unit) {
+    Section("Copiloto de jornada") {
+        Text("Consultá la última oferta, tus promedios o la zona elegida. Las respuestas actuales son locales y aclaran cuándo una fuente es una estimación.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        Button(onClick = onOpen, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("home_open_copilot")) { Text("Abrir conversación") }
     }
 }
 

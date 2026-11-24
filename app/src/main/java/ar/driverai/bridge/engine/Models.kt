@@ -76,6 +76,8 @@ data class DriverSettings(
     val overlayCompact: Boolean = false,
     /** Umbral opcional de calificación del pasajero, en escala 1–5. */
     val minPassengerRating: Double? = null,
+    /** Objetivo diario elegido por el conductor; solo se compara con ingresos anotados en la billetera. */
+    val dailyTargetArs: Double? = null,
 ) {
     val hasAnyThreshold: Boolean
         get() = hasEconomicThreshold || minPassengerRating != null

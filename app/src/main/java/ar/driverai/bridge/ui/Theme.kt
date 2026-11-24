@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -16,44 +17,90 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ar.driverai.bridge.engine.Verdict
 
-val Green = Color(0xFF62DDAA)
-val Red = Color(0xFFFF6B76)
-val Amber = Color(0xFFFFC857)
-val AccentMint = Color(0xFF77F2C4)
-val AccentBlue = Color(0xFF8DA9FF)
-val TextMuted = Color(0xFFAAB7C4)
+/** Colores semánticos compartidos: preferir estos tokens antes que colores ad hoc. */
+object DriverPalette {
+    val background = Color(0xFF0C1115)
+    val surface = Color(0xFF141B20)
+    val surfaceRaised = Color(0xFF1B252A)
+    val surfaceHighlight = Color(0xFF202D32)
+    val outline = Color(0xFF344148)
+    val text = Color(0xFFF2F4F3)
+    val textMuted = Color(0xFF9AA8AC)
+    val gold = Color(0xFFE7B95A)
+    val mint = Color(0xFF8BD4BC)
+    val blue = Color(0xFF91AFC0)
+    val success = Color(0xFF75D2A5)
+    val warning = Color(0xFFF0BE68)
+    val danger = Color(0xFFFF7C7C)
+}
 
-fun verdictColor(v: Verdict) = when (v) { Verdict.CONVIENE -> Green; Verdict.NO_CONVIENE -> Red; Verdict.REVISAR -> Amber }
+object DriverSpace {
+    val xxs: Dp = 4.dp
+    val xs: Dp = 8.dp
+    val sm: Dp = 12.dp
+    val md: Dp = 16.dp
+    val lg: Dp = 20.dp
+    val xl: Dp = 24.dp
+}
+
+object DriverRadius {
+    val control: Dp = 12.dp
+    val card: Dp = 20.dp
+    val hero: Dp = 24.dp
+}
+
+// Alias para mantener compatibilidad visual mientras se actualizan las pantallas por etapas.
+val Green = DriverPalette.success
+val Red = DriverPalette.danger
+val Amber = DriverPalette.warning
+val AccentMint = DriverPalette.gold
+val AccentBlue = DriverPalette.blue
+val TextMuted = DriverPalette.textMuted
+
+fun verdictColor(v: Verdict) = when (v) {
+    Verdict.CONVIENE -> DriverPalette.success
+    Verdict.NO_CONVIENE -> DriverPalette.danger
+    Verdict.REVISAR -> DriverPalette.warning
+}
 
 @Composable
 fun DriverTheme(content: @Composable () -> Unit) {
     val colors = darkColorScheme(
-        primary = AccentMint,
-        onPrimary = Color(0xFF07110F),
-        secondary = AccentBlue,
-        tertiary = Amber,
-        background = Color(0xFF0A1017),
-        surface = Color(0xFF111A23),
-        surfaceVariant = Color(0xFF192632),
-        onBackground = Color(0xFFF4F7F8),
-        onSurface = Color(0xFFF4F7F8),
-        onSurfaceVariant = Color(0xFFD2DCE3),
-        outline = Color(0xFF3B4C5B),
+        primary = DriverPalette.gold,
+        onPrimary = Color(0xFF211A0B),
+        secondary = DriverPalette.mint,
+        tertiary = DriverPalette.blue,
+        error = DriverPalette.danger,
+        background = DriverPalette.background,
+        surface = DriverPalette.surface,
+        surfaceVariant = DriverPalette.surfaceRaised,
+        onBackground = DriverPalette.text,
+        onSurface = DriverPalette.text,
+        onSurfaceVariant = Color(0xFFD0D9D9),
+        outline = DriverPalette.outline,
     )
     val base = Typography()
     MaterialTheme(
         colorScheme = colors,
+        shapes = Shapes(
+            extraSmall = RoundedCornerShape(DriverRadius.control),
+            small = RoundedCornerShape(DriverRadius.control),
+            medium = RoundedCornerShape(16.dp),
+            large = RoundedCornerShape(DriverRadius.card),
+            extraLarge = RoundedCornerShape(DriverRadius.hero),
+        ),
         typography = base.copy(
-            bodyLarge = base.bodyLarge.copy(fontSize = 17.sp, lineHeight = 24.sp),
-            bodyMedium = base.bodyMedium.copy(fontSize = 15.sp, lineHeight = 21.sp),
+            bodyLarge = base.bodyLarge.copy(fontSize = 16.sp, lineHeight = 23.sp),
+            bodyMedium = base.bodyMedium.copy(fontSize = 14.sp, lineHeight = 20.sp),
             bodySmall = base.bodySmall.copy(fontSize = 12.sp, lineHeight = 17.sp),
-            titleLarge = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.35).sp),
-            titleMedium = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
-            headlineMedium = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp),
+            titleLarge = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.35).sp),
+            titleMedium = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
+            headlineMedium = TextStyle(fontSize = 29.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.45).sp),
         ),
         content = content,
     )
@@ -62,13 +109,13 @@ fun DriverTheme(content: @Composable () -> Unit) {
 @Composable
 fun Section(title: String, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Card(
-        modifier = modifier.padding(vertical = 6.dp),
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.28f)),
+        modifier = modifier.padding(vertical = 5.dp),
+        shape = RoundedCornerShape(DriverRadius.card),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.32f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(Modifier.padding(18.dp)) {
+        Column(Modifier.padding(horizontal = DriverSpace.md, vertical = DriverSpace.md)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             content()
         }
@@ -79,11 +126,11 @@ fun Section(title: String, modifier: Modifier = Modifier, content: @Composable C
 fun MetricCard(label: String, value: String, caption: String? = null, modifier: Modifier = Modifier, valueColor: Color = MaterialTheme.colorScheme.onSurface) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 15.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 13.dp)) {
             Text(label, style = MaterialTheme.typography.bodySmall, color = TextMuted)
             Text(value, style = MaterialTheme.typography.titleLarge, color = valueColor, maxLines = 1)
             caption?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = TextMuted) }

@@ -3,6 +3,7 @@ package ar.driverai.bridge.ui
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
@@ -48,6 +49,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun Root() {
+        BackHandler(enabled = tab == "copiloto") { tab = "inicio" }
         val tabs = listOf(
             Triple("inicio", "Inicio", Icons.Filled.Home),
             Triple("evaluar", "Oferta", Icons.Filled.Check),
@@ -62,26 +64,32 @@ class MainActivity : ComponentActivity() {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
             bottomBar = {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                    tabs.forEach { (id, label, icon) ->
-                        NavigationBarItem(
-                            selected = selectedTab == id,
-                            onClick = { tab = id },
-                            icon = { Icon(icon, contentDescription = label) },
-                            label = { Text(label, maxLines = 1, softWrap = false, fontSize = 10.sp) },
-                            modifier = Modifier.testTag("tab_$id"),
-                        )
+                if (tab != "copiloto") {
+                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                        tabs.forEach { (id, label, icon) ->
+                            NavigationBarItem(
+                                selected = selectedTab == id,
+                                onClick = { tab = id },
+                                icon = { Icon(icon, contentDescription = label) },
+                                label = { Text(label, maxLines = 1, softWrap = false, fontSize = 10.sp) },
+                                modifier = Modifier.testTag("tab_$id"),
+                            )
+                        }
                     }
                 }
             },
         ) { pad ->
             Box(Modifier.fillMaxSize().padding(pad)) {
                 when (tab) {
-                    "inicio" -> HomeScreen(this@MainActivity) { destination -> tab = destination }
+                    "inicio" -> HomeScreen(this@MainActivity) { destination ->
+                        if (destination == "evaluar") prefill = true
+                        tab = destination
+                    }
                     "evaluar" -> EvaluateScreen(prefill) { prefill = false }
                     "billetera" -> WalletScreen()
                     "vehiculo" -> VehicleScreen()
                     "mas" -> ToolsScreen { destination -> tab = destination }
+                    "copiloto" -> CopilotScreen { tab = "inicio" }
                     "ajustes" -> SettingsScreen()
                     "historial" -> HistoryScreen()
                     "diag" -> DiagnosticsScreen(this@MainActivity)

@@ -44,7 +44,7 @@ class AppInstrumentedTest {
     private val ctx = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Before fun setUp(): Unit = runBlocking {
-        DriverAiApp.graph.settingsRepo.update { DriverSettings(minGrossPerKm = 500.0, historyEnabled = true, speakVerdicts = false) }
+        DriverAiApp.graph.settingsRepo.update { DriverSettings(minGrossPerKm = 500.0, historyEnabled = true, speakVerdicts = false, dailyTargetArs = null) }
         DriverAiApp.graph.overlay.hideAll()
         DriverAiApp.graph.walletRepo.clear()
         DriverAiApp.graph.vehicleRepo.clearAll()
@@ -92,6 +92,29 @@ class AppInstrumentedTest {
         compose.onNodeWithTag("btn_save").performScrollTo().performClick()
         compose.onNodeWithTag("settings_msg").assertTextContains("Guardado.")
         assertTrue(waitFor(3000) { DriverAiApp.graph.settings.value.minGrossPerHour == 15000.0 })
+    }
+
+    @Test fun objetivoDiario_yCopilotoConPromptExterno() {
+        compose.onNodeWithTag("tab_mas").performClick()
+        compose.onNodeWithTag("tab_ajustes").performClick()
+        compose.onNodeWithTag("set_daily_target").performScrollTo().performTextInput("15000")
+        compose.onNodeWithTag("btn_save").performScrollTo().performClick()
+        compose.onNodeWithTag("settings_msg").assertTextContains("Guardado.")
+        assertEquals(15000.0, DriverAiApp.graph.settings.value.dailyTargetArs!!, 0.0)
+
+        compose.onNodeWithTag("tab_inicio").performClick()
+        compose.onNodeWithTag("home_daily_income").assertExists()
+        compose.onNodeWithText("Meta \$15.000 · 0 %").assertExists()
+        compose.onNodeWithTag("home_open_copilot").performScrollTo().performClick()
+        compose.onNodeWithText("Respuestas locales por reglas").assertExists()
+        compose.onNodeWithTag("external_report").performClick()
+        compose.onNodeWithTag("external_prompt").assertTextContains("DriverAI no realizó esta búsqueda")
+        compose.onNodeWithTag("external_prompt").assertTextContains("Objetivo de ingresos registrado")
+        compose.onNodeWithTag("copy_external_prompt").performClick()
+        compose.onNodeWithText("Copiado").assertExists()
+        compose.onNodeWithText("Volver al chat").performClick()
+        compose.onNodeWithTag("copilot_back").performClick()
+        compose.onNodeWithTag("status").assertExists()
     }
 
     @Test fun ajustes_rechazanUmbralRatingNoFinito() {

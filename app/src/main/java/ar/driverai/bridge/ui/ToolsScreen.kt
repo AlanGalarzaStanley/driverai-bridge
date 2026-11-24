@@ -22,6 +22,7 @@ fun ToolsScreen(onNavigate: (String) -> Unit) {
         Section("Tu espacio de trabajo") {
             Text("Los ingresos, gastos, odómetro y servicios se guardan localmente en este teléfono. No hay sincronización de billetera activa.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
+        OutlinedButton(onClick = { onNavigate("copiloto") }, modifier = Modifier.fillMaxWidth().testTag("tools_copilot")) { Text("Copiloto de jornada") }
         OutlinedButton(onClick = { onNavigate("historial") }, modifier = Modifier.fillMaxWidth().testTag("tab_historial")) { Text("Actividad de ofertas") }
         OutlinedButton(onClick = { onNavigate("ajustes") }, modifier = Modifier.fillMaxWidth().testTag("tab_ajustes")) { Text("Ajustes y umbrales") }
         OutlinedButton(onClick = { onNavigate("diag") }, modifier = Modifier.fillMaxWidth().testTag("tab_diag")) { Text("Chequeo y permisos") }
