@@ -79,50 +79,50 @@ fun SettingsScreen() {
         ) {
             Section("Umbrales (ingreso bruto)") {
                 CockpitField(minFare, { minFare = it }, "Tarifa mínima ($)", Modifier.testTag("set_minfare"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                VSpace(8.dp)
+                VSpace(10.dp)
                 CockpitField(minKm, { minKm = it }, "Mínimo $ por km", Modifier.testTag("set_minkm"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                VSpace(8.dp)
+                VSpace(10.dp)
                 CockpitField(minHour, { minHour = it }, "Mínimo $ por hora", Modifier.testTag("set_minhour"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                VSpace(8.dp)
+                VSpace(10.dp)
                 CockpitField(margin, { margin = it }, "Margen mínimo (%)", Modifier.testTag("set_margin"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
             }
 
-            Section("Costos variables", accent = DriverColors.Caution) {
+            Section("Costos variables", accent = DriverColors.Warning) {
                 CockpitField(costKm, { costKm = it }, "Costo propio por km ($)", Modifier.testTag("set_costkm"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                VSpace(8.dp)
+                VSpace(10.dp)
                 CockpitField(fuelL, { fuelL = it }, "Consumo (L / 100 km)", Modifier.testTag("set_fuell"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                VSpace(8.dp)
+                VSpace(10.dp)
                 CockpitField(fuelP, { fuelP = it }, "Precio combustible ($/L)", Modifier.testTag("set_fuelp"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                 saved.fuelPriceUpdatedAt?.let {
-                    VSpace(6.dp)
-                    Text("Precio cargado el ${DateFormat.getDateInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkFaint)
+                    VSpace(8.dp)
+                    Text("Precio cargado el ${DateFormat.getDateInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall, color = DriverColors.TextTertiary)
                 }
             }
 
-            Section("Supuestos", accent = DriverColors.Ice) {
+            Section("Supuestos", accent = DriverColors.Info) {
                 CockpitField(defPkm, { defPkm = it }, "Km a recogida si no se lee", Modifier.testTag("set_defpkm"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                VSpace(8.dp)
-                CockpitField(defPmin, { defPmin = it }, "Min a recogida si no se lee", Modifier.testTag("set_defpmin"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                VSpace(8.dp)
-                CockpitField(ret, { ret = it }, "Retorno vacío (% del viaje, 0–100)", Modifier.testTag("set_return"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                 VSpace(10.dp)
-                Text("Tolerancia a la incertidumbre de lectura", style = MaterialTheme.typography.labelMedium, color = DriverColors.InkDim)
-                VSpace(6.dp)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                CockpitField(defPmin, { defPmin = it }, "Min a recogida si no se lee", Modifier.testTag("set_defpmin"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(10.dp)
+                CockpitField(ret, { ret = it }, "Retorno vacío (% del viaje, 0–100)", Modifier.testTag("set_return"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(12.dp)
+                Text("Tolerancia a la incertidumbre de lectura", style = MaterialTheme.typography.labelMedium, color = DriverColors.TextSecondary)
+                VSpace(8.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     UncertaintyTolerance.entries.forEach { t ->
                         FilterChip(
                             selected = tol == t,
                             onClick = { tol = t },
                             label = { Text("${t.label} (${(t.minConfidence * 100).toInt()}%)") },
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = DriverColors.Cyan.copy(alpha = 0.18f),
-                                selectedLabelColor = DriverColors.Cyan,
-                                containerColor = DriverColors.Hull,
-                                labelColor = DriverColors.InkDim,
+                                selectedContainerColor = DriverColors.Accent.copy(alpha = 0.16f),
+                                selectedLabelColor = DriverColors.Accent,
+                                containerColor = DriverColors.Surface,
+                                labelColor = DriverColors.TextSecondary,
                             ),
                             border = FilterChipDefaults.filterChipBorder(
-                                borderColor = DriverColors.Rail,
-                                selectedBorderColor = DriverColors.Cyan.copy(alpha = 0.5f),
+                                borderColor = DriverColors.Border,
+                                selectedBorderColor = DriverColors.Accent.copy(alpha = 0.5f),
                                 enabled = true,
                                 selected = tol == t,
                             ),
@@ -131,59 +131,59 @@ fun SettingsScreen() {
                 }
             }
 
-            Section("Voz y privacidad", accent = DriverColors.Go) {
+            Section("Voz y privacidad", accent = DriverColors.Positive) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text("Voz activada", Modifier.weight(1f), color = DriverColors.Ink)
+                    Text("Voz activada", Modifier.weight(1f), color = DriverColors.TextPrimary)
                     Switch(
                         saved.voiceEnabled,
                         { v -> scope.launch { g.settingsRepo.update { it.copy(voiceEnabled = v) } } },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = DriverColors.Void,
-                            checkedTrackColor = DriverColors.Cyan,
-                            uncheckedThumbColor = DriverColors.InkDim,
-                            uncheckedTrackColor = DriverColors.Rail,
+                            checkedTrackColor = DriverColors.Accent,
+                            uncheckedThumbColor = DriverColors.TextSecondary,
+                            uncheckedTrackColor = DriverColors.Border,
                         ),
                     )
                 }
-                VSpace(6.dp)
+                VSpace(8.dp)
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text("Decir el veredicto de cada oferta", Modifier.weight(1f), color = DriverColors.Ink)
+                    Text("Decir el veredicto de cada oferta", Modifier.weight(1f), color = DriverColors.TextPrimary)
                     Switch(
                         saved.speakVerdicts,
                         { v -> scope.launch { g.settingsRepo.update { it.copy(speakVerdicts = v) } } },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = DriverColors.Void,
-                            checkedTrackColor = DriverColors.Cyan,
-                            uncheckedThumbColor = DriverColors.InkDim,
-                            uncheckedTrackColor = DriverColors.Rail,
+                            checkedTrackColor = DriverColors.Accent,
+                            uncheckedThumbColor = DriverColors.TextSecondary,
+                            uncheckedTrackColor = DriverColors.Border,
                         ),
                     )
                 }
-                VSpace(8.dp)
-                Text("Volumen de voz: ${(saved.voiceVolume * 100).toInt()} %", color = DriverColors.InkDim, style = MaterialTheme.typography.bodySmall)
+                VSpace(10.dp)
+                Text("Volumen de voz: ${(saved.voiceVolume * 100).toInt()} %", color = DriverColors.TextSecondary, style = MaterialTheme.typography.bodySmall)
                 Slider(
                     saved.voiceVolume,
                     { v -> scope.launch { g.settingsRepo.update { it.copy(voiceVolume = v) } } },
                     colors = SliderDefaults.colors(
-                        thumbColor = DriverColors.Cyan,
-                        activeTrackColor = DriverColors.Cyan,
-                        inactiveTrackColor = DriverColors.Rail,
+                        thumbColor = DriverColors.Accent,
+                        activeTrackColor = DriverColors.Accent,
+                        inactiveTrackColor = DriverColors.Border,
                     ),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text("Guardar historial (solo números)", Modifier.weight(1f), color = DriverColors.Ink)
+                    Text("Guardar historial (solo números)", Modifier.weight(1f), color = DriverColors.TextPrimary)
                     Switch(
                         saved.historyEnabled,
                         { v -> scope.launch { g.settingsRepo.update { it.copy(historyEnabled = v) } } },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = DriverColors.Void,
-                            checkedTrackColor = DriverColors.Cyan,
-                            uncheckedThumbColor = DriverColors.InkDim,
-                            uncheckedTrackColor = DriverColors.Rail,
+                            checkedTrackColor = DriverColors.Accent,
+                            uncheckedThumbColor = DriverColors.TextSecondary,
+                            uncheckedTrackColor = DriverColors.Border,
                         ),
                     )
                 }
-                VSpace(10.dp)
+                VSpace(12.dp)
                 Column {
                     GhostCta("Zona de casa: ${saved.homeZone ?: "sin definir"}") { homeMenu = true }
                     DropdownMenu(homeMenu, { homeMenu = false }) {
@@ -200,7 +200,7 @@ fun SettingsScreen() {
                 }
             }
 
-            VSpace(8.dp)
+            VSpace(10.dp)
             PrimaryCta("Guardar ajustes", {
                 val errors = mutableListOf<String>()
                 fun p(label: String, s: String, max: Double = 1e9): Double? {
@@ -240,10 +240,10 @@ fun SettingsScreen() {
                 }
             }, Modifier.testTag("btn_save"))
             msg?.let {
-                VSpace(8.dp)
+                VSpace(10.dp)
                 StatusPill(
                     it,
-                    if (it.startsWith("Guardado")) DriverColors.Go else DriverColors.Caution,
+                    if (it.startsWith("Guardado")) DriverColors.Positive else DriverColors.Warning,
                     Modifier.testTag("settings_msg"),
                 )
             }
