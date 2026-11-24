@@ -29,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -69,10 +68,15 @@ class MainActivity : ComponentActivity() {
             containerColor = DriverColors.Void,
             bottomBar = {
                 Column {
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(DriverColors.Rail))
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(DriverColors.BorderSubtle),
+                    )
                     NavigationBar(
-                        containerColor = DriverColors.Hull,
-                        contentColor = DriverColors.Ink,
+                        containerColor = DriverColors.Surface,
+                        contentColor = DriverColors.TextPrimary,
                         tonalElevation = 0.dp,
                     ) {
                         tabs.forEach { (id, label, icon) ->
@@ -91,11 +95,11 @@ class MainActivity : ComponentActivity() {
                                     )
                                 },
                                 colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = DriverColors.Cyan,
-                                    selectedTextColor = DriverColors.Cyan,
-                                    unselectedIconColor = DriverColors.InkFaint,
-                                    unselectedTextColor = DriverColors.InkFaint,
-                                    indicatorColor = DriverColors.PanelRaised,
+                                    selectedIconColor = DriverColors.Accent,
+                                    selectedTextColor = DriverColors.Accent,
+                                    unselectedIconColor = DriverColors.TextTertiary,
+                                    unselectedTextColor = DriverColors.TextTertiary,
+                                    indicatorColor = DriverColors.CardElevated,
                                 ),
                                 modifier = Modifier.testTag("tab_$id"),
                             )
