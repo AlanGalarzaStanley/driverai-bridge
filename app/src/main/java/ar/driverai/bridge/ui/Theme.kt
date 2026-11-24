@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -30,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -39,63 +41,78 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ar.driverai.bridge.engine.Verdict
 
+/**
+ * Premium dark design system inspired by high-end automotive / fintech apps.
+ * Deep blacks, soft glow accents, generous spacing, strong hierarchy.
+ */
 object DriverColors {
-    val Void = Color(0xFF070A0E)
-    val Hull = Color(0xFF0D1218)
-    val Panel = Color(0xFF141B24)
-    val PanelRaised = Color(0xFF1B2430)
-    val Rail = Color(0xFF243041)
-    val Ink = Color(0xFFF2F5F8)
-    val InkDim = Color(0xFF9AA8B5)
-    val InkFaint = Color(0xFF6B7A89)
-    val Cyan = Color(0xFF3DE0D0)
-    val Go = Color(0xFF2EE59D)
-    val Stop = Color(0xFFFF5E6C)
-    val Caution = Color(0xFFFFC857)
-    val Ice = Color(0xFF7EB6FF)
+    // Backgrounds — deep, layered
+    val Void = Color(0xFF050608)
+    val Surface = Color(0xFF0C0E12)
+    val Card = Color(0xFF12151C)
+    val CardElevated = Color(0xFF181C26)
+    val Border = Color(0xFF252A36)
+    val BorderSubtle = Color(0xFF1A1E28)
+
+    // Text
+    val TextPrimary = Color(0xFFF4F6F9)
+    val TextSecondary = Color(0xFF9BA3B2)
+    val TextTertiary = Color(0xFF6B7382)
+
+    // Accent — premium emerald / neon green (Automind style)
+    val Accent = Color(0xFF00E676)
+    val AccentSoft = Color(0xFF00E676).copy(alpha = 0.14f)
+    val AccentBorder = Color(0xFF00E676).copy(alpha = 0.35f)
+
+    // Semantic
+    val Positive = Color(0xFF00E676)
+    val Negative = Color(0xFFFF5252)
+    val Warning = Color(0xFFFFB74D)
+    val Info = Color(0xFF64B5F6)
 }
 
-val Green get() = DriverColors.Go
-val Red get() = DriverColors.Stop
-val Amber get() = DriverColors.Caution
-val Muted get() = DriverColors.InkDim
+val Green get() = DriverColors.Positive
+val Red get() = DriverColors.Negative
+val Amber get() = DriverColors.Warning
+val Muted get() = DriverColors.TextSecondary
 
 fun verdictColor(v: Verdict) = when (v) {
-    Verdict.CONVIENE -> DriverColors.Go
-    Verdict.NO_CONVIENE -> DriverColors.Stop
-    Verdict.REVISAR -> DriverColors.Caution
+    Verdict.CONVIENE -> DriverColors.Positive
+    Verdict.NO_CONVIENE -> DriverColors.Negative
+    Verdict.REVISAR -> DriverColors.Warning
 }
 
 @Composable
 fun DriverTheme(content: @Composable () -> Unit) {
     val colors = darkColorScheme(
-        primary = DriverColors.Cyan,
+        primary = DriverColors.Accent,
         onPrimary = DriverColors.Void,
-        secondary = DriverColors.Ice,
-        tertiary = DriverColors.Caution,
+        secondary = DriverColors.Info,
+        tertiary = DriverColors.Warning,
         background = DriverColors.Void,
-        surface = DriverColors.Hull,
-        onBackground = DriverColors.Ink,
-        onSurface = DriverColors.Ink,
-        surfaceVariant = DriverColors.Panel,
-        onSurfaceVariant = DriverColors.InkDim,
-        outline = DriverColors.Rail,
-        error = DriverColors.Stop,
+        surface = DriverColors.Surface,
+        onBackground = DriverColors.TextPrimary,
+        onSurface = DriverColors.TextPrimary,
+        surfaceVariant = DriverColors.Card,
+        onSurfaceVariant = DriverColors.TextSecondary,
+        outline = DriverColors.Border,
+        error = DriverColors.Negative,
     )
-    val mono = FontFamily.SansSerif
+    val sans = FontFamily.SansSerif
     MaterialTheme(
         colorScheme = colors,
         typography = Typography(
-            displayLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.Bold, fontSize = 34.sp, letterSpacing = (-0.5).sp),
-            headlineLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.Bold, fontSize = 28.sp, letterSpacing = (-0.3).sp),
-            headlineMedium = TextStyle(fontFamily = mono, fontWeight = FontWeight.SemiBold, fontSize = 24.sp),
-            titleLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.SemiBold, fontSize = 20.sp, letterSpacing = (-0.2).sp),
-            titleMedium = TextStyle(fontFamily = mono, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, letterSpacing = 0.2.sp),
-            bodyLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
-            bodyMedium = TextStyle(fontFamily = mono, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
-            bodySmall = TextStyle(fontFamily = mono, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp),
-            labelLarge = TextStyle(fontFamily = mono, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, letterSpacing = 0.4.sp),
-            labelMedium = TextStyle(fontFamily = mono, fontWeight = FontWeight.Medium, fontSize = 11.sp, letterSpacing = 0.6.sp),
+            displayLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.Bold, fontSize = 32.sp, letterSpacing = (-0.6).sp),
+            headlineLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.Bold, fontSize = 26.sp, letterSpacing = (-0.4).sp),
+            headlineMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.SemiBold, fontSize = 22.sp),
+            titleLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.SemiBold, fontSize = 18.sp, letterSpacing = (-0.2).sp),
+            titleMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 15.sp),
+            bodyLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 24.sp),
+            bodyMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
+            bodySmall = TextStyle(fontFamily = sans, fontWeight = FontWeight.Normal, fontSize = 12.sp, lineHeight = 16.sp),
+            labelLarge = TextStyle(fontFamily = sans, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, letterSpacing = 0.2.sp),
+            labelMedium = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 12.sp, letterSpacing = 0.4.sp),
+            labelSmall = TextStyle(fontFamily = sans, fontWeight = FontWeight.Medium, fontSize = 11.sp, letterSpacing = 0.5.sp),
         ),
         content = content,
     )
@@ -112,17 +129,37 @@ fun ScreenScaffold(
         Modifier
             .fillMaxWidth()
             .background(DriverColors.Void)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 16.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Column(Modifier.weight(1f)) {
-                Text("DRIVER AI", style = MaterialTheme.typography.labelMedium, color = DriverColors.Cyan, letterSpacing = 2.sp)
-                Text(title, style = MaterialTheme.typography.titleLarge, color = DriverColors.Ink)
-                if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = DriverColors.InkDim)
+                Text(
+                    "DRIVER AI",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = DriverColors.Accent,
+                    letterSpacing = 1.8.sp,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = DriverColors.TextPrimary,
+                )
+                if (subtitle != null) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = DriverColors.TextSecondary,
+                    )
+                }
             }
             trailing?.invoke()
         }
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(20.dp))
         content()
     }
 }
@@ -131,15 +168,24 @@ fun ScreenScaffold(
 fun StatusPill(text: String, tone: Color, modifier: Modifier = Modifier) {
     Row(
         modifier
-            .clip(RoundedCornerShape(999.dp))
+            .clip(RoundedCornerShape(100.dp))
             .background(tone.copy(alpha = 0.12f))
-            .border(1.dp, tone.copy(alpha = 0.35f), RoundedCornerShape(999.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
+            .border(1.dp, tone.copy(alpha = 0.28f), RoundedCornerShape(100.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Box(Modifier.size(7.dp).clip(CircleShape).background(tone))
-        Text(text, style = MaterialTheme.typography.labelMedium, color = tone)
+        Box(
+            Modifier
+                .size(6.dp)
+                .clip(CircleShape)
+                .background(tone),
+        )
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = tone,
+        )
     }
 }
 
@@ -147,71 +193,153 @@ fun StatusPill(text: String, tone: Color, modifier: Modifier = Modifier) {
 fun Section(
     title: String,
     modifier: Modifier = Modifier,
-    accent: Color = DriverColors.Cyan,
+    accent: Color = DriverColors.Accent,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
-        modifier.fillMaxWidth().padding(vertical = 6.dp),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = DriverColors.Panel),
-        border = BorderStroke(1.dp, DriverColors.Rail),
+        modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = DriverColors.Card),
+        border = BorderStroke(1.dp, DriverColors.BorderSubtle),
         elevation = CardDefaults.cardElevation(0.dp),
     ) {
-        Column {
-            Box(Modifier.fillMaxWidth().height(2.dp).background(accent.copy(alpha = 0.85f)))
-            Column(Modifier.padding(16.dp)) {
-                Text(title.uppercase(), style = MaterialTheme.typography.labelMedium, color = accent, letterSpacing = 1.2.sp)
-                Spacer(Modifier.height(10.dp))
-                content()
-            }
+        Column(Modifier.padding(18.dp)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelMedium,
+                color = accent,
+                letterSpacing = 0.8.sp,
+            )
+            Spacer(Modifier.height(14.dp))
+            content()
         }
     }
 }
 
 @Composable
-fun MetricTile(label: String, value: String, modifier: Modifier = Modifier, emphasis: Boolean = false) {
+fun MetricTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    emphasis: Boolean = false,
+) {
     Column(
         modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (emphasis) DriverColors.PanelRaised else DriverColors.Hull)
-            .border(1.dp, DriverColors.Rail, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (emphasis) DriverColors.CardElevated else DriverColors.Surface)
+            .border(1.dp, DriverColors.BorderSubtle, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
-        Text(label.uppercase(), style = MaterialTheme.typography.labelMedium, color = DriverColors.InkFaint)
-        Spacer(Modifier.height(4.dp))
+        Text(
+            label.uppercase(),
+            style = MaterialTheme.typography.labelSmall,
+            color = DriverColors.TextTertiary,
+        )
+        Spacer(Modifier.height(6.dp))
         Text(
             value,
             style = if (emphasis) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium,
-            color = if (emphasis) DriverColors.Cyan else DriverColors.Ink,
+            color = if (emphasis) DriverColors.Accent else DriverColors.TextPrimary,
             fontWeight = FontWeight.SemiBold,
         )
     }
 }
 
+/** Circular metric inspired by the Automind gauges. */
 @Composable
-fun PrimaryCta(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier.fillMaxWidth().height(52.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = DriverColors.Cyan,
-            contentColor = DriverColors.Void,
-            disabledContainerColor = DriverColors.Rail,
-        ),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold) }
+fun CircularMetric(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+    accent: Color = DriverColors.Accent,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(88.dp)
+                .clip(CircleShape)
+                .background(DriverColors.CardElevated)
+                .border(2.dp, accent.copy(alpha = 0.45f), CircleShape),
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    value,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = DriverColors.TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = DriverColors.TextSecondary,
+        )
+    }
 }
 
 @Composable
-fun GhostCta(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun PrimaryCta(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(54.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = DriverColors.Accent,
+            contentColor = DriverColors.Void,
+            disabledContainerColor = DriverColors.Border,
+            disabledContentColor = DriverColors.TextTertiary,
+        ),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp,
+        ),
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+fun GhostCta(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     OutlinedButton(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth().height(48.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = DriverColors.Ink),
-        border = BorderStroke(1.dp, DriverColors.Rail),
-    ) { Text(text, style = MaterialTheme.typography.labelLarge) }
+        modifier = modifier
+            .fillMaxWidth()
+            .height(50.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = DriverColors.TextPrimary,
+        ),
+        border = BorderStroke(1.dp, DriverColors.Border),
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelLarge,
+        )
+    }
 }
 
 @Composable
@@ -230,35 +358,48 @@ fun CockpitField(
         singleLine = singleLine,
         keyboardOptions = keyboardOptions,
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = DriverColors.Cyan,
-            unfocusedBorderColor = DriverColors.Rail,
-            focusedLabelColor = DriverColors.Cyan,
-            unfocusedLabelColor = DriverColors.InkDim,
-            cursorColor = DriverColors.Cyan,
-            focusedTextColor = DriverColors.Ink,
-            unfocusedTextColor = DriverColors.Ink,
-            focusedContainerColor = DriverColors.Hull,
-            unfocusedContainerColor = DriverColors.Hull,
+            focusedBorderColor = DriverColors.Accent,
+            unfocusedBorderColor = DriverColors.Border,
+            focusedLabelColor = DriverColors.Accent,
+            unfocusedLabelColor = DriverColors.TextSecondary,
+            cursorColor = DriverColors.Accent,
+            focusedTextColor = DriverColors.TextPrimary,
+            unfocusedTextColor = DriverColors.TextPrimary,
+            focusedContainerColor = DriverColors.Surface,
+            unfocusedContainerColor = DriverColors.Surface,
         ),
     )
 }
 
 @Composable
-fun VerdictBanner(label: String, color: Color, subtitle: String? = null) {
+fun VerdictBanner(
+    label: String,
+    color: Color,
+    subtitle: String? = null,
+) {
     Column(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(color.copy(alpha = 0.12f))
-            .border(1.dp, color.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
-            .padding(16.dp),
+            .clip(RoundedCornerShape(18.dp))
+            .background(color.copy(alpha = 0.10f))
+            .border(1.dp, color.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
+            .padding(18.dp),
     ) {
-        Text(label, style = MaterialTheme.typography.headlineMedium, color = color, fontWeight = FontWeight.Bold)
+        Text(
+            label,
+            style = MaterialTheme.typography.headlineMedium,
+            color = color,
+            fontWeight = FontWeight.Bold,
+        )
         if (subtitle != null) {
-            Spacer(Modifier.height(4.dp))
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = DriverColors.InkDim)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodyMedium,
+                color = DriverColors.TextSecondary,
+            )
         }
     }
 }
