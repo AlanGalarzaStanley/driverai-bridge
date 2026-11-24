@@ -5,20 +5,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +28,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -75,69 +72,181 @@ fun SettingsScreen() {
         }
     }
 
-    @Composable
-    fun num(label: String, v: String, tag: String, set: (String) -> Unit) = OutlinedTextField(v, set, label = { Text(label) }, singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth().testTag(tag))
-
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
-        Text("Ajustes", style = MaterialTheme.typography.titleLarge)
-        Text("Dejá vacío lo que no quieras usar. La app no trae tarifas ni costos precargados.", color = Color.Gray)
-        Section("Umbrales (ingreso bruto)") {
-            num("Tarifa mínima (\$)", minFare, "set_minfare") { minFare = it }
-            num("Mínimo \$ por km", minKm, "set_minkm") { minKm = it }
-            num("Mínimo \$ por hora", minHour, "set_minhour") { minHour = it }
-            num("Margen mínimo (%)", margin, "set_margin") { margin = it }
-        }
-        Section("Costos variables") {
-            num("Costo propio por km (\$: desgaste, mantenimiento)", costKm, "set_costkm") { costKm = it }
-            num("Consumo (litros cada 100 km)", fuelL, "set_fuell") { fuelL = it }
-            num("Precio combustible (\$/litro)", fuelP, "set_fuelp") { fuelP = it }
-            saved.fuelPriceUpdatedAt?.let { Text("Precio cargado el ${DateFormat.getDateInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall) }
-        }
-        Section("Supuestos") {
-            num("Km a recogida si no se lee", defPkm, "set_defpkm") { defPkm = it }
-            num("Min a recogida si no se lee", defPmin, "set_defpmin") { defPmin = it }
-            num("Retorno vacío (% del viaje, 0–100)", ret, "set_return") { ret = it }
-            Text("Tolerancia a la incertidumbre de lectura:")
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                UncertaintyTolerance.entries.forEach { t -> FilterChip(selected = tol == t, onClick = { tol = t }, label = { Text("${t.label} (${(t.minConfidence * 100).toInt()} %)") }) }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        ScreenScaffold(
+            title = "Ajustes",
+            subtitle = "Umbrales, costos y privacidad · sin valores precargados",
+        ) {
+            Section("Umbrales (ingreso bruto)") {
+                CockpitField(minFare, { minFare = it }, "Tarifa mínima ($)", Modifier.testTag("set_minfare"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(8.dp)
+                CockpitField(minKm, { minKm = it }, "Mínimo $ por km", Modifier.testTag("set_minkm"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(8.dp)
+                CockpitField(minHour, { minHour = it }, "Mínimo $ por hora", Modifier.testTag("set_minhour"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(8.dp)
+                CockpitField(margin, { margin = it }, "Margen mínimo (%)", Modifier.testTag("set_margin"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
             }
-        }
-        Section("Voz y privacidad") {
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("Voz activada", Modifier.weight(1f)); Switch(saved.voiceEnabled, { v -> scope.launch { g.settingsRepo.update { it.copy(voiceEnabled = v) } } }) }
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("Decir el veredicto de cada oferta", Modifier.weight(1f)); Switch(saved.speakVerdicts, { v -> scope.launch { g.settingsRepo.update { it.copy(speakVerdicts = v) } } }) }
-            Text("Volumen de voz: ${(saved.voiceVolume * 100).toInt()} %")
-            Slider(saved.voiceVolume, { v -> scope.launch { g.settingsRepo.update { it.copy(voiceVolume = v) } } })
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("Guardar historial (solo números)", Modifier.weight(1f)); Switch(saved.historyEnabled, { v -> scope.launch { g.settingsRepo.update { it.copy(historyEnabled = v) } } }) }
-            Column {
-                OutlinedButton(onClick = { homeMenu = true }) { Text("Zona de casa: ${saved.homeZone ?: "sin definir"}") }
-                DropdownMenu(homeMenu, { homeMenu = false }) {
-                    Zones.ALL.forEach { z -> DropdownMenuItem(text = { Text(z) }, onClick = { homeMenu = false; scope.launch { g.settingsRepo.update { it.copy(homeZone = z) } } }) }
+
+            Section("Costos variables", accent = DriverColors.Caution) {
+                CockpitField(costKm, { costKm = it }, "Costo propio por km ($)", Modifier.testTag("set_costkm"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(8.dp)
+                CockpitField(fuelL, { fuelL = it }, "Consumo (L / 100 km)", Modifier.testTag("set_fuell"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(8.dp)
+                CockpitField(fuelP, { fuelP = it }, "Precio combustible ($/L)", Modifier.testTag("set_fuelp"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                saved.fuelPriceUpdatedAt?.let {
+                    VSpace(6.dp)
+                    Text("Precio cargado el ${DateFormat.getDateInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkFaint)
                 }
             }
-        }
-        Button(onClick = {
-            val errors = mutableListOf<String>()
-            fun p(label: String, s: String, max: Double = 1e9): Double? {
-                if (s.isBlank()) return null
-                val v = parseUserNumber(s)
-                if (v == null || v < 0 || v > max) { errors += label; return null }
-                return v
+
+            Section("Supuestos", accent = DriverColors.Ice) {
+                CockpitField(defPkm, { defPkm = it }, "Km a recogida si no se lee", Modifier.testTag("set_defpkm"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(8.dp)
+                CockpitField(defPmin, { defPmin = it }, "Min a recogida si no se lee", Modifier.testTag("set_defpmin"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(8.dp)
+                CockpitField(ret, { ret = it }, "Retorno vacío (% del viaje, 0–100)", Modifier.testTag("set_return"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+                VSpace(10.dp)
+                Text("Tolerancia a la incertidumbre de lectura", style = MaterialTheme.typography.labelMedium, color = DriverColors.InkDim)
+                VSpace(6.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    UncertaintyTolerance.entries.forEach { t ->
+                        FilterChip(
+                            selected = tol == t,
+                            onClick = { tol = t },
+                            label = { Text("${t.label} (${(t.minConfidence * 100).toInt()}%)") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = DriverColors.Cyan.copy(alpha = 0.18f),
+                                selectedLabelColor = DriverColors.Cyan,
+                                containerColor = DriverColors.Hull,
+                                labelColor = DriverColors.InkDim,
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                borderColor = DriverColors.Rail,
+                                selectedBorderColor = DriverColors.Cyan.copy(alpha = 0.5f),
+                                enabled = true,
+                                selected = tol == t,
+                            ),
+                        )
+                    }
+                }
             }
-            val retPct = p("Retorno vacío", ret, 100.0) ?: 0.0
-            val newFuelP = p("Precio combustible", fuelP)
-            val upd: (DriverSettings) -> DriverSettings = { s -> s.copy(
-                minFare = p("Tarifa mínima", minFare), minGrossPerKm = p("Mínimo por km", minKm), minGrossPerHour = p("Mínimo por hora", minHour),
-                costPerKm = p("Costo por km", costKm), fuelLitersPer100Km = p("Consumo", fuelL, 100.0), fuelPricePerLiter = newFuelP,
-                fuelPriceUpdatedAt = if (newFuelP == null) null else if (newFuelP != s.fuelPricePerLiter || s.fuelPriceUpdatedAt == null) System.currentTimeMillis() else s.fuelPriceUpdatedAt,
-                defaultPickupKm = p("Km recogida", defPkm), defaultPickupMin = p("Min recogida", defPmin),
-                emptyReturnFraction = retPct / 100.0, minMarginPct = p("Margen", margin, 100.0), tolerance = tol,
-            ) }
-            // Se valida primero sin guardar
-            upd(saved)
-            if (errors.isNotEmpty()) msg = "Valores inválidos: ${errors.distinct().joinToString()}"
-            else { scope.launch { g.settingsRepo.update(upd) }; msg = "Guardado." }
-        }, modifier = Modifier.fillMaxWidth().height(56.dp).testTag("btn_save")) { Text("Guardar ajustes") }
-        msg?.let { Text(it, modifier = Modifier.testTag("settings_msg")) }
+
+            Section("Voz y privacidad", accent = DriverColors.Go) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text("Voz activada", Modifier.weight(1f), color = DriverColors.Ink)
+                    Switch(
+                        saved.voiceEnabled,
+                        { v -> scope.launch { g.settingsRepo.update { it.copy(voiceEnabled = v) } } },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = DriverColors.Void,
+                            checkedTrackColor = DriverColors.Cyan,
+                            uncheckedThumbColor = DriverColors.InkDim,
+                            uncheckedTrackColor = DriverColors.Rail,
+                        ),
+                    )
+                }
+                VSpace(6.dp)
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text("Decir el veredicto de cada oferta", Modifier.weight(1f), color = DriverColors.Ink)
+                    Switch(
+                        saved.speakVerdicts,
+                        { v -> scope.launch { g.settingsRepo.update { it.copy(speakVerdicts = v) } } },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = DriverColors.Void,
+                            checkedTrackColor = DriverColors.Cyan,
+                            uncheckedThumbColor = DriverColors.InkDim,
+                            uncheckedTrackColor = DriverColors.Rail,
+                        ),
+                    )
+                }
+                VSpace(8.dp)
+                Text("Volumen de voz: ${(saved.voiceVolume * 100).toInt()} %", color = DriverColors.InkDim, style = MaterialTheme.typography.bodySmall)
+                Slider(
+                    saved.voiceVolume,
+                    { v -> scope.launch { g.settingsRepo.update { it.copy(voiceVolume = v) } } },
+                    colors = SliderDefaults.colors(
+                        thumbColor = DriverColors.Cyan,
+                        activeTrackColor = DriverColors.Cyan,
+                        inactiveTrackColor = DriverColors.Rail,
+                    ),
+                )
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text("Guardar historial (solo números)", Modifier.weight(1f), color = DriverColors.Ink)
+                    Switch(
+                        saved.historyEnabled,
+                        { v -> scope.launch { g.settingsRepo.update { it.copy(historyEnabled = v) } } },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = DriverColors.Void,
+                            checkedTrackColor = DriverColors.Cyan,
+                            uncheckedThumbColor = DriverColors.InkDim,
+                            uncheckedTrackColor = DriverColors.Rail,
+                        ),
+                    )
+                }
+                VSpace(10.dp)
+                Column {
+                    GhostCta("Zona de casa: ${saved.homeZone ?: "sin definir"}") { homeMenu = true }
+                    DropdownMenu(homeMenu, { homeMenu = false }) {
+                        Zones.ALL.forEach { z ->
+                            DropdownMenuItem(
+                                text = { Text(z) },
+                                onClick = {
+                                    homeMenu = false
+                                    scope.launch { g.settingsRepo.update { it.copy(homeZone = z) } }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
+            VSpace(8.dp)
+            PrimaryCta("Guardar ajustes", {
+                val errors = mutableListOf<String>()
+                fun p(label: String, s: String, max: Double = 1e9): Double? {
+                    if (s.isBlank()) return null
+                    val v = parseUserNumber(s)
+                    if (v == null || v < 0 || v > max) {
+                        errors += label
+                        return null
+                    }
+                    return v
+                }
+                val retPct = p("Retorno vacío", ret, 100.0) ?: 0.0
+                val newFuelP = p("Precio combustible", fuelP)
+                val upd: (DriverSettings) -> DriverSettings = { s ->
+                    s.copy(
+                        minFare = p("Tarifa mínima", minFare),
+                        minGrossPerKm = p("Mínimo por km", minKm),
+                        minGrossPerHour = p("Mínimo por hora", minHour),
+                        costPerKm = p("Costo por km", costKm),
+                        fuelLitersPer100Km = p("Consumo", fuelL, 100.0),
+                        fuelPricePerLiter = newFuelP,
+                        fuelPriceUpdatedAt = if (newFuelP == null) null
+                        else if (newFuelP != s.fuelPricePerLiter || s.fuelPriceUpdatedAt == null) System.currentTimeMillis()
+                        else s.fuelPriceUpdatedAt,
+                        defaultPickupKm = p("Km recogida", defPkm),
+                        defaultPickupMin = p("Min recogida", defPmin),
+                        emptyReturnFraction = retPct / 100.0,
+                        minMarginPct = p("Margen", margin, 100.0),
+                        tolerance = tol,
+                    )
+                }
+                upd(saved)
+                if (errors.isNotEmpty()) msg = "Valores inválidos: ${errors.distinct().joinToString()}"
+                else {
+                    scope.launch { g.settingsRepo.update(upd) }
+                    msg = "Guardado."
+                }
+            }, Modifier.testTag("btn_save"))
+            msg?.let {
+                VSpace(8.dp)
+                StatusPill(
+                    it,
+                    if (it.startsWith("Guardado")) DriverColors.Go else DriverColors.Caution,
+                    Modifier.testTag("settings_msg"),
+                )
+            }
+        }
     }
 }
