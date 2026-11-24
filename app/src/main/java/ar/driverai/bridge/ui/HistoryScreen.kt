@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import ar.driverai.bridge.DriverAiApp
 import ar.driverai.bridge.engine.Fmt
 import ar.driverai.bridge.engine.Verdict
@@ -30,18 +31,21 @@ fun HistoryScreen() {
     val items by g.historyRepo.entries.collectAsState(initial = emptyList())
     val df = SimpleDateFormat("dd/MM HH:mm", Locale("es", "AR"))
 
-    ScreenScaffold(
-        title = "Historial",
-        subtitle = "Solo números y veredicto · máx. 100",
-    ) {
-        GhostCta("Borrar historial") { scope.launch { g.historyRepo.clear() } }
-        VSpace(10.dp)
-        if (items.isEmpty()) {
-            Section("Sin datos", accent = DriverColors.InkFaint) {
-                Text("Todavía no hay evaluaciones guardadas.", color = DriverColors.InkDim)
+    Column(Modifier.fillMaxSize()) {
+        ScreenScaffold(
+            title = "Historial",
+            subtitle = "Solo números y veredicto · máx. 100",
+        ) {
+            GhostCta("Borrar historial") { scope.launch { g.historyRepo.clear() } }
+            VSpace(10.dp)
+            if (items.isEmpty()) {
+                Section("Sin datos", accent = DriverColors.InkFaint) {
+                    Text("Todavía no hay evaluaciones guardadas.", color = DriverColors.InkDim)
+                }
             }
-        } else {
-            LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        }
+        if (items.isNotEmpty()) {
+            LazyColumn(Modifier.fillMaxSize().paddingH()) {
                 items(items, key = { it.at }) { e ->
                     val v = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.REVISAR)
                     Section("${df.format(Date(e.at))}${if (e.taken) " · TOMADO" else ""}", accent = verdictColor(v)) {
@@ -69,5 +73,7 @@ fun HistoryScreen() {
     }
 }
 
-// local import alias for dp in History
-private val Int.dp get() = androidx.compose.ui.unit.dp * this
+private fun Modifier.paddingH() = this.then(Modifier.padding(horizontal = 16.dp))
+
+private fun Modifier.padding(horizontal: androidx.compose.ui.unit.Dp) =
+    androidx.compose.foundation.layout.padding(this, horizontal = horizontal)
