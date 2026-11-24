@@ -64,32 +64,32 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
             subtitle = "Manual o corrección de lectura",
         ) {
             last?.takeIf { it.source != DataSource.MANUAL }?.let { rec ->
-                Section("Última lectura", accent = DriverColors.Ice) {
+                Section("Última lectura", accent = DriverColors.Info) {
                     val o = rec.evaluation.offer
                     ConfRow("Tarifa", o.fare) { Fmt.ars(it) }
                     ConfRow("Recogida km", o.pickupKm) { Fmt.num(it) }
                     ConfRow("Recogida min", o.pickupMin) { Fmt.num(it, 0) }
                     ConfRow("Viaje km", o.tripKm) { Fmt.num(it) }
                     ConfRow("Viaje min", o.tripMin) { Fmt.num(it, 0) }
-                    rec.notes.forEach { Text("Nota: $it", style = MaterialTheme.typography.bodySmall, color = DriverColors.InkDim) }
-                    VSpace(8.dp)
+                    rec.notes.forEach { Text("Nota: $it", style = MaterialTheme.typography.bodySmall, color = DriverColors.TextSecondary) }
+                    VSpace(10.dp)
                     GhostCta("Corregir estos datos abajo") { load(o) }
                 }
             }
 
             Section("Datos de la oferta") {
                 CockpitField(fare, { fare = it }, "Tarifa ofrecida ($)", Modifier.testTag("in_fare"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                VSpace(8.dp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VSpace(10.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     CockpitField(pkm, { pkm = it }, "Km recogida", Modifier.weight(1f).testTag("in_pkm"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                     CockpitField(pmin, { pmin = it }, "Min recogida", Modifier.weight(1f).testTag("in_pmin"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                 }
-                VSpace(8.dp)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                VSpace(10.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     CockpitField(tkm, { tkm = it }, "Km viaje", Modifier.weight(1f).testTag("in_tkm"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                     CockpitField(tmin, { tmin = it }, "Min viaje", Modifier.weight(1f).testTag("in_tmin"), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
                 }
-                VSpace(12.dp)
+                VSpace(14.dp)
                 PrimaryCta("Evaluar", {
                     val offer = OfferData(
                         Reading.manual(parseUserNumber(fare)),
@@ -103,8 +103,8 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
                 }, Modifier.testTag("btn_evaluate"))
             }
 
-            Section("Demos", accent = DriverColors.InkFaint) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Section("Demos", accent = DriverColors.TextTertiary) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     GhostCta("Demo A", { fare = "8000"; pkm = "1,5"; pmin = "5"; tkm = "8,5"; tmin = "20" }, Modifier.weight(1f))
                     GhostCta("Demo B", { fare = "2500"; pkm = "3"; pmin = "10"; tkm = "6"; tmin = "18" }, Modifier.weight(1f))
                     GhostCta("Parcial", { fare = "9000"; pkm = ""; pmin = ""; tkm = "12"; tmin = "" }, Modifier.weight(1f))
@@ -115,15 +115,15 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
                 val e = rec.evaluation
                 Section("Resultado", accent = verdictColor(e.verdict)) {
                     VerdictBanner(e.verdict.label, verdictColor(e.verdict), e.headline)
-                    VSpace(10.dp)
+                    VSpace(12.dp)
                     MetricsSummary(e.metrics)
-                    VSpace(8.dp)
+                    VSpace(10.dp)
                     e.reasons.forEach { r ->
                         val c = when (r.kind) {
-                            ReasonKind.PASA -> DriverColors.Go
-                            ReasonKind.FALLA -> DriverColors.Stop
-                            ReasonKind.AVISO -> DriverColors.Caution
-                            ReasonKind.INFO -> DriverColors.InkDim
+                            ReasonKind.PASA -> DriverColors.Positive
+                            ReasonKind.FALLA -> DriverColors.Negative
+                            ReasonKind.AVISO -> DriverColors.Warning
+                            ReasonKind.INFO -> DriverColors.TextSecondary
                         }
                         val prefix = when (r.kind) {
                             ReasonKind.PASA -> "✓"
@@ -133,7 +133,7 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
                         }
                         Text("$prefix ${r.text}", color = c, style = MaterialTheme.typography.bodyMedium)
                     }
-                    VSpace(8.dp)
+                    VSpace(10.dp)
                     GhostCta("Mostrar en tarjeta flotante") { g.overlay.showEvaluation(rec, false) }
                 }
             }
@@ -146,7 +146,7 @@ private fun ConfRow(label: String, r: Reading, fmt: (Double) -> String) {
     val v = r.value
     Text(
         if (v == null) "$label: no se pudo leer" else "$label: ${fmt(v)} (${(r.confidence * 100).toInt()}%)",
-        color = if (v == null || r.confidence < 0.7) DriverColors.Caution else DriverColors.Ink,
+        color = if (v == null || r.confidence < 0.7) DriverColors.Warning else DriverColors.TextPrimary,
         style = MaterialTheme.typography.bodyMedium,
     )
 }
