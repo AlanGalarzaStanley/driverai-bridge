@@ -186,7 +186,7 @@ class DataAndCopilotTest {
         assertTrue(summary, summary.contains("67 %"))
         val objective = CopilotEngine.answer("¿Cómo va mi objetivo diario?", copilotContext)
         assertTrue(objective, objective.contains("Faltan"))
-        assertTrue(objective, objective.contains("no es una predicción"))
+        assertTrue(objective, objective.contains("No es una predicción"))
     }
 
     @Test fun informeExterno_contextualizaSinAfirmarBusquedaNiGps() {
