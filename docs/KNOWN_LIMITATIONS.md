@@ -15,6 +15,8 @@
 | Copiloto por reglas | Sí | Unitarias | Sí | No |
 | Briefing de turno | Parcial en `manus/briefing-end-to-end` | Pruebas de código pendientes | Solo con el reporte heredado | No |
 | Diario de viaje observado → decisión → completado → cobro vinculado | Sí, local-first | Unitarias, lint, APK y emulador API 30 pasaron en CI (2026-11-25); falta teléfono real | Sí, registros solo en el dispositivo | No |
+| Detección automática de viaje aceptado | No | No | No | No |
+| Cuentas de flota, sincronización de vehículos e ingestión de observaciones | No | No | No | No |
 
 ## Limitaciones
 1. **Compatibilidad real aún parcial.** Una primera versión no reconoció el formato `11.405 ARS`; el parser se corrigió en `713f1fe`. Después, el conductor confirmó que esa versión leyó una oferta real por OCR (tarifa, km y minutos); recibió REVISAR porque no había configurado umbrales. Es solo una muestra. La lectura automática por accesibilidad sigue pendiente de revalidación y no se afirma compatibilidad general.
@@ -34,3 +36,5 @@
 15. El historial local conserva como máximo 100 evaluaciones. El cálculo del turno usa esas entradas, por lo que una jornada con más de 100 evaluaciones puede quedar truncada; los cobros ya registrados permanecen en Billetera, pero no se debe interpretar el historial como contabilidad completa.
 16. Los estados del diario y los importes asociados son confirmaciones manuales del conductor; DriverAI no observa si Uber aceptó, terminó o liquidó un viaje. Los km/minutos reales son opcionales y no se estiman a partir del GPS.
 17. DataStore usa el almacenamiento privado de la app, pero todavía no cifra los registros localmente. La billetera, el historial y los datos del vehículo requieren protección adicional si el dispositivo está comprometido o se comparte.
+18. La app no detecta si el conductor aceptó un viaje: el diario actual requiere confirmación manual. La lectura de una pantalla posterior a la aceptación debe validarse con una muestra real y anonimizada antes de agregar reglas.
+19. No existe todavía backend multiusuario/tenant para flotas ni una API para sincronizar vehículos, mantenimiento o señales colaborativas de demanda. El memo `FLEET_AND_REALTIME_STRATEGY.md` es una propuesta, no una capacidad desplegada.

@@ -98,12 +98,14 @@ La IA explica un cálculo determinístico, resume el turno y contesta preguntas 
 
 ## Secuencia recomendada
 
-1. **Cerrar calibración del lector.** Repetir OCR en más ofertas y revalidar Accesibilidad automática; separar tarifa, recogida, viaje y confianza. Configurar umbrales personales.
+1. **Cerrar el ciclo del copiloto.** Repetir OCR en más ofertas y revalidar Accesibilidad automática; separar tarifa, recogida, viaje y confianza. Validar una transición de “viaje aceptado” con texto visible, sin ejecutar interacciones, antes de automatizar cualquier estado. Configurar umbrales personales.
 2. **Diseñar el “Briefing de turno” como la primera función estratégica.** Elegir zona y horario; mostrar clima, eventos, vuelos/barcos y patrones horarios con fuentes, caducidad y confianza. Empezar en una zona y sin predicciones de ganancia.
 3. **Evolucionar el diario y la billetera mínima local.** La app ya registra qué oferta llegó, qué decidió el conductor, si se completó y qué cobro confirmó; gastos y cobros quedan local-first. Falta mejorar correcciones/observación de resultados y luego usar datos agregados solo con consentimiento para calibrar demanda y economía.
 4. **Cruzar demanda y rentabilidad gradualmente.** Primero presentar índices independientes; después evaluar si las señales del destino mejoran resultados reales, manteniendo pisos económicos y explicaciones.
-5. **Agregar vehículo, mantenimiento y vencimientos.** Configuración de costos, recordatorios locales y corrección por fecha/km.
+5. **Validar el producto premium de flotas.** Empezar por vehículos, asignaciones, odómetro, mantenimiento y vencimientos; priorizar datos locales y probar el flujo con encargados antes de construir telemetría o un panel extenso.
 6. **Conectar DriverAI Bridge y Gridwise LATAM.** Diseñar identidad, API, consentimiento, retención, corrección y eliminación antes de cambiar backend o sitio. Añadir fuentes externas con licencias/contratos verificados.
+
+La propuesta de flotas y la señal colaborativa de actividad están detalladas en [`FLEET_AND_REALTIME_STRATEGY.md`](FLEET_AND_REALTIME_STRATEGY.md). Es una hipótesis de producto; no implica que haya backend multiusuario, ingestión de eventos o mapa de demanda implementados.
 
 ## Modelo de datos que conviene preservar
 
@@ -127,4 +129,4 @@ La primera versión debe ser **local-first**. No persistir texto crudo de Uber, 
 
 ## Decisión de producto
 
-**El siguiente bloque estratégico es “Inicio de turno: escaneo + índice de demanda”, acoplado desde el principio a un diario mínimo de resultados y costos.** El briefing entrega valor desde el primer turno; el diario permite saber si el índice y las recomendaciones ayudan de verdad. La decisión de una oferta debe combinar economía del viaje, demanda probable en destino y alternativa en la zona actual, siempre separando datos, predicción y confianza.
+**El siguiente bloque es validar el ciclo de oferta y estado aceptado con una muestra real, mientras se valida en paralelo el problema operativo de las flotas.** Después, priorizar el briefing de turno con fuentes y confianza y medirlo contra resultados del diario. La decisión de una oferta debe combinar economía del viaje, demanda probable en destino y alternativa en la zona actual, siempre separando datos, predicción y confianza.
