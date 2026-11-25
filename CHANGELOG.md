@@ -16,6 +16,8 @@
 - Copiloto: sin eventos verificados dice la verdad en lugar de rellenar.
 - Chequeo conserva y copia únicamente métricas de oferta y etiquetas permitidas; nombres, direcciones y texto libre se descartan en el dispositivo.
 - El registro de diagnóstico incluye veredicto y campos detectados, se borra al desactivar el diagnóstico y no se transmite al backend.
+- Inicio de turno consulta el reporte estratégico solo por acción explícita y guarda un snapshot local mínimo; el panel aclara que la hora es de recepción y que el endpoint no informa fuente, vigencia ni confianza por señal.
+- La respuesta distingue una lista de eventos ausente de una lista explícitamente vacía; se documentaron fuentes posibles y brechas de licencia/cobertura para AMBA.
 
 ## 0.1.0 — 2026-10-17
 ### Agregado

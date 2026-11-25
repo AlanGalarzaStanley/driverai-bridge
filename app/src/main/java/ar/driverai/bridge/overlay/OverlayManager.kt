@@ -79,19 +79,35 @@ class OverlayManager(private val app: Context) {
     fun showEvaluation(rec: EvalRecord, compact: Boolean) = main.post {
         val e = rec.evaluation
         val m = e.metrics
-        val color = when (e.verdict) { Verdict.CONVIENE -> 0xFF2E7D32.toInt(); Verdict.NO_CONVIENE -> 0xFFC62828.toInt(); Verdict.REVISAR -> 0xFFF9A825.toInt() }
+        val color = when (e.verdict) { Verdict.CONVIENE -> 0xFF62E6A4.toInt(); Verdict.NO_CONVIENE -> 0xFFFF777D.toInt(); Verdict.REVISAR -> 0xFFFFC66D.toInt() }
         val lines = mutableListOf<String>()
         lines += listOfNotNull(m.fare?.let { Fmt.ars(it) }, m.totalKm?.let { Fmt.num(it) + " km tot." }, m.totalMin?.let { Fmt.num(it, 0) + " min tot." }).joinToString(" · ")
         lines += listOfNotNull(m.grossPerKm?.let { Fmt.ars(it) + "/km" }, m.grossPerHour?.let { Fmt.ars(it) + "/h" }).joinToString(" · ").ifEmpty { "Métricas incompletas" } + " (bruto)"
-        e.reasons.firstOrNull { it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO }?.let { lines += it.text }
+        val rating = e.offer.passengerRating
+        val ratingLine = when {
+            rating.value != null -> "Calificación del pasajero: ${Fmt.num(rating.value, 2)}/5 · confianza ${(rating.confidence * 100).toInt()} %"
+            DriverAiApp.graph.settings.value.minPassengerRating != null -> "Calificación del pasajero: no detectada"
+            else -> null
+        }
+        val primaryReason = e.reasons.firstOrNull { it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO }?.text
+        val alternativeLine = e.fareAlternative?.let { alternative ->
+            val assumptions = listOfNotNull(
+                alternative.assumedPickupKm?.let { "recogida ${Fmt.num(it)}km estimada" },
+                alternative.assumedPickupMin?.let { "recogida ${Fmt.num(it, 0)}min estimados" },
+                if (alternative.emptyReturnFraction > 0.0) "retorno vacío ${Fmt.num(alternative.emptyReturnFraction * 100.0, 0)}%" else null,
+            ).joinToString(", ")
+            "Piso teórico (no oferta futura): ${Fmt.ars(alternative.minimumFare)}" + if (assumptions.isNotEmpty()) " ($assumptions)" else ""
+        }
         val src = when (rec.source.name) { "ACCESSIBILITY" -> "leído de pantalla"; "OCR" -> "leído por OCR"; else -> "ingreso manual" }
-        render(e.verdict.label, color, if (compact) listOf(lines[1]) else lines + "Fuente: $src. Vos decidís en Uber.", rec.at, compact)
+        val compactBody = listOfNotNull(lines.getOrNull(1), ratingLine, primaryReason, alternativeLine)
+        val fullBody = lines + listOfNotNull(ratingLine, primaryReason, alternativeLine, "Fuente: $src. Vos decidís en Uber.")
+        render(e.verdict.label, color, if (compact) compactBody else fullBody, rec.historyId, compact)
     }
 
-    fun showMessage(text: String) = main.post { render("DriverAI", 0xFF455A64.toInt(), listOf(text), null, false) }
+    fun showMessage(text: String) = main.post { render("DriverAI", 0xFF62E6A4.toInt(), listOf(text), null, false) }
 
     @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
-    private fun render(title: String, color: Int, body: List<String>, recordAt: Long?, compact: Boolean) {
+    private fun render(title: String, color: Int, body: List<String>, historyId: String?, compact: Boolean) {
         main.removeCallbacks(hideRunnable)
         hideCard()
         lastShownText = (listOf(title) + body).joinToString("\n")
@@ -102,7 +118,7 @@ class OverlayManager(private val app: Context) {
         val root = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(10), dp(10), dp(10))
-            background = GradientDrawable().apply { setColor(0xF0161A20.toInt()); cornerRadius = dp(16).toFloat(); setStroke(dp(3), color) }
+            background = GradientDrawable().apply { setColor(0xF20D1410.toInt()); cornerRadius = dp(20).toFloat(); setStroke(dp(2), color) }
             minimumWidth = dp(220)
             contentDescription = "Tarjeta DriverAI"
         }
@@ -123,10 +139,10 @@ class OverlayManager(private val app: Context) {
         body.forEach { line ->
             root.addView(TextView(ctx).apply { text = line; setTextColor(0xFFECEFF1.toInt()); textSize = 15f; maxWidth = dp(300) })
         }
-        if (recordAt != null && !compact) {
+        if (historyId != null && !compact) {
             val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
             row.addView(smallBtn("La tomé", "Marcar viaje como tomado") {
-                DriverAiApp.graph.scope.launch { DriverAiApp.graph.historyRepo.markTaken(recordAt) }
+                DriverAiApp.graph.scope.launch { DriverAiApp.graph.historyRepo.markTaken(historyId) }
                 hideCard()
             })
             row.addView(smallBtn("Corregir", "Abrir DriverAI para corregir datos") {
@@ -184,8 +200,8 @@ class OverlayManager(private val app: Context) {
         val (ctx, type) = wc
         val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val b = Button(ctx).apply {
-            text = "Leer oferta"; textSize = 15f; setTextColor(Color.BLACK); contentDescription = "Leer oferta con captura"
-            background = GradientDrawable().apply { setColor(0xFFFFC107.toInt()); cornerRadius = dp(24).toFloat() }
+            text = "Leer oferta"; textSize = 15f; setTextColor(0xFF062013.toInt()); contentDescription = "Leer oferta con captura"
+            background = GradientDrawable().apply { setColor(0xFF62E6A4.toInt()); cornerRadius = dp(24).toFloat() }
             setPadding(dp(16), dp(8), dp(16), dp(8))
             setOnClickListener {
                 // Se ocultan el botón y la tarjeta durante la captura para que no tapen la oferta

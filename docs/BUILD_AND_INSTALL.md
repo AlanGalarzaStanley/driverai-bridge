@@ -2,21 +2,25 @@
 
 ## Descarga directa en el teléfono
 
-El repositorio es **privado**. Estos enlaces funcionan en Chrome del teléfono solo si la sesión de GitHub es la de esta cuenta. Sin sesión responden 404. No se publicó el repositorio.
+El repositorio es **privado**. Iniciá sesión en GitHub en Chrome del teléfono con esta cuenta para bajar el artefacto. El enlace `latest-debug` todavía apunta a `apk-22`; para instalar la mejora de tarifa piso, seguí estos pasos:
 
-1. Abrí, con la sesión iniciada: <https://github.com/AlanGalarzaStanley/driverai-bridge/releases/download/latest-debug/driverai-debug.apk>
-2. Aceptá la descarga. El archivo ya es el APK: no hay que descomprimir un zip.
-3. Abrí la notificación de descarga o el archivo en Descargas.
-4. Si Android lo pide, permití "Instalar apps desconocidas" solo para Chrome o para Archivos.
+1. Abrí [Android CI run 24](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45077279565).
+2. En **Artifacts**, descargá `driverai-debug-apk-24`; GitHub baja un `.zip`.
+3. Con Archivos, extraé `driverai-debug-b2e5d59.apk`.
+4. Abrí el APK. Si Android lo pide, permití "Instalar apps desconocidas" solo para Archivos o Chrome.
 5. Instalar → Abrir. Play Protect puede avisar: es un APK de depuración, fuera de Play. "Instalar de todos modos".
 
-Copia fija, que no se reemplaza, del commit `cc64438` (run 8 de Android CI, verificada el 2026-10-17):
+La build de la rama de trabajo más reciente es `0.1.0-b2e5d59` (Android CI run 24), disponible como artefacto de Actions [en esta ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45077279565), dentro de `Artifacts` → `driverai-debug-apk-24`. Requiere sesión de GitHub y se conserva 30 días. Incluye el piso de tarifa según umbrales personales y sus pruebas; **no** se publicó en Releases ni en Play ni reemplazó `latest-debug`.
 
-<https://github.com/AlanGalarzaStanley/driverai-bridge/releases/download/v0.1.0-cc64438/driverai-debug-cc64438.apk>
+SHA-256 del APK de run 24: `cd34d4969cb27affe09de1404bb886523155cb827498fb586211fc37cccf6732` (43.909.521 bytes).
 
-SHA-256 de ese archivo: `59ecc8b443b38f6f8a6969c25774e3d93fe0efbf7b4697da1fe575a18c86e0f8`
+Copia fija, que no se reemplaza, del commit `95c4590` (run 22 de Android CI, verificada el 2026-11-21):
 
-Cada push a `main` que deje en verde la compilación, el contrato con el backend y el emulador publica además `apk-<N>` y reemplaza el archivo de `latest-debug`. La firma de depuración la genera el runner y **no está fijada**: la integración de GitHub usada acá no puede guardar secretos de Actions (HTTP 403). Si al actualizar dice que el paquete está en conflicto, desinstalá DriverAI y volvé a instalar (se pierden los ajustes).
+<https://github.com/AlanGalarzaStanley/driverai-bridge/releases/download/apk-22/driverai-debug-95c4590.apk>
+
+SHA-256 de ese archivo: `919649f7f645d5b2aa9ac0e16774ce797ebe3ddee21e569e297eed2656911e4f`
+
+Cada push a `main` que deje en verde la compilación, el contrato con el backend y el emulador publica además `apk-<N>` y reemplaza el archivo de `latest-debug`. Actualmente el último release sigue siendo `apk-22`; los runs 23 y 24 produjeron artefactos debug, pero omitieron el contrato live y la publicación release. La firma de depuración la genera el runner y **no está fijada**. Si al actualizar dice que el paquete está en conflicto, desinstalá DriverAI y volvé a instalar (se pierden los ajustes).
 
 Google Play Console y Firebase App Distribution no están conectados. No se creó una cuenta ni se autorizó el pago de Play (25 USD). Play además exige un Android App Bundle firmado para producción y una declaración de la AccessibilityService API, sin garantía de aprobación.
 

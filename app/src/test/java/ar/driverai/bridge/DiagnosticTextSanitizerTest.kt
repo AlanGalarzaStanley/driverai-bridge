@@ -32,6 +32,17 @@ class DiagnosticTextSanitizerTest {
         assertTrue(DiagnosticTextSanitizer.sanitize(listOf("Estás en línea", "Juan Pérez", "Destino desconocido")).isEmpty())
     }
 
+    @Test fun conservaTarifaConCodigoARSAlFinal() {
+        assertEquals(listOf("11.405 ARS"), DiagnosticTextSanitizer.sanitize(listOf("11.405 ARS · solo importe")))
+    }
+
+    @Test fun conservaRatingSoloConEtiquetaDePasajeroYDescartaNombre() {
+        val safe = DiagnosticTextSanitizer.sanitize(listOf("Calificación del pasajero: 4,92 · María García"))
+        assertEquals(listOf("Calificación del pasajero: 4,92"), safe)
+        assertTrue(DiagnosticTextSanitizer.sanitize(listOf("Tu calificación 4,92")).isEmpty())
+        assertTrue(DiagnosticTextSanitizer.sanitize(listOf("Calificación del usuario: 4,92", "User rating 4.80")).isEmpty())
+    }
+
     @Test fun noConvierteMarcadorDeUbicacionKm25EnDistancia() {
         val safe = DiagnosticTextSanitizer.sanitize(listOf("Ruta 8 · Km 25", "Km 25", "viaje · 18 min · 9,3 km"))
 
@@ -56,6 +67,7 @@ class DiagnosticTextSanitizerTest {
             fare = DiagnosticField("$8.540", 95),
             tripKm = DiagnosticField("9,3 km", 45),
             tripMin = DiagnosticField("18 min", 45),
+            passengerRating = DiagnosticField("4,92/5", 95),
             verdict = "REVISAR",
         )
         val clipboard = record.clipboardText()
@@ -64,6 +76,7 @@ class DiagnosticTextSanitizerTest {
         assertTrue(clipboard.contains("Tarifa detectada: \$8.540 (confianza 95%)"))
         assertTrue(clipboard.contains("9,3 km (confianza 45%)"))
         assertTrue(clipboard.contains("18 min (confianza 45%)"))
+        assertTrue(clipboard.contains("Calificación del pasajero: 4,92/5 (confianza 95%)"))
         assertFalse(clipboard.contains("María"))
         assertFalse(clipboard.contains("Dirección"))
     }

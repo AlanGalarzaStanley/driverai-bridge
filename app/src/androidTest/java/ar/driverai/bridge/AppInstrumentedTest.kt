@@ -4,8 +4,10 @@ import android.content.Intent
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -18,6 +20,7 @@ import ar.driverai.bridge.engine.DriverSettings
 import ar.driverai.bridge.engine.Verdict
 import ar.driverai.bridge.ui.MainActivity
 import ar.driverai.bridge.ui.SimulatorActivity
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Assume
@@ -41,8 +44,10 @@ class AppInstrumentedTest {
     private val ctx = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Before fun setUp(): Unit = runBlocking {
-        DriverAiApp.graph.settingsRepo.update { DriverSettings(minGrossPerKm = 500.0, historyEnabled = true, speakVerdicts = false) }
+        DriverAiApp.graph.settingsRepo.update { DriverSettings(minGrossPerKm = 500.0, historyEnabled = true, speakVerdicts = false, dailyTargetArs = null) }
         DriverAiApp.graph.overlay.hideAll()
+        DriverAiApp.graph.walletRepo.clear()
+        DriverAiApp.graph.vehicleRepo.clearAll()
     }
 
     private fun shot(name: String) {
@@ -58,6 +63,12 @@ class AppInstrumentedTest {
     @Test fun inicioAbre() {
         compose.onNodeWithTag("status").assertExists()
         compose.onNodeWithTag("tab_evaluar").assertExists()
+        compose.onNodeWithTag("tab_billetera").assertExists()
+        compose.onNodeWithTag("tab_vehiculo").assertExists()
+        compose.onNodeWithTag("home_wallet").assertExists()
+        compose.onNodeWithTag("home_vehicle").assertExists()
+        compose.onNodeWithText("Briefing del turno").assertExists()
+        compose.onNodeWithText("Todavía no hay una consulta guardada. Al iniciar el turno podés consultar el contexto disponible.").assertExists()
     }
 
     @Test fun evaluacionManual_conviene() {
@@ -75,6 +86,7 @@ class AppInstrumentedTest {
     }
 
     @Test fun ajustes_guardan() {
+        compose.onNodeWithTag("tab_mas").performClick()
         compose.onNodeWithTag("tab_ajustes").performClick()
         compose.onNodeWithTag("set_minhour").performTextInput("15000")
         compose.onNodeWithTag("btn_save").performScrollTo().performClick()
@@ -82,7 +94,43 @@ class AppInstrumentedTest {
         assertTrue(waitFor(3000) { DriverAiApp.graph.settings.value.minGrossPerHour == 15000.0 })
     }
 
+    @Test fun objetivoDiario_yCopilotoConPromptExterno() {
+        compose.onNodeWithTag("tab_mas").performClick()
+        compose.onNodeWithTag("tab_ajustes").performClick()
+        compose.onNodeWithTag("set_daily_target").performScrollTo().performTextInput("15000")
+        compose.onNodeWithTag("btn_save").performScrollTo().performClick()
+        compose.onNodeWithTag("settings_msg").assertTextContains("Guardado.")
+        assertEquals(15000.0, DriverAiApp.graph.settings.value.dailyTargetArs!!, 0.0)
+
+        compose.onNodeWithTag("tab_inicio").performClick()
+        compose.onNodeWithTag("home_daily_income").assertExists()
+        compose.onNodeWithText("Meta \$15.000 · 0 %").assertExists()
+        compose.onNodeWithTag("home_open_copilot").performScrollTo().performClick()
+        compose.onNodeWithText("Respuestas locales por reglas").assertExists()
+        compose.onNodeWithTag("external_report").performClick()
+        compose.onNodeWithText("DriverAI no hizo la búsqueda. Copiá este pedido y pegalo en una IA externa con navegación.").assertExists()
+        compose.onNodeWithTag("copy_external_prompt").performClick()
+        compose.onNodeWithText("Copiado").assertExists()
+        val clipboard = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val copiedPrompt = clipboard.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty()
+        assertTrue("El prompt copiado conserva la meta diaria", copiedPrompt.contains("Objetivo de ingresos registrado"))
+        compose.onNodeWithText("Volver al chat").performClick()
+        compose.onNodeWithTag("copilot_back").performClick()
+        compose.onNodeWithTag("status").assertExists()
+    }
+
+    @Test fun ajustes_rechazanUmbralRatingNoFinito() {
+        compose.onNodeWithTag("tab_mas").performClick()
+        compose.onNodeWithTag("tab_ajustes").performClick()
+        compose.onNodeWithTag("set_min_passenger_rating").performTextInput("NaN")
+        compose.onNodeWithTag("btn_save").performScrollTo().performClick()
+
+        compose.onNodeWithTag("settings_msg").assertTextContains("Valores inválidos", substring = true)
+        assertNull(DriverAiApp.graph.settings.value.minPassengerRating)
+    }
+
     @Test fun tarjetaFlotante_apareceYSeCierra() {
+        compose.onNodeWithTag("tab_mas").performClick()
         compose.onNodeWithTag("tab_diag").performClick()
         compose.onNodeWithTag("btn_overlay_demo").performScrollTo().performClick()
         assertTrue("tarjeta visible", waitFor(3000) { DriverAiApp.graph.overlay.isCardVisible })
@@ -126,9 +174,39 @@ class AppInstrumentedTest {
         assertNotNull(device.findObject(By.text("SIMULADOR DriverAI — no es Uber")))
     }
 
+    @Test fun billetera_registraIngresoYGastoSeparadosDeOfertas() = runBlocking {
+        compose.onNodeWithTag("tab_billetera").performClick()
+        compose.onNodeWithTag("wallet_add_income").performClick()
+        compose.onNodeWithTag("wallet_amount").performTextReplacement("12000")
+        compose.onNodeWithTag("wallet_save").performClick()
+        compose.onNodeWithTag("wallet_add_expense").performClick()
+        compose.onNodeWithTag("wallet_amount").performTextReplacement("2500")
+        compose.onNodeWithTag("wallet_save").performClick()
+        compose.onNodeWithText("Movimientos de hoy").assertExists()
+        compose.onNodeWithText("Ingreso confirmado").assertExists()
+        compose.onNodeWithText("Combustible").assertExists()
+        val summary = ar.driverai.bridge.data.MoneyLedgerRepository.summarize(DriverAiApp.graph.walletRepo.entries.first())
+        assertEquals(12000.0, summary.incomeArs, 0.0)
+        assertEquals(2500.0, summary.expensesArs, 0.0)
+    }
+
+    @Test fun vehiculo_guardaKilometrosYRecordatorio() {
+        compose.onNodeWithTag("tab_vehiculo").performClick()
+        compose.onNodeWithTag("odo_start").performTextReplacement("1000")
+        compose.onNodeWithTag("odo_end").performTextReplacement("1012")
+        compose.onNodeWithTag("odo_save").performScrollTo().performClick()
+        compose.onNodeWithText("Guardado en este teléfono.").assertExists()
+        compose.onNodeWithTag("maintenance_add").performScrollTo().performClick()
+        compose.onNodeWithTag("maintenance_title").performTextReplacement("VTV")
+        compose.onNodeWithTag("maintenance_due_km").performTextReplacement("1500")
+        compose.onNodeWithTag("maintenance_save").performClick()
+        compose.onNodeWithText("VTV").assertExists()
+        compose.onNodeWithText("Pendiente").assertExists()
+    }
+
     @Test fun deduplicacion_mismaOfertaNoSeRepite() {
         val p = DriverAiApp.graph.pipeline
-        val frags = listOf("$ 7.777", "A 3 min (1 km)", "Viaje de 10 min (5 km)")
+        val frags = listOf("Toca para aceptar", "$ 7.777", "A 3 min (1 km)", "Viaje de 10 min (5 km)")
         val before = p.offersDetected
         assertTrue(p.onScreenText(frags, DataSource.ACCESSIBILITY))
         assertTrue(p.onScreenText(frags, DataSource.ACCESSIBILITY))

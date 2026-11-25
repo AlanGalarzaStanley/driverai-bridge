@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit
     val reporte: Reporte? = null,
     val demanda_por_zona: List<ZonaScore> = emptyList(),
     val clima: Clima? = null,
-    val eventos: List<JsonElement> = emptyList(),
+    val eventos: List<JsonElement>? = null,
     val hora: Int? = null,
     val dia: String? = null,
     val score_turno: Double? = null,
