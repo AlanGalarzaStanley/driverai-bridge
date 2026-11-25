@@ -14,7 +14,9 @@
   - Copiloto que consulta el radar primero.
   - Vehículo movido a Más.
 - Modelo, fuentes y propuesta de servidor: [`RADAR_DEMANDA.md`](RADAR_DEMANDA.md).
-- Validación local: `testDebugUnitTest`, `lintDebug` y `assembleDebug` en verde, con OpenJDK 17 y Android SDK 35. CI: ver la sección de CI más abajo.
+- Validación local: `testDebugUnitTest`, `lintDebug` y `assembleDebug` en verde, con OpenJDK 17 y Android SDK 35.
+- CI: [run 45682532136, verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45682532136). Pasaron compilación, unit tests, lint, APK y emulador API 30. El contrato se omitió y no hubo Release.
+  - El primer intento ([run 45680677989](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45680677989)) falló en el emulador: las tarjetas nuevas de Más dejaban Ajustes y Chequeo fuera de pantalla. Se corrigió reordenando las tarjetas.
 - Próximos pasos:
   1. Conseguir muestras anonimizadas de ofertas de DiDi, Cabify, inDrive y Bolt, y ajustar el parser con pruebas.
   2. Probar el radar y la línea de destino en un teléfono real.
