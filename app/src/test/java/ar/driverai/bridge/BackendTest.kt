@@ -60,6 +60,14 @@ class BackendTest {
         val r = api.reporte() as ApiResult.Ok
         assertEquals("Flores", r.value.reporte!!.zonas_rankeadas[0].zona)
         assertNull(r.value.clima)
+        assertNull(r.value.eventos)
+    }
+
+    @Test fun eventosListaVacia_noSeConfundeConCampoAusente() = runBlocking {
+        server.enqueue(MockResponse().setBody("""{"ok":true,"eventos":[]}"""))
+        val r = api.reporte() as ApiResult.Ok
+        assertNotNull(r.value.eventos)
+        assertTrue(r.value.eventos!!.isEmpty())
     }
 
     @Test fun http500() = runBlocking {

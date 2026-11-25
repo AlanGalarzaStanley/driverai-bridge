@@ -5,6 +5,12 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      run_live_contract:
+        description: 'Ejecutar contrato contra Supabase y chequeo de la web publicada'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -94,6 +100,7 @@ jobs:
 
   backend-contract:
     name: Contrato con backend real (Supabase)
+    if: github.event_name != 'workflow_dispatch' || inputs.run_live_contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -221,4 +228,3 @@ jobs:
               --notes-file "$NOTES_FILE"
           fi
           echo "Descarga: https://github.com/${GITHUB_REPOSITORY}/releases/download/latest-debug/driverai-debug.apk"
-

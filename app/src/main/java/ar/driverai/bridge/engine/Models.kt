@@ -34,6 +34,8 @@ data class OfferData(
     val tripKm: Reading = Reading.MISSING,
     val tripMin: Reading = Reading.MISSING,
     val product: String? = null,
+    /** Rating del pasajero solo si aparece explícitamente etiquetado en la oferta. */
+    val passengerRating: Reading = Reading.MISSING,
 )
 
 /** Exigencia de confianza mínima para aceptar datos leídos automáticamente. */
@@ -72,8 +74,15 @@ data class DriverSettings(
     val homeZone: String? = null,
     val currentZone: String? = null,
     val overlayCompact: Boolean = false,
+    /** Umbral opcional de calificación del pasajero, en escala 1–5. */
+    val minPassengerRating: Double? = null,
+    /** Objetivo diario elegido por el conductor; solo se compara con ingresos anotados en la billetera. */
+    val dailyTargetArs: Double? = null,
 ) {
     val hasAnyThreshold: Boolean
+        get() = hasEconomicThreshold || minPassengerRating != null
+
+    val hasEconomicThreshold: Boolean
         get() = minFare != null || minGrossPerKm != null || minGrossPerHour != null || minMarginPct != null
 
     /** Costo variable por km combinando costo propio + combustible, si están configurados. */
@@ -118,8 +127,18 @@ data class Evaluation(
     val metrics: Metrics,
     val reasons: List<Reason>,
     val offer: OfferData,
+    val fareAlternative: FareAlternative? = null,
 ) {
     val headline: String get() = reasons.firstOrNull { it.kind == ReasonKind.FALLA }?.text
         ?: reasons.firstOrNull { it.kind == ReasonKind.AVISO }?.text
         ?: reasons.firstOrNull()?.text ?: ""
 }
+
+/** Tarifa piso calculada para alcanzar los umbrales personales con el mismo recorrido. */
+data class FareAlternative(
+    val minimumFare: Double,
+    val pickupAssumed: Boolean,
+    val emptyReturnFraction: Double,
+    val assumedPickupKm: Double? = null,
+    val assumedPickupMin: Double? = null,
+)
