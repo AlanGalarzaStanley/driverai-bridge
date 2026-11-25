@@ -7,12 +7,13 @@ App Android nativa (Kotlin + Jetpack Compose) que evalúa ofertas de viaje con r
 ## Estado
 | | |
 |---|---|
-| Compila en la nube y genera APK | Sí — CI verde en run `45628698011`, commit `d1619ce` |
-| Pruebas unitarias / lint | En verde en CI (run `45628698011`, commit `d1619ce`) |
-| Contrato con backend real | Validado históricamente (run 17); omitido deliberadamente en el último CI manual |
-| Emulador Android 11 | En verde en run `45628698011`, incluida accesibilidad → tarjeta con un simulador |
+| Compila en la nube y genera APK | Sí — [CI verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45652876845), commit `c12f718` en rama `feature/realtime-fleet-and-brand` |
+| Pruebas unitarias / lint | En verde en CI (run `45652876845`, commit `c12f718`) |
+| Contrato con backend real | Validado históricamente (run 17); omitido deliberadamente en la CI manual más reciente |
+| Emulador Android 11 | En verde en run `45652876845` (API 30) |
 | Uber real en teléfono real | **OCR leyó una oferta real** (run 17 / APK `713f1fe`); revalidar accesibilidad automática y más formatos |
-| Briefing de turno | En desarrollo en `manus/briefing-end-to-end`: consulta explícita al reporte heredado y snapshot local; aún sin feeds verificados ni índice calibrado |
+| Briefing de turno | Parcial: consulta explícita al reporte heredado y guarda un snapshot local; aún sin feeds verificados ni índice calibrado |
+| Flotas y demanda colaborativa | Propuesta documentada; sin backend multiusuario ni ingestión de observaciones |
 
 ## Documentación
 - [Auditoría inicial](docs/INITIAL_AUDIT.md) — repos, web, backend y hallazgos.
@@ -24,6 +25,7 @@ App Android nativa (Kotlin + Jetpack Compose) que evalúa ofertas de viaje con r
 - [Compilar, descargar e instalar](docs/BUILD_AND_INSTALL.md)
 - [Limitaciones conocidas](docs/KNOWN_LIMITATIONS.md)
 - [Changelog](CHANGELOG.md)
+- [Instrucciones para agentes](AGENTS.md) y [handoff actualizado](docs/AGENT_HANDOFF.md) — estado, límites y cómo continuar sin repetir auditorías.
 
 ## Uso rápido
 1. Descargá el APK desde Actions (ver guía de instalación) e instalalo.

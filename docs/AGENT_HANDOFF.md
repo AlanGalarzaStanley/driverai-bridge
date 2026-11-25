@@ -1,0 +1,42 @@
+# Handoff para continuar DriverAI
+
+**Actualizado:** 2026-11-25. Lee primero este resumen y `../AGENTS.md`; luego confirma la rama, el HEAD y el estado del árbol. Es una instantánea, no reemplaza a Git.
+
+## Estado de trabajo
+
+- Repositorio: `AlanGalarzaStanley/driverai-bridge`; app nativa Android en Kotlin y Jetpack Compose.
+- Rama con el estado más reciente: `feature/realtime-fleet-and-brand`. El commit de funcionalidad/documentación `c12f718` está subido a `origin`; contiene el ciclo local de diario que venía de `feature/trip-journal-lifecycle` (`444fe07`), el icono alineado a Cockpit y la propuesta de flotas/demanda. `main` no se modificó y no hay PR abierto. La guía de agentes se añade en esta misma rama.
+- CI de Android para `c12f718`: [run 45652876845, verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45652876845). Pasaron unit tests, lint, APK debug y emulador API 30. El contrato contra Supabase quedó omitido intencionalmente; no se publicó Release.
+- [Artefacto APK debug](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45652876845/artifacts/15041348483). El entorno local usado en esa tarea no tenía Android SDK; la validación válida fue la CI.
+
+## Qué existe y qué no
+
+- El icono `app/src/main/res/drawable/ic_launcher.xml` usa los colores `#070B09` y `#62E6A4` del tema Cockpit.
+- El diario registra localmente oferta observada → decisión del conductor → completado/cancelado → cobro confirmado. No deriva aceptación ni liquidación de Uber; no duplica cobros.
+- `DriverAccessibilityService` observa texto y nodos visibles; no ejecuta gestos. `OfferTextParser` reconoce ofertas nuevas con contexto de solicitud, tarifa, distancia y duración. **No hay clasificador de viaje aceptado ni sincronización de ese estado.** El OCR real solo está verificado en una muestra.
+- Historial, billetera, vehículo, odómetro y mantenimiento permanecen local-first en DataStore. El cliente llama las funciones estratégicas existentes de reporte/posición; no hay cuentas multiusuario/tenant, API de flota ni ingestión de observaciones de demanda.
+- La estrategia premium de flotas y señal colaborativa está en [`FLEET_AND_REALTIME_STRATEGY.md`](FLEET_AND_REALTIME_STRATEGY.md). Es una propuesta para validar, no una capacidad entregada ni investigación de precios/mercado.
+
+## Próximo paso recomendado
+
+1. Pedir/usar una captura **anonimizada** de la pantalla de Uber Driver justo después de aceptar; ocultar nombre, teléfono, dirección, identificadores y mapa. Sin esa muestra, no inventar patrones de texto ni implementar detección específica.
+2. Si se dispone de evidencia, diseñar una detección local conservadora de transición con estados ambiguos/falsos positivos en pruebas. Marcar como “probable” hasta confirmación; nunca tocar la app de viajes.
+3. Actualizar `docs/KNOWN_LIMITATIONS.md` y el changelog solo cuando cambie el comportamiento real. Para backend o compartir datos, primero definir consentimiento, autenticación, aislamiento por flota, retención, corrección y eliminación; no enviar datos de producción por adelantado.
+4. Validar el problema de flotas con responsables de alquiler antes de implementar sincronización o telemetría. La estrategia existente propone empezar por asignación de vehículos, odómetro y mantenimiento.
+
+## Documentos de referencia
+
+- [`PRODUCT_VISION.md`](PRODUCT_VISION.md): visión, límites y secuencia de producto.
+- [`KNOWN_LIMITATIONS.md`](KNOWN_LIMITATIONS.md): funciones verificadas y pendientes.
+- [`FLEET_AND_REALTIME_STRATEGY.md`](FLEET_AND_REALTIME_STRATEGY.md): propuesta para flotas y observaciones agregadas.
+- [`README.md`](../README.md) y [`CHANGELOG.md`](../CHANGELOG.md): instalación y cambios entregados.
+
+## Pruebas y workflow
+
+Comandos locales: `./gradlew testDebugUnitTest lintDebug assembleDebug`; requieren Android SDK. El workflow manual puede iniciarse en una rama con:
+
+```bash
+gh workflow run android.yml --ref <rama> -f run_live_contract=false
+```
+
+En `android.yml`, `pull_request` y `push` a `main` sí ejecutan el contrato contra backend real; el Release solo corre en `push` a `main`. Revisa la definición del workflow antes de iniciarlo. Para trabajo documental sin cambios Android, no repitas CI solo por costumbre.
