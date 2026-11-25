@@ -14,7 +14,7 @@
 | Voz (TTS) / dictado | Sí | **No** en teléfono | Sí | No |
 | Copiloto por reglas | Sí | Unitarias | Sí | No |
 | Briefing de turno | Parcial en `manus/briefing-end-to-end` | Pruebas de código pendientes | Solo con el reporte heredado | No |
-| Diario de viaje observado → decisión → completado → cobro vinculado | Sí, local-first | Unitarias e instrumentadas añadidas; CI/emulador pendiente y falta teléfono real | Sí, registros solo en el dispositivo | No |
+| Diario de viaje observado → decisión → completado → cobro vinculado | Sí, local-first | Unitarias, lint, APK y emulador API 30 pasaron en CI (2026-11-25); falta teléfono real | Sí, registros solo en el dispositivo | No |
 
 ## Limitaciones
 1. **Compatibilidad real aún parcial.** Una primera versión no reconoció el formato `11.405 ARS`; el parser se corrigió en `713f1fe`. Después, el conductor confirmó que esa versión leyó una oferta real por OCR (tarifa, km y minutos); recibió REVISAR porque no había configurado umbrales. Es solo una muestra. La lectura automática por accesibilidad sigue pendiente de revalidación y no se afirma compatibilidad general.
