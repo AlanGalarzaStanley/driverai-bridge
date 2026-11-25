@@ -1,6 +1,15 @@
 # Changelog
 
 ## En desarrollo
+### MVP para piloto (2026-11-25)
+- **Inicio simplificado**: cuatro tarjetas (Ahora, Turno, Última oferta, Hoy), primeros pasos guiados que se pueden ocultar y cuatro pestañas (Inicio, Radar, Billetera, Más). Evaluar a mano y el copiloto se abren desde Inicio.
+- **Actualizar con IA**: pedido listo para copiar o compartir a una IA externa; la respuesta se pega o se comparte a DriverAI, se valida localmente y se carga al radar con la confianza acotada.
+- **Alertas de pico**: notificación (y voz con el turno activo) 40 minutos antes de un pico con un motivo concreto.
+- **Mínimos rápidos**: sugiere el mínimo $/km a partir del combustible, el consumo y la meta por hora.
+- **Resumen para tu flota** en Informes: texto y fila CSV para compartir por WhatsApp, sin servidor.
+- Ajustes con "Opciones avanzadas"; el Radar mueve fuentes, contexto del servidor y carga manual a "Ver detalles".
+- Documentos: `docs/PILOTO_FLOTA.md`, brief del MVP en `PRODUCT_VISION.md` y la sección Informe IA en `RADAR_DEMANDA.md`.
+
 ### Agregado
 - **Radar de demanda** (nueva pestaña). Calcula un índice 0–100 por zona del AMBA y franja de 30 minutos para las próximas 6 horas, con la confianza por separado y los motivos explicados.
   - Combina el patrón por perfil de zona y tipo de día, los feriados de ArgentinaDatos, los partidos de TheSportsDB, la lluvia (en la build privada) y tu propio historial.

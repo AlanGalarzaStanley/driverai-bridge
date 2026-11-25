@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Place
@@ -38,6 +37,9 @@ import androidx.compose.ui.unit.sp
 class MainActivity : ComponentActivity() {
     private var tab by mutableStateOf("inicio")
     private var prefill by mutableStateOf(false)
+    /** Texto compartido desde otra app (respuesta de una IA). Solo se muestra; se carga si el conductor confirma. */
+    private var sharedText by mutableStateOf<String?>(null)
+    private var aiReturn by mutableStateOf("inicio")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,23 +51,30 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handle(intent) }
 
     private fun handle(i: Intent?) {
+        if (i?.action == Intent.ACTION_SEND && i.type?.startsWith("text/") == true) {
+            val text = i.getStringExtra(Intent.EXTRA_TEXT)
+            if (!text.isNullOrBlank()) { sharedText = text.take(ar.driverai.bridge.intel.AiReport.MAX_INPUT_CHARS); tab = "ia" }
+            return
+        }
         i?.getStringExtra(EXTRA_TAB)?.let { tab = it }
         prefill = i?.getBooleanExtra(EXTRA_PREFILL, false) == true
     }
 
     @Composable
     private fun Root() {
-        BackHandler(enabled = tab == "copiloto") { tab = "inicio" }
+        BackHandler(enabled = tab == "copiloto" || tab == "evaluar") { tab = "inicio" }
+        BackHandler(enabled = tab == "ia") { tab = aiReturn }
         BackHandler(enabled = tab in setOf("ajustes", "diag", "historial", "vehiculo", "informes")) { tab = "mas" }
         val tabs = listOf(
             Triple("inicio", "Inicio", Icons.Filled.Home),
             Triple("radar", "Radar", Icons.Filled.Place),
-            Triple("evaluar", "Oferta", Icons.Filled.Check),
             Triple("billetera", "Billetera", Icons.Filled.List),
             Triple("mas", "Más", Icons.Filled.Settings),
         )
         val selectedTab = when (tab) {
             "ajustes", "diag", "historial", "vehiculo", "informes" -> "mas"
+            "evaluar", "copiloto" -> "inicio"
+            "ia" -> aiReturn
             else -> tab
         }
         Box(
@@ -80,7 +89,7 @@ class MainActivity : ComponentActivity() {
             Scaffold(
                 containerColor = Color.Transparent,
                 bottomBar = {
-                    if (tab != "copiloto") {
+                    if (tab != "copiloto" && tab != "ia") {
                         NavigationBar(containerColor = Color(0xF20D1410), tonalElevation = 0.dp) {
                             tabs.forEach { (id, label, icon) ->
                                 NavigationBarItem(
@@ -106,17 +115,19 @@ class MainActivity : ComponentActivity() {
                     when (tab) {
                         "inicio" -> HomeScreen(this@MainActivity) { destination ->
                             if (destination == "evaluar") prefill = true
+                            if (destination == "ia") aiReturn = "inicio"
                             tab = destination
                         }
                         "evaluar" -> EvaluateScreen(prefill) { prefill = false }
                         "billetera" -> WalletScreen()
                         "vehiculo" -> VehicleScreen()
                         "mas" -> ToolsScreen { destination -> tab = destination }
-                        "copiloto" -> CopilotScreen { tab = "inicio" }
+                        "copiloto" -> CopilotScreen(onOpenAi = { aiReturn = "inicio"; tab = "ia" }) { tab = "inicio" }
+                        "ia" -> AiUpdateScreen(sharedText, onSharedConsumed = { sharedText = null }) { tab = aiReturn }
                         "ajustes" -> SettingsScreen()
                         "historial" -> HistoryScreen()
                         "diag" -> DiagnosticsScreen(this@MainActivity)
-                        "radar" -> RadarScreen()
+                        "radar" -> RadarScreen(onOpenAi = { aiReturn = "radar"; tab = "ia" })
                         "informes" -> InsightsScreen()
                         else -> HomeScreen(this@MainActivity)
                     }

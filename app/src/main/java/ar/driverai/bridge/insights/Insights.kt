@@ -82,7 +82,7 @@ object Insights {
 
     private val tsFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm", Locale.ROOT)
 
-    private fun csvCell(v: Any?): String {
+    internal fun csvCell(v: Any?): String {
         val s = when (v) {
             null -> ""
             is Double -> if (v.isFinite()) String.format(Locale.ROOT, "%.2f", v) else ""

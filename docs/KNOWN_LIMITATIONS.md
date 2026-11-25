@@ -17,6 +17,9 @@
 | Diario de viaje observado → decisión → completado → cobro vinculado | Sí, local-first | Unitarias, lint, APK y emulador API 30 pasaron en CI (2026-11-25); falta teléfono real | Sí, registros solo en el dispositivo | No |
 | Detección automática de viaje aceptado | No | No | No | No |
 | Radar de demanda local (patrón + feriados + fixtures + manual + historial) | Sí | Unitarias; falta teléfono real | Sí | No |
+| Informe IA externo (pegar o compartir respuesta) | Sí | Unitarias + emulador (CI); falta probar con IAs reales en teléfono | Sí | No |
+| Alertas de pico (notificación/voz) | Sí | Unitarias; falta teléfono real (Android 13+ pide permiso de notificaciones) | Sí | No |
+| Resumen semanal para flota | Sí, manual (compartir) | Unitarias | Sí | No |
 | Partidos TheSportsDB | Sí | Unitarias con MockWebServer; consulta real verificada manualmente | Clave de prueba solo en debug; en release, clave propia | No |
 | Lectura de DiDi, Cabify, inDrive y Bolt | Sí (beta) | **No**: sin muestras reales | Sí, si la app expone texto | Sí (declaración) |
 | Demanda en zona de destino | Sí | Unitarias | Sí | No |
@@ -47,3 +50,9 @@
 21. La zona de destino se infiere del texto visible con un catálogo de barrios del AMBA. Si la oferta no muestra el barrio, o lo abrevia, no hay pronóstico de destino. Con una sola mención se marca como "zona dudosa".
 22. No hay registro automático de kilometraje por GPS (por privacidad). Para el monotributo no hay deducción por kilómetro, a diferencia del modelo de Gridwise en EE.UU.; se usa el odómetro manual.
 23. El catálogo de ciudades incluye solo el AMBA. Otras ciudades de LATAM requieren su propio paquete de zonas y recintos.
+
+## Informe IA y piloto (2026-11-25)
+- Las señales del Informe IA **no están verificadas**: dependen de la IA que use el conductor y de que cite fuentes reales. La app limita su confianza (máx. 0,55) y exige fuente, pero no puede confirmar que el evento exista.
+- La calidad del informe varía según la IA y si tiene navegación web; sin navegación puede inventar eventos.
+- Las alertas de pico requieren el permiso de notificaciones y que la app no esté restringida por el ahorro de batería.
+- El resumen de flota es manual: no hay panel central ni sincronización. Consolidar 50 autos implica juntar los mensajes en una planilla.

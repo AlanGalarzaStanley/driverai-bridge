@@ -38,6 +38,10 @@ data class IntelCache(
     val holidayNames: Map<String, String> = emptyMap(),
     val sources: List<SourceStatus> = emptyList(),
     val refreshedAt: Long? = null,
+    /** Último informe importado desde una IA externa: reemplaza al anterior en cada import. */
+    val aiSignals: List<DemandSignal> = emptyList(),
+    val aiImportedAt: Long? = null,
+    val aiSummary: String? = null,
 )
 
 /**
@@ -110,6 +114,7 @@ class IntelRepository(
                 sources = statuses,
                 refreshedAt = now,
                 manualSignals = prev.manualSignals.filter { DemandRadar.impactWindow(it).second > now },
+                aiSignals = prev.aiSignals.filter { DemandRadar.impactWindow(it).second > now },
             )
             save(next)
             return next
@@ -131,6 +136,31 @@ class IntelRepository(
         store.edit { p ->
             val c = decode(p[key])
             p[key] = encode(c.copy(manualSignals = c.manualSignals.filterNot { it.id == id }))
+        }
+    }
+
+    /** Reemplaza el informe IA anterior; solo acepta señales de origen [SignalOrigin.IA_EXTERNA]. */
+    suspend fun importAi(signals: List<DemandSignal>, summary: String?): Int {
+        val valid = signals.filter { it.isValid && it.origin == SignalOrigin.IA_EXTERNA }.take(AiReport.MAX_SIGNALS)
+        val now = clock()
+        store.edit { p ->
+            val c = decode(p[key])
+            p[key] = encode(c.copy(aiSignals = valid, aiImportedAt = now, aiSummary = summary?.take(280)))
+        }
+        return valid.size
+    }
+
+    suspend fun clearAi() {
+        store.edit { p ->
+            val c = decode(p[key])
+            p[key] = encode(c.copy(aiSignals = emptyList(), aiImportedAt = null, aiSummary = null))
+        }
+    }
+
+    suspend fun removeAi(id: String) {
+        store.edit { p ->
+            val c = decode(p[key])
+            p[key] = encode(c.copy(aiSignals = c.aiSignals.filterNot { it.id == id }))
         }
     }
 
@@ -189,6 +219,6 @@ class IntelRepository(
         }
 
         fun allSignals(c: IntelCache, extra: List<DemandSignal> = emptyList()): List<DemandSignal> =
-            c.remoteSignals + c.manualSignals + extra
+            c.remoteSignals + c.manualSignals + c.aiSignals + extra
     }
 }

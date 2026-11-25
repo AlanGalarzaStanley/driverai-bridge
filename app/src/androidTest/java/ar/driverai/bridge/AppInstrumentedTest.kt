@@ -49,7 +49,7 @@ class AppInstrumentedTest {
     private val ctx = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Before fun setUp(): Unit = runBlocking {
-        DriverAiApp.graph.settingsRepo.update { DriverSettings(minGrossPerKm = 500.0, historyEnabled = true, speakVerdicts = false, dailyTargetArs = null) }
+        DriverAiApp.graph.settingsRepo.update { DriverSettings(minGrossPerKm = 500.0, historyEnabled = true, speakVerdicts = false, dailyTargetArs = null, onboardingDismissed = true, peakAlerts = false) }
         DriverAiApp.graph.overlay.hideAll()
         DriverAiApp.graph.historyRepo.clear()
         DriverAiApp.graph.walletRepo.clear()
@@ -66,19 +66,36 @@ class AppInstrumentedTest {
         return cond()
     }
 
-    @Test fun inicioAbre() {
+    @Test fun inicioAbre_simpleYEnfocado() {
         compose.onNodeWithTag("status").assertExists()
-        compose.onNodeWithTag("tab_evaluar").assertExists()
         compose.onNodeWithTag("tab_billetera").assertExists()
         compose.onNodeWithTag("tab_radar").assertExists()
-        compose.onNodeWithTag("home_wallet").assertExists()
-        compose.onNodeWithTag("home_vehicle").assertExists()
-        compose.onNodeWithText("Briefing del turno").assertExists()
-        compose.onNodeWithText("Todavía no hay una consulta guardada. Al iniciar el turno podés consultar el contexto disponible.").assertExists()
+        assertTrue("4 pestañas, sin Oferta", compose.onAllNodesWithTag("tab_evaluar").fetchSemanticsNodes().isEmpty())
+        compose.onNodeWithTag("home_radar").assertExists()
+        compose.onNodeWithTag("home_ai").assertExists()
+        compose.onNodeWithTag("home_wallet").performScrollTo().assertExists()
+        compose.onNodeWithTag("home_open_evaluate").performScrollTo().assertExists()
+        // El contexto heredado del servidor ya no está en Inicio: vive en los detalles del Radar.
+        assertTrue(compose.onAllNodesWithText("Briefing del turno").fetchSemanticsNodes().isEmpty())
+        shot("inicio")
+    }
+
+    @Test fun primerosPasos_seMuestranYSeOcultan() {
+        runBlocking { DriverAiApp.graph.settingsRepo.update { DriverSettings(onboardingDismissed = false, peakAlerts = false) } }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("home_first_steps").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("step_thresholds").performClick()
+        compose.onNodeWithTag("qs_price").performTextInput("1500")
+        compose.onNodeWithTag("qs_consumption").performTextInput("8")
+        compose.onNodeWithTag("qs_perhour").performTextInput("12000")
+        compose.onNodeWithTag("qs_save").performClick()
+        assertTrue(waitFor(3000) { DriverAiApp.graph.settings.value.minGrossPerKm == 360.0 })
+        assertEquals(12000.0, DriverAiApp.graph.settings.value.minGrossPerHour!!, 0.0)
+        compose.onNodeWithTag("first_steps_hide").performScrollTo().performClick()
+        assertTrue(waitFor(3000) { DriverAiApp.graph.settings.value.onboardingDismissed })
     }
 
     @Test fun evaluacionManual_conviene() {
-        compose.onNodeWithTag("tab_evaluar").performClick()
+        compose.onNodeWithTag("home_open_evaluate").performScrollTo().performClick()
         compose.onNodeWithTag("in_fare").performTextInput("8000")
         compose.onNodeWithTag("in_pkm").performTextInput("2")
         compose.onNodeWithTag("in_pmin").performTextInput("5")
@@ -100,7 +117,7 @@ class AppInstrumentedTest {
         assertTrue(waitFor(3000) { DriverAiApp.graph.settings.value.minGrossPerHour == 15000.0 })
     }
 
-    @Test fun objetivoDiario_yCopilotoConPromptExterno() {
+    @Test fun objetivoDiario_yCopilotoAbreDatosConIA() {
         compose.onNodeWithTag("tab_mas").performClick()
         compose.onNodeWithTag("tab_ajustes").performClick()
         compose.onNodeWithTag("set_daily_target").performScrollTo().performTextInput("15000")
@@ -110,25 +127,20 @@ class AppInstrumentedTest {
 
         compose.onNodeWithTag("tab_inicio").performClick()
         compose.onNodeWithTag("home_daily_income").assertExists()
-        compose.onNodeWithText("Meta \$15.000 · 0 %").assertExists()
+        compose.onNodeWithText("Meta \$15.000 · 0 %").performScrollTo().assertExists()
         compose.onNodeWithTag("home_open_copilot").performScrollTo().performClick()
         compose.onNodeWithText("Respuestas locales por reglas").assertExists()
         compose.onNodeWithTag("external_report").performClick()
-        compose.onNodeWithText("DriverAI no hizo la búsqueda. Copiá este pedido y pegalo en una IA externa con navegación.").assertExists()
-        compose.onNodeWithTag("copy_external_prompt").performClick()
-        compose.onNodeWithText("Copiado").assertExists()
-        val clipboard = ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        val copiedPrompt = clipboard.primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString().orEmpty()
-        assertTrue("El prompt copiado conserva la meta diaria", copiedPrompt.contains("Objetivo de ingresos registrado"))
-        compose.onNodeWithText("Volver al chat").performClick()
-        compose.onNodeWithTag("copilot_back").performClick()
+        compose.onNodeWithTag("ai_copy").assertExists()
+        compose.onNodeWithTag("ai_back").performClick()
         compose.onNodeWithTag("status").assertExists()
     }
 
     @Test fun ajustes_rechazanUmbralRatingNoFinito() {
         compose.onNodeWithTag("tab_mas").performClick()
         compose.onNodeWithTag("tab_ajustes").performClick()
-        compose.onNodeWithTag("set_min_passenger_rating").performTextInput("NaN")
+        compose.onNodeWithTag("settings_advanced").performScrollTo().performClick()
+        compose.onNodeWithTag("set_min_passenger_rating").performScrollTo().performTextInput("NaN")
         compose.onNodeWithTag("btn_save").performScrollTo().performClick()
 
         compose.onNodeWithTag("settings_msg").assertTextContains("Valores inválidos", substring = true)
@@ -250,6 +262,33 @@ class AppInstrumentedTest {
         compose.onNodeWithTag("tab_radar").performClick()
         assertTrue(waitFor(5_000) { compose.onAllNodesWithTag("radar_now").fetchSemanticsNodes().isNotEmpty() })
         compose.onNodeWithTag("radar_add_signal").performScrollTo().assertExists()
+        compose.onNodeWithTag("radar_details").performScrollTo().performClick()
+        compose.onNodeWithTag("radar_refresh").performScrollTo().assertExists()
+        compose.onNodeWithText("Briefing del turno").performScrollTo().assertExists()
+    }
+
+    @Test fun informeIA_pegarRevisarYCargarAlRadar() = runBlocking {
+        DriverAiApp.graph.intelRepo.clearAi()
+        val start = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/Argentina/Buenos_Aires")).plusHours(2).withSecond(0).withNano(0)
+        val answer = "```json\n{\"ciudad\":\"amba\",\"senales\":[{\"tipo\":\"partido\",\"titulo\":\"River vs Boca\",\"lugar\":\"Monumental\",\"zona\":\"nunez\",\"inicio\":\"$start\",\"intensidad\":\"alta\",\"confianza\":\"alta\",\"fuente\":\"AFA\",\"url\":\"https://www.afa.com.ar\"}],\"resumen\":\"Superclásico\"}\n```"
+        compose.onNodeWithTag("home_ai").performScrollTo().performClick()
+        compose.onNodeWithTag("ai_copy").performClick()
+        compose.onNodeWithText("Copiado").assertExists()
+        compose.onNodeWithTag("ai_answer").performScrollTo().performTextInput(answer)
+        compose.onNodeWithTag("ai_check").performScrollTo().performClick()
+        compose.onNodeWithTag("ai_import").performScrollTo().performClick()
+        assertTrue(waitFor(3000) { DriverAiApp.graph.radar.cache.value.aiSignals.size == 1 })
+        assertEquals(ar.driverai.bridge.intel.SignalOrigin.IA_EXTERNA, DriverAiApp.graph.radar.cache.value.aiSignals.single().origin)
+        shot("informe-ia")
+        DriverAiApp.graph.intelRepo.clearAi()
+    }
+
+    @Test fun compartirTextoDesdeOtraApp_abreInformeIA() {
+        compose.activityRule.scenario.onActivity { a ->
+            a.startActivity(Intent(Intent.ACTION_SEND).setClass(a, MainActivity::class.java).setType("text/plain").putExtra(Intent.EXTRA_TEXT, "sin json"))
+        }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("ai_error").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("ai_back").performClick()
     }
 
     @Test fun vehiculo_guardaKilometrosYRecordatorio() {

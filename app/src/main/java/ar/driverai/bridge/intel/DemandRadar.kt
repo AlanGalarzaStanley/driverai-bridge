@@ -45,8 +45,8 @@ object DemandRadar {
         val valid = signals.filter { it.isValid }
         if (valid.size < signals.size) warnings += "Se descartaron ${signals.size - valid.size} señales con datos inválidos."
         val active = valid.filter { s -> impactWindow(s).let { (from, to) -> to >= firstSlot && from <= slots.last() + slotMs } }
-        if (active.none { it.origin == SignalOrigin.API_PUBLICA || it.origin == SignalOrigin.CONDUCTOR }) {
-            warnings += "Sin señales concretas en las próximas horas: el radar solo muestra el patrón general y tu historial."
+        if (active.none { it.origin == SignalOrigin.API_PUBLICA || it.origin == SignalOrigin.CONDUCTOR || it.origin == SignalOrigin.IA_EXTERNA }) {
+            warnings += "Sin señales concretas en las próximas horas: el radar solo muestra el patrón general y tu historial. Tocá «Actualizar con IA» para sumar eventos del día."
         }
 
         val windows = slots.flatMap { slotStart ->

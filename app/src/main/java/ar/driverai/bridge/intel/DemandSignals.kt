@@ -22,6 +22,8 @@ enum class SignalOrigin(val label: String) {
     CONDUCTOR("Cargada por vos"),
     PATRON_GENERAL("Patrón general"),
     TU_HISTORIAL("Tu historial"),
+    /** Importada desde la respuesta de una IA externa que eligió el conductor. No verificada por la app. */
+    IA_EXTERNA("Informe IA (verificar)"),
 }
 
 /**

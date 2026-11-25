@@ -176,7 +176,7 @@ object CopilotEngine {
         val top = now.first()
         val reason = top.topReason?.label?.let { " por $it" } ?: ""
         val others = now.drop(1).joinToString(" y ") { "${it.zoneName} (${it.index})" }
-        val conf = if (top.confidence >= 0.55) "" else " Confianza baja: es sobre todo el patrón general."
+        val conf = if (top.confidence >= 0.55) "" else " Confianza baja: es sobre todo el patrón general. Con «Datos con IA» sumás los eventos de hoy."
         val peak = r.upcomingPeaks().firstOrNull { it.slotStart > r.generatedAt }?.let { " Próximo pico: ${it.zoneName} a las ${hhmm.format(Date(it.slotStart))}." } ?: ""
         return "Radar local: ${top.zoneName}, demanda ${top.level.label.lowercase()} (${top.index})$reason." +
             (if (others.isNotEmpty()) " Después $others." else "") + peak + conf
@@ -204,7 +204,7 @@ object CopilotEngine {
 
     private fun paros(ctx: CopilotContext): String {
         val list = radarSignals(ctx, setOf(SignalKind.PARO_TRANSPORTE))
-        return if (list.isEmpty()) "No tengo paros cargados para las próximas horas. Si te enterás de uno, cargalo en Radar: sube la demanda en toda la ciudad."
+        return if (list.isEmpty()) "No tengo paros cargados para las próximas horas. Tocá «Datos con IA» para que tu IA busque paros de hoy, o cargalo en Radar si te enterás."
         else "Paros en el radar: ${list.joinToString("; ")}. Suele subir la demanda en horas pico."
     }
 
@@ -233,7 +233,7 @@ object CopilotEngine {
     private fun eventos(ctx: CopilotContext): String {
         val local = radarSignals(ctx, setOf(SignalKind.EVENTO_DEPORTIVO, SignalKind.EVENTO_SHOW, SignalKind.VUELOS, SignalKind.CRUCERO))
         if (local.isNotEmpty()) return "En el radar: ${local.joinToString("; ")}. La salida del público suele generar el pico." + (ctx.strategic.reporte?.let { " " + eventosServidor(ctx) } ?: "")
-        if (ctx.radar != null && ctx.strategic.reporte == null) return "No hay eventos cargados en el radar para las próximas horas. Podés actualizar fuentes o cargar uno en Radar."
+        if (ctx.radar != null && ctx.strategic.reporte == null) return "No hay eventos cargados en el radar para las próximas horas. Tocá «Datos con IA» para que tu IA busque partidos, shows y vuelos de hoy."
         return eventosServidor(ctx)
     }
 

@@ -64,7 +64,7 @@ internal fun confidenceLabel(c: Double): String = when {
 }
 
 @Composable
-fun RadarScreen() {
+fun RadarScreen(onOpenAi: () -> Unit = {}) {
     val g = DriverAiApp.graph
     val forecast by g.radar.forecast.collectAsState()
     val cache by g.radar.cache.collectAsState()
@@ -72,6 +72,7 @@ fun RadarScreen() {
     val settings by g.settings.collectAsState()
     val city = Cities.byId(settings.cityId)
     var showAdd by remember { mutableStateOf(false) }
+    var details by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { g.radar.refreshIfStale() }
 
@@ -79,7 +80,7 @@ fun RadarScreen() {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        ScreenTitle("RADAR DE DEMANDA", "Dónde y cuándo conviene estar", "${city.name} · índice relativo 0–100 calculado en tu teléfono")
+        ScreenTitle("RADAR", "Dónde y cuándo conviene estar", city.name)
 
         val f = forecast
         if (f == null) {
@@ -99,10 +100,18 @@ fun RadarScreen() {
                     SectionCaption("${confidenceLabel(top.confidence)} · franja ${hhmm.format(Date(top.slotStart))}–${hhmm.format(Date(top.slotEnd))}")
                 }
                 f.warnings.forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = DriverPalette.warning) }
+                val aiAt = cache.aiImportedAt
+                SectionCaption(
+                    if (aiAt != null) "Informe IA de las ${hhmm.format(Date(aiAt))} · ${cache.aiSignals.size} señales" else "Sin informe IA de hoy",
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Button(onClick = onOpenAi, modifier = Modifier.weight(1f).testTag("radar_ai")) { Text("Actualizar con IA") }
+                    OutlinedButton(onClick = { showAdd = true }, modifier = Modifier.weight(1f).testTag("radar_add_signal")) { Text("Cargar señal") }
+                }
             }
 
             Section("Top zonas en esta franja") {
-                now.take(5).forEachIndexed { i, w -> ZoneRow(i + 1, w) }
+                now.take(3).forEachIndexed { i, w -> ZoneRow(i + 1, w) }
             }
 
             Section("Próximas 6 horas") {
@@ -128,37 +137,47 @@ fun RadarScreen() {
             }
         }
 
-        val signals = IntelRepository.allSignals(cache).sortedBy { it.startAt }
-        Section("Señales en uso") {
-            if (signals.isEmpty()) SectionCaption("Todavía no hay señales. Actualizá fuentes o cargá un paro, partido, vuelo o crucero.")
-            signals.take(20).forEach { s -> SignalRow(s, onDelete = if (s.origin == SignalOrigin.CONDUCTOR) ({ g.radar.removeManual(s.id) }) else null) }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { showAdd = true }, modifier = Modifier.testTag("radar_add_signal")) { Text("Cargar señal") }
+        TextButton(onClick = { details = !details }, modifier = Modifier.fillMaxWidth().testTag("radar_details")) {
+            Text(if (details) "Ocultar detalles" else "Ver señales, fuentes y clima")
+        }
+        if (details) {
+            val signals = IntelRepository.allSignals(cache).sortedBy { it.startAt }
+            Section("Señales en uso") {
+                if (signals.isEmpty()) SectionCaption("Todavía no hay señales. Actualizá con IA, actualizá fuentes o cargá un paro, partido, vuelo o crucero.")
+                signals.take(25).forEach { s ->
+                    SignalRow(s, onDelete = when (s.origin) {
+                        SignalOrigin.CONDUCTOR -> ({ g.radar.removeManual(s.id) })
+                        SignalOrigin.IA_EXTERNA -> ({ g.radar.removeAi(s.id) })
+                        else -> null
+                    })
+                }
                 OutlinedButton(onClick = { g.radar.refresh() }, enabled = !refreshing, modifier = Modifier.testTag("radar_refresh")) {
-                    Text(if (refreshing) "Actualizando…" else "Actualizar fuentes")
+                    Text(if (refreshing) "Actualizando…" else "Actualizar fuentes públicas")
                 }
             }
-        }
 
-        Section("Estado de fuentes") {
-            if (cache.sources.isEmpty()) SectionCaption("Sin consultas todavía. Funciona igual con patrón general, feriados fijos y tu historial.")
-            cache.sources.forEach { st ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusPill(if (st.ok) "OK" else "Sin datos", if (st.ok) DriverPalette.success else DriverPalette.warning)
-                    Column(Modifier.weight(1f)) {
-                        Text(st.name, style = MaterialTheme.typography.bodyMedium)
-                        SectionCaption("${st.message} · ${hhmm.format(Date(st.checkedAt))}")
+            Section("Estado de fuentes") {
+                if (cache.sources.isEmpty()) SectionCaption("Sin consultas todavía. Funciona igual con patrón general, feriados fijos y tu historial.")
+                cache.sources.forEach { st ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        StatusPill(if (st.ok) "OK" else "Sin datos", if (st.ok) DriverPalette.success else DriverPalette.warning)
+                        Column(Modifier.weight(1f)) {
+                            Text(st.name, style = MaterialTheme.typography.bodyMedium)
+                            SectionCaption("${st.message} · ${hhmm.format(Date(st.checkedAt))}")
+                        }
                     }
                 }
             }
-            SectionCaption("Clima: ${if (g.weather.state.collectAsState().value.enabled) "Open-Meteo (build privada)" else "desactivado en esta versión"}.")
-        }
 
-        Section("Cómo leer el radar") {
-            SectionCaption(
-                "El índice combina el patrón típico de cada zona por hora y tipo de día, señales concretas (partidos, shows, vuelos, cruceros, paros, lluvia) " +
-                    "con su horario de salida estimado y tu propio historial de ofertas. No es demanda medida ni promesa de ganancia: es una guía explicable. Vos decidís.",
-            )
+            RadarWeatherCard()
+            ServerContextCard(System.currentTimeMillis())
+
+            Section("Cómo leer el radar") {
+                SectionCaption(
+                    "El índice 0–100 se calcula en tu teléfono y combina el patrón típico de cada zona por hora y tipo de día, señales concretas (partidos, shows, vuelos, cruceros, paros, lluvia, informe IA) " +
+                        "con su horario de salida estimado y tu propio historial de ofertas. No es demanda medida ni promesa de ganancia: es una guía explicable. Vos decidís.",
+                )
+            }
         }
     }
 

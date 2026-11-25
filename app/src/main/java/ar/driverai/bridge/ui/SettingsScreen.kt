@@ -20,6 +20,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -70,6 +71,11 @@ fun SettingsScreen() {
     var tol by remember { mutableStateOf(UncertaintyTolerance.NORMAL) }
     var msg by remember { mutableStateOf<String?>(null) }
     var homeMenu by remember { mutableStateOf(false) }
+    var advanced by remember { mutableStateOf(false) }
+    var quick by remember { mutableStateOf(false) }
+    var fleetName by remember { mutableStateOf("") }
+    var fleetDriver by remember { mutableStateOf("") }
+    var fleetVehicle by remember { mutableStateOf("") }
 
     LaunchedEffect(saved) {
         if (!loaded) {
@@ -78,6 +84,7 @@ fun SettingsScreen() {
             fuelL = f(s.fuelLitersPer100Km); fuelP = f(s.fuelPricePerLiter); defPkm = f(s.defaultPickupKm); defPmin = f(s.defaultPickupMin)
             ret = Fmt.num(s.emptyReturnFraction * 100, 0); margin = f(s.minMarginPct); minPassengerRating = f(s.minPassengerRating); dailyTarget = f(s.dailyTargetArs); tol = s.tolerance
             maxPkm = f(s.maxPickupKm); maxPmin = f(s.maxPickupMin); sportsKey = s.sportsApiKey.orEmpty()
+            fleetName = s.fleetName.orEmpty(); fleetDriver = s.fleetDriverAlias.orEmpty(); fleetVehicle = s.fleetVehicleAlias.orEmpty()
             loaded = true
         }
     }
@@ -87,41 +94,22 @@ fun SettingsScreen() {
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth().testTag(tag))
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
-        ScreenTitle("TU CONFIGURACIÓN", "Ajustes", "Personalizá cuándo una oferta encaja con tus mínimos")
+        ScreenTitle("TU CONFIGURACIÓN", "Ajustes", "Lo básico primero; lo demás en Avanzado")
         Text("Dejá vacío lo que no quieras usar. DriverAI no trae tarifas ni costos precargados.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        Section("Umbrales (ingreso bruto)") {
+        Section("Tus mínimos") {
             num("Tarifa mínima (\$)", minFare, "set_minfare") { minFare = it }
             num("Mínimo \$ por km", minKm, "set_minkm") { minKm = it }
             num("Mínimo \$ por hora", minHour, "set_minhour") { minHour = it }
-            num("Margen mínimo (%)", margin, "set_margin") { margin = it }
-        }
-        Section("Preferencias del pasajero") {
-            num("Calificación mínima (1–5)", minPassengerRating, "set_min_passenger_rating") { minPassengerRating = it }
-            Text("Se compara solo si DriverAI lee una calificación explícita del pasajero. Si falta o es ambigua, el resultado será REVISAR; no se completa por inferencia.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        }
-        Section("Objetivo del día") {
-            num("Objetivo de ingresos registrados (ARS)", dailyTarget, "set_daily_target") { dailyTarget = it }
-            Text("Opcional. El progreso se compara solo con ingresos que cargues en Billetera; no es una predicción ni una medida de ganancia neta.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        }
-        Section("Costos variables") {
-            num("Costo propio por km (\$: desgaste, mantenimiento)", costKm, "set_costkm") { costKm = it }
-            num("Consumo (litros cada 100 km)", fuelL, "set_fuell") { fuelL = it }
-            num("Precio combustible (\$/litro)", fuelP, "set_fuelp") { fuelP = it }
-            saved.fuelPriceUpdatedAt?.let { Text("Precio cargado el ${DateFormat.getDateInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall) }
-        }
-        Section("Supuestos") {
-            num("Km a recogida si no se lee", defPkm, "set_defpkm") { defPkm = it }
-            num("Min a recogida si no se lee", defPmin, "set_defpmin") { defPmin = it }
-            num("Retorno vacío (% del viaje, 0–100)", ret, "set_return") { ret = it }
-            Text("Tolerancia a la incertidumbre de lectura:")
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                UncertaintyTolerance.entries.forEach { t -> FilterChip(selected = tol == t, onClick = { tol = t }, label = { Text("${t.label} (${(t.minConfidence * 100).toInt()} %)") }) }
-            }
+            OutlinedButton(onClick = { quick = true }, modifier = Modifier.fillMaxWidth().testTag("set_quick")) { Text("Calcular con mi costo de combustible") }
         }
         Section("Recogida") {
             num("Máximo km hasta el pasajero", maxPkm, "set_max_pickup_km") { maxPkm = it }
             num("Máximo minutos hasta el pasajero", maxPmin, "set_max_pickup_min") { maxPmin = it }
             Text("Si la oferta muestra una recogida más lejana, el resultado será NO CONVIENE aunque la tarifa sea buena.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        }
+        Section("Objetivo del día") {
+            num("Objetivo de ingresos registrados (ARS)", dailyTarget, "set_daily_target") { dailyTarget = it }
+            Text("Opcional. El progreso se compara solo con ingresos que cargues en Billetera; no es una predicción ni una medida de ganancia neta.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
         Section("Apps que DriverAI lee") {
             RidePlatform.READABLE.forEach { p ->
@@ -137,27 +125,68 @@ fun SettingsScreen() {
                     }, modifier = Modifier.testTag("platform_${p.name.lowercase()}"))
                 }
             }
-            Text("Solo lectura del texto visible. «beta» = diseño de pantalla aún sin muestras reales confirmadas; si algo no se lee bien, usá Oferta manual.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            Text("Solo lectura del texto visible. «beta» = diseño de pantalla aún sin muestras reales confirmadas; si algo no se lee bien, evaluala a mano desde Inicio.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
-        Section("Radar de demanda") {
+        Section("Avisos") {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Mostrar demanda en el destino de cada oferta", Modifier.weight(1f))
-                Switch(saved.showDestinationDemand, { v -> scope.launch { g.settingsRepo.update { it.copy(showDestinationDemand = v) } } })
+                Text("Avisarme antes de un pico (partido, show, paro)", Modifier.weight(1f))
+                Switch(saved.peakAlerts, { v -> scope.launch { g.settingsRepo.update { it.copy(peakAlerts = v) } } }, modifier = Modifier.testTag("set_peak_alerts"))
             }
-            OutlinedTextField(sportsKey, { sportsKey = it.trim().take(64) }, label = { Text("Clave TheSportsDB (opcional)") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth().testTag("set_sports_key"))
-            Text("Con tu clave el radar trae más partidos del fútbol argentino. Se guarda solo en este teléfono.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        }
-        Section("Voz y privacidad") {
             Row(verticalAlignment = Alignment.CenterVertically) { Text("Voz activada", Modifier.weight(1f)); Switch(saved.voiceEnabled, { v -> scope.launch { g.settingsRepo.update { it.copy(voiceEnabled = v) } } }) }
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("Decir el veredicto de cada oferta", Modifier.weight(1f)); Switch(saved.speakVerdicts, { v -> scope.launch { g.settingsRepo.update { it.copy(speakVerdicts = v) } } }) }
-            Text("Volumen de voz: ${(saved.voiceVolume * 100).toInt()} %")
-            Slider(saved.voiceVolume, { v -> scope.launch { g.settingsRepo.update { it.copy(voiceVolume = v) } } })
-            Row(verticalAlignment = Alignment.CenterVertically) { Text("Guardar historial (solo números)", Modifier.weight(1f)); Switch(saved.historyEnabled, { v -> scope.launch { g.settingsRepo.update { it.copy(historyEnabled = v) } } }) }
-            Column {
-                OutlinedButton(onClick = { homeMenu = true }) { Text("Zona de casa: ${saved.homeZone ?: "sin definir"}") }
-                DropdownMenu(homeMenu, { homeMenu = false }) {
-                    Zones.ALL.forEach { z -> DropdownMenuItem(text = { Text(z) }, onClick = { homeMenu = false; scope.launch { g.settingsRepo.update { it.copy(homeZone = z) } } }) }
+            Text("Con la voz activa y el turno iniciado, el aviso también se dice en voz alta.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        }
+        TextButton(onClick = { advanced = !advanced }, modifier = Modifier.fillMaxWidth().testTag("settings_advanced")) {
+            Text(if (advanced) "Ocultar ajustes avanzados" else "Ajustes avanzados")
+        }
+        if (advanced) {
+            Section("Margen") {
+                num("Margen mínimo (%)", margin, "set_margin") { margin = it }
+                Text("Porcentaje de la tarifa que debe quedar después del costo variable.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+            Section("Preferencias del pasajero") {
+                num("Calificación mínima (1–5)", minPassengerRating, "set_min_passenger_rating") { minPassengerRating = it }
+                Text("Se compara solo si DriverAI lee una calificación explícita del pasajero. Si falta o es ambigua, el resultado será REVISAR; no se completa por inferencia.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+            Section("Costos variables") {
+                num("Costo propio por km (\$: desgaste, mantenimiento)", costKm, "set_costkm") { costKm = it }
+                num("Consumo (litros cada 100 km)", fuelL, "set_fuell") { fuelL = it }
+                num("Precio combustible (\$/litro)", fuelP, "set_fuelp") { fuelP = it }
+                saved.fuelPriceUpdatedAt?.let { Text("Precio cargado el ${DateFormat.getDateInstance().format(Date(it))}", style = MaterialTheme.typography.bodySmall) }
+            }
+            Section("Supuestos") {
+                num("Km a recogida si no se lee", defPkm, "set_defpkm") { defPkm = it }
+                num("Min a recogida si no se lee", defPmin, "set_defpmin") { defPmin = it }
+                num("Retorno vacío (% del viaje, 0–100)", ret, "set_return") { ret = it }
+                Text("Tolerancia a la incertidumbre de lectura:")
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    UncertaintyTolerance.entries.forEach { t -> FilterChip(selected = tol == t, onClick = { tol = t }, label = { Text("${t.label} (${(t.minConfidence * 100).toInt()} %)") }) }
+                }
+            }
+            Section("Radar de demanda") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Mostrar demanda en el destino de cada oferta", Modifier.weight(1f))
+                    Switch(saved.showDestinationDemand, { v -> scope.launch { g.settingsRepo.update { it.copy(showDestinationDemand = v) } } })
+                }
+                OutlinedTextField(sportsKey, { sportsKey = it.trim().take(64) }, label = { Text("Clave TheSportsDB (opcional)") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth().testTag("set_sports_key"))
+                Text("Con tu clave el radar trae más partidos del fútbol argentino. Se guarda solo en este teléfono.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+            Section("Flota") {
+                OutlinedTextField(fleetName, { fleetName = it.take(40) }, label = { Text("Nombre de la flota") }, singleLine = true, modifier = Modifier.fillMaxWidth().testTag("set_fleet_name"))
+                OutlinedTextField(fleetDriver, { fleetDriver = it.take(30) }, label = { Text("Tu alias o número de legajo") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(fleetVehicle, { fleetVehicle = it.take(20) }, label = { Text("Vehículo (interno o patente)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Text("Se usa solo en el resumen semanal que vos enviás desde Informes. No se sincroniza.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
+            Section("Voz y privacidad") {
+                Row(verticalAlignment = Alignment.CenterVertically) { Text("Decir el veredicto de cada oferta", Modifier.weight(1f)); Switch(saved.speakVerdicts, { v -> scope.launch { g.settingsRepo.update { it.copy(speakVerdicts = v) } } }) }
+                Text("Volumen de voz: ${(saved.voiceVolume * 100).toInt()} %")
+                Slider(saved.voiceVolume, { v -> scope.launch { g.settingsRepo.update { it.copy(voiceVolume = v) } } })
+                Row(verticalAlignment = Alignment.CenterVertically) { Text("Guardar historial (solo números)", Modifier.weight(1f)); Switch(saved.historyEnabled, { v -> scope.launch { g.settingsRepo.update { it.copy(historyEnabled = v) } } }) }
+                Column {
+                    OutlinedButton(onClick = { homeMenu = true }) { Text("Zona de casa: ${saved.homeZone ?: "sin definir"}") }
+                    DropdownMenu(homeMenu, { homeMenu = false }) {
+                        Zones.ALL.forEach { z -> DropdownMenuItem(text = { Text(z) }, onClick = { homeMenu = false; scope.launch { g.settingsRepo.update { it.copy(homeZone = z) } } }) }
+                    }
                 }
             }
         }
@@ -186,6 +215,9 @@ fun SettingsScreen() {
                 maxPickupKm = p("Máximo km a recogida", maxPkm, 200.0)?.takeIf { it > 0.0 },
                 maxPickupMin = p("Máximo min a recogida", maxPmin, 240.0)?.takeIf { it > 0.0 },
                 sportsApiKey = sportsKey.takeIf { it.matches(Regex("^[A-Za-z0-9]{1,64}$")) },
+                fleetName = fleetName.trim().ifBlank { null },
+                fleetDriverAlias = fleetDriver.trim().ifBlank { null },
+                fleetVehicleAlias = fleetVehicle.trim().ifBlank { null },
             ) }
             // Se valida primero sin guardar
             upd(saved)
@@ -194,4 +226,5 @@ fun SettingsScreen() {
         }, modifier = Modifier.fillMaxWidth().height(56.dp).testTag("btn_save")) { Text("Guardar ajustes") }
         msg?.let { Text(it, modifier = Modifier.testTag("settings_msg")) }
     }
+    if (quick) QuickSetupDialog(onDismiss = { quick = false; loaded = false })
 }

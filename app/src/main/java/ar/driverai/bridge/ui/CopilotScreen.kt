@@ -54,7 +54,6 @@ import ar.driverai.bridge.DriverAiApp
 import ar.driverai.bridge.backend.StrategicRepository
 import ar.driverai.bridge.copilot.CopilotContext
 import ar.driverai.bridge.copilot.CopilotEngine
-import ar.driverai.bridge.copilot.ExternalBriefingPrompt
 import ar.driverai.bridge.copilot.Intent as CopilotIntent
 import ar.driverai.bridge.data.ShiftCalculator
 import ar.driverai.bridge.data.MoneyLedgerRepository
@@ -75,7 +74,7 @@ private object CopilotConversation {
 }
 
 @Composable
-fun CopilotScreen(onBack: () -> Unit) {
+fun CopilotScreen(onOpenAi: () -> Unit = {}, onBack: () -> Unit) {
     val g = DriverAiApp.graph
     val context = LocalContext.current
     val focusManager = LocalFocusManager.current
@@ -90,8 +89,6 @@ fun CopilotScreen(onBack: () -> Unit) {
     val listState = rememberLazyListState()
     var input by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    var reportMode by remember { mutableStateOf(false) }
-    var copied by remember { mutableStateOf(false) }
     var clock by remember { mutableStateOf(System.currentTimeMillis()) }
     val today = remember(clock) { LocalDate.now() }
     val moneyToday = remember(moneyEntries, today) { MoneyLedgerRepository.summarize(moneyEntries, today) }
@@ -143,42 +140,7 @@ fun CopilotScreen(onBack: () -> Unit) {
         if (result.resultCode == Activity.RESULT_OK && !recognized.isNullOrBlank()) ask(recognized)
     }
 
-    if (reportMode) {
-        val prompt = remember(clock, settings.currentZone, settings.dailyTargetArs, shiftStart, latest) {
-            ExternalBriefingPrompt.build(
-                now = clock,
-                selectedWorkZone = settings.currentZone,
-                dailyTargetArs = settings.dailyTargetArs,
-                shiftStart = shiftStart,
-                lastEvaluation = latest?.evaluation,
-            )
-        }
-        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { reportMode = false; copied = false }) { Text("Volver al chat") }
-                Text("Informe externo", style = MaterialTheme.typography.titleLarge, color = AccentMint)
-            }
-            StatusPill("PREPARADO PARA COPIAR", AccentMint, Modifier.padding(vertical = 7.dp))
-            Text("DriverAI no hizo la búsqueda. Copiá este pedido y pegalo en una IA externa con navegación.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-            OutlinedTextField(
-                value = prompt,
-                onValueChange = {},
-                readOnly = true,
-                modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 12.dp).testTag("external_prompt"),
-                minLines = 12,
-                label = { Text("Prompt contextualizado") },
-            )
-            Button(
-                onClick = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Informe operativo DriverAI", prompt))
-                    copied = true
-                },
-                modifier = Modifier.fillMaxWidth().height(52.dp).testTag("copy_external_prompt"),
-            ) { Text(if (copied) "Copiado" else "Copiar prompt") }
-            Text("El prompt usa únicamente contexto disponible en el teléfono; no adjunta capturas, nombres ni direcciones.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 8.dp))
-        }
-    } else {
+    run {
         Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onBack, modifier = Modifier.testTag("copilot_back")) { Text("Inicio") }
@@ -186,7 +148,7 @@ fun CopilotScreen(onBack: () -> Unit) {
                     Text("Copiloto", style = MaterialTheme.typography.titleLarge, color = AccentMint)
                     Text("Contexto de tu jornada", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                 }
-                TextButton(onClick = { reportMode = true }, modifier = Modifier.testTag("external_report")) { Text("Informe web") }
+                TextButton(onClick = onOpenAi, modifier = Modifier.testTag("external_report")) { Text("Datos con IA") }
             }
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -202,10 +164,10 @@ fun CopilotScreen(onBack: () -> Unit) {
                 Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(vertical = 18.dp)) {
                     Text("¿Qué necesitás decidir en este turno?", style = MaterialTheme.typography.titleMedium)
                     Text("Preguntá por la última oferta, tu meta, la caja anotada o la zona elegida. La lectura y evaluación no aceptan ni rechazan viajes.", style = MaterialTheme.typography.bodyMedium, color = TextMuted, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
-                    listOf("¿Cómo va mi jornada hoy?", "¿Cómo va mi objetivo diario?", "¿Me conviene la última oferta?", "¿Por qué da ese resultado?", "¿Cuánto llevo por hora?", "¿Dónde me conviene esperar?").forEach { suggestion ->
+                    listOf("¿Cómo va mi jornada hoy?", "¿Cómo va mi objetivo diario?", "¿Me conviene la última oferta?", "¿Por qué da ese resultado?", "¿Cuánto llevo por hora?", "¿Dónde me conviene esperar?", "¿Hay partidos o paros hoy?").forEach { suggestion ->
                         OutlinedButton(onClick = { ask(suggestion) }, modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) { Text(suggestion) }
                     }
-                    Text("Para consultar eventos, vuelos o clima en la web, prepará un informe externo. DriverAI no afirma haberlos buscado.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 12.dp))
+                    Text("Para sumar eventos, paros o vuelos de hoy, tocá «Datos con IA»: tu IA los busca y el radar se actualiza.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 12.dp))
                 }
             } else {
                 LazyColumn(

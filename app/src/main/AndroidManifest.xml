@@ -39,6 +39,12 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Recibir la respuesta de una IA con "Compartir → DriverAI". Solo texto; se valida y el conductor confirma. -->
+            <intent-filter android:label="Cargar en DriverAI">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <activity

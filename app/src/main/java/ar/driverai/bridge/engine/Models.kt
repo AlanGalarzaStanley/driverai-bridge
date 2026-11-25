@@ -90,6 +90,14 @@ data class DriverSettings(
     val enabledPlatforms: List<String> = RidePlatform.READABLE.map { it.name },
     /** Mostrar en la tarjeta la demanda prevista en la zona de destino. */
     val showDestinationDemand: Boolean = true,
+    /** Aviso (notificación y, si la voz está activa durante el turno, por voz) antes de un pico concreto. */
+    val peakAlerts: Boolean = true,
+    /** Piloto de flota: nombre de la flota y alias del conductor/vehículo. Solo locales; se comparten a mano. */
+    val fleetName: String? = null,
+    val fleetDriverAlias: String? = null,
+    val fleetVehicleAlias: String? = null,
+    /** El conductor cerró la guía de primeros pasos. */
+    val onboardingDismissed: Boolean = false,
 ) {
     val hasPickupLimit: Boolean get() = maxPickupKm != null || maxPickupMin != null
 

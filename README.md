@@ -19,7 +19,8 @@ App Android nativa (Kotlin + Jetpack Compose) que funciona como copiloto en tiem
 - [Auditoría inicial](docs/INITIAL_AUDIT.md) — repos, web, backend y hallazgos.
 - [Arquitectura](docs/ARCHITECTURE.md)
 - [Radar de demanda y multi-app](docs/RADAR_DEMANDA.md): modelo del índice, fuentes, privacidad y propuesta de servidor.
-- [Visión y hoja de ruta del copiloto](docs/PRODUCT_VISION.md)
+- [Visión, brief del MVP y hoja de ruta](docs/PRODUCT_VISION.md)
+- [Piloto con flota](docs/PILOTO_FLOTA.md): fases de 5 a 50 autos, instalación, consentimiento y KPIs.
 - [Investigación de fuentes para el briefing](docs/BRIEFING_SOURCE_RESEARCH.md) — cobertura, vigencia, permisos y brechas de producción.
 - [Permisos y políticas](docs/ANDROID_PERMISSIONS.md)
 - [Plan y resultados de pruebas](docs/TEST_PLAN.md)
@@ -30,8 +31,9 @@ App Android nativa (Kotlin + Jetpack Compose) que funciona como copiloto en tiem
 
 ## Uso rápido
 1. Descargá el APK desde Actions (ver guía de instalación) e instalalo.
-2. **Ajustes**: cargá al menos un umbral (por ejemplo, mínimo $ por km).
-3. **Evaluar**: probá una oferta a mano (modo demo).
-4. **Inicio → Activar lectura automática**: leé la divulgación, aceptá y activá "DriverAI – lectura de ofertas" en Accesibilidad.
-5. Abrí Uber Driver. Cuando llegue una oferta, debería aparecer la tarjeta. Si no aparece, probá **Activar lectura por captura (OCR)** y el botón "Leer oferta".
-6. **Chequeo**: estado de cada permiso y módulo, prueba del backend y registro reducido (métricas y etiquetas permitidas, sin nombres ni direcciones) para calibrar.
+2. **Inicio › Primeros pasos › Tus mínimos**: con el precio del combustible, el consumo y la meta por hora, la app sugiere tu mínimo $/km.
+3. **Inicio › Actualizar con IA**: copiá el pedido, pegalo en tu IA de confianza y cargá la respuesta para que el radar sume partidos, recitales, vuelos y paros de hoy.
+4. **Inicio › Probar una oferta a mano** (modo demo).
+5. **Inicio → Activar lectura automática**: leé la divulgación, aceptá y activá "DriverAI – lectura de ofertas" en Accesibilidad.
+6. Abrí Uber Driver. Cuando llegue una oferta, debería aparecer la tarjeta. Si no aparece, probá **Activar lectura por captura (OCR)** y el botón "Leer oferta".
+7. **Chequeo**: estado de cada permiso y módulo, prueba del backend y registro reducido (métricas y etiquetas permitidas, sin nombres ni direcciones) para calibrar.

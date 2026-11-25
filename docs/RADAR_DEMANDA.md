@@ -100,3 +100,13 @@ Para la versión comercial se recomienda una función edge de Supabase que agreg
 - los informes y la protección del CSV contra inyección de fórmulas.
 
 `DataAndCopilotTest` comprueba que el copiloto prioriza el radar local frente al servidor.
+
+## Informe IA: datos en tiempo real sin servidor (2026-11-25)
+
+El radar ya no depende solo de lo que la app puede consultar. El botón **Actualizar con IA** (Inicio y Radar) arma un pedido con la ciudad, la hora, las zonas válidas y un esquema JSON estricto. El conductor lo copia o comparte a una IA de confianza con navegación (ChatGPT, Gemini, Perplexity, etc.), y después pega la respuesta o la comparte directo a DriverAI ("Cargar en DriverAI" en el menú Compartir de Android).
+
+- **Sin claves ni costo para nosotros**: la búsqueda la hace la IA del conductor. DriverAI no envía nada a ningún servidor.
+- **Validación local** (`intel/AiReport.kt`): acepta un bloque ```json, un objeto o una lista suelta. Rechaza las señales sin fuente, de otra ciudad, con zona desconocida (salvo paros, clima y "otro", que pueden ser para toda la ciudad) o fuera de la ventana de −12 h a +48 h. Admite horas ISO con zona, locales, "HH:mm" o solo fecha.
+- **Confianza acotada**: como máximo 0,55; 0,35 si no trae una URL https. Así una señal de IA nunca pesa como un dato verificado. Se muestra con el origen "Informe IA (verificar)".
+- **Límites**: entrada de hasta 60.000 caracteres, hasta 25 señales, se quitan caracteres de control y `<>\``. Las señales vencidas se purgan; el informe se marca como viejo a las 6 horas.
+- Las señales de IA cuentan como señales concretas, así que pueden disparar una **alerta de pico** (notificación 40 minutos antes, índice ≥ 60, y voz si el turno está activo).

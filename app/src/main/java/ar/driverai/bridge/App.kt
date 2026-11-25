@@ -3,7 +3,15 @@ package ar.driverai.bridge
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import ar.driverai.bridge.intel.PeakAlerts
+import ar.driverai.bridge.ui.MainActivity
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import android.os.Build
 import androidx.datastore.preferences.preferencesDataStore
 import ar.driverai.bridge.backend.DriverAiApi
@@ -41,12 +49,14 @@ class DriverAiApp : Application() {
             val nm = getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(NotificationChannel(CH_CAPTURE, "Lectura de pantalla", NotificationManager.IMPORTANCE_LOW))
             nm.createNotificationChannel(NotificationChannel(CH_RESULT, "Resultado de ofertas", NotificationManager.IMPORTANCE_DEFAULT))
+            nm.createNotificationChannel(NotificationChannel(CH_RADAR, "Avisos de picos del radar", NotificationManager.IMPORTANCE_DEFAULT))
         }
     }
 
     companion object {
         const val CH_CAPTURE = "capture"
         const val CH_RESULT = "result"
+        const val CH_RADAR = "radar"
         lateinit var instance: DriverAiApp
             private set
         val graph: AppGraph get() = instance.graph
@@ -77,4 +87,35 @@ class AppGraph(val app: DriverAiApp) {
     )
     val overlay = OverlayManager(app)
     val pipeline = OfferPipeline(this)
+
+    private val sentPeaks = mutableSetOf<String>()
+
+    init {
+        // Aviso de picos: se calcula en el teléfono con el pronóstico local; no envía nada a ningún servidor.
+        scope.launch {
+            combine(radar.forecast, settings, historyRepo.shiftStart) { f, s, shift -> Triple(f, s, shift) }.collect { (f, s, shift) ->
+                if (f == null || !s.peakAlerts) return@collect
+                val now = System.currentTimeMillis()
+                val alert = PeakAlerts.due(f, now, sentPeaks) ?: return@collect
+                sentPeaks += alert.key
+                notifyPeak(alert.text(now))
+                if (s.voiceEnabled && shift != null) tts.speak(alert.text(now), s.voiceVolume)
+            }
+        }
+    }
+
+    private fun notifyPeak(text: String) {
+        val nm = NotificationManagerCompat.from(app)
+        if (!nm.areNotificationsEnabled()) return
+        val open = PendingIntent.getActivity(
+            app, 31,
+            Intent(app, MainActivity::class.java).putExtra(MainActivity.EXTRA_TAB, "radar").addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val n = NotificationCompat.Builder(app, DriverAiApp.CH_RADAR)
+            .setSmallIcon(R.drawable.ic_stat).setContentTitle("DriverAI · Radar").setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setContentIntent(open).setAutoCancel(true).setTimeoutAfter(45 * 60_000L).build()
+        runCatching { (app.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).notify(31, n) }
+    }
 }

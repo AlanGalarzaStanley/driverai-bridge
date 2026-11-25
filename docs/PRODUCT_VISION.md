@@ -26,6 +26,26 @@ Detalle del modelo y las fuentes: [`RADAR_DEMANDA.md`](RADAR_DEMANDA.md).
 5. Ofrecer señal colaborativa entre conductores solo con consentimiento, autenticación y agregación anónima.
 6. Plan premium: radar completo, alertas proactivas por voz antes de cada pico e informes contables.
 
+## Brief del MVP (2026-11-25)
+
+**Para quién:** conductores de apps en el AMBA y flotas chicas (piloto de hasta 50 autos, ver [`PILOTO_FLOTA.md`](PILOTO_FLOTA.md)).
+**Promesa:** "Te digo en segundos si la oferta conviene y dónde conviene estar en la próxima hora."
+
+Principios de la pantalla principal:
+1. **Una pregunta por tarjeta**: *¿Dónde conviene estar?* (Ahora), *¿Estoy leyendo ofertas?* (Turno), *¿Qué fue la última oferta?* y *¿Cómo voy hoy?*.
+2. **Lo avanzado se esconde**: el contexto del servidor, las fuentes y la carga manual viven en "Ver detalles" del Radar; Ajustes muestra solo los mínimos, la recogida, la meta, las apps y los avisos.
+3. **Primeros pasos guiados** en tres pasos (mínimos, lectura, datos con IA), que se pueden ocultar.
+4. **Cuatro pestañas**: Inicio, Radar, Billetera y Más. Evaluar a mano y el copiloto se abren desde Inicio.
+
+### Ideas de pensamiento lateral
+- **Implementado:** la IA del propio conductor como "sensor" de eventos en tiempo real (Informe IA), alertas proactivas de pico y el resumen semanal por WhatsApp para la flota, sin servidor.
+- **Siguientes:**
+  - Fin de turno cerca de casa: sugerir zonas de demanda en la dirección de regreso.
+  - Tablero de aciertos: comparar lo previsto con lo observado y mostrar cuánto acierta el radar.
+  - Umbrales que aprenden del historial: proponer el mínimo $/km con el que el conductor ya gana su meta.
+  - Modo solo voz para manejar.
+  - Panel del responsable de flota, más adelante, con backend consentido.
+
 ## Punto de partida confirmado
 
 - El APK `713f1fe` pasó Android CI y el emulador.

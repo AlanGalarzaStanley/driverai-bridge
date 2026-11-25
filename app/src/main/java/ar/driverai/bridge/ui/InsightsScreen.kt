@@ -23,6 +23,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ar.driverai.bridge.DriverAiApp
 import ar.driverai.bridge.engine.Fmt
+import ar.driverai.bridge.insights.FleetReport
 import ar.driverai.bridge.insights.Insights
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -39,10 +40,13 @@ fun InsightsScreen() {
     val best = remember(history) { Insights.bestHours(history, tz) }
     val weeks = remember(money) { Insights.weekly(money, tz, weeks = 6) }
     val weekFmt = remember { DateTimeFormatter.ofPattern("d/M") }
+    val settings by g.settings.collectAsState()
+    val odometer by g.vehicleRepo.odometerEntries.collectAsState(initial = emptyList())
+    val maintenance by g.vehicleRepo.maintenanceRecords.collectAsState(initial = emptyList())
 
-    fun share(subject: String, body: String) {
+    fun share(subject: String, body: String, mime: String = "text/csv") {
         val send = Intent(Intent.ACTION_SEND).apply {
-            type = "text/csv"
+            type = mime
             putExtra(Intent.EXTRA_SUBJECT, subject)
             putExtra(Intent.EXTRA_TEXT, body)
         }
@@ -54,6 +58,22 @@ fun InsightsScreen() {
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         ScreenTitle("INFORMES", "Tu rendimiento", "Calculado con tu historial y tu billetera, solo en este teléfono")
+
+        Section("Resumen para tu flota", Modifier.testTag("fleet_section")) {
+            val fleetWeek = remember(history, money, odometer, maintenance, settings.fleetName, settings.fleetDriverAlias, settings.fleetVehicleAlias) {
+                FleetReport.week(history, money, odometer, maintenance, settings.fleetName, settings.fleetDriverAlias, settings.fleetVehicleAlias, tz)
+            }
+            if (settings.fleetName.isNullOrBlank()) SectionCaption("¿Manejás para una flota? Cargá el nombre y tu alias en Ajustes › Flota.")
+            Text("Esta semana: ${Fmt.ars(fleetWeek.incomeArs)} anotados · ${fleetWeek.offers} ofertas · ${fleetWeek.accepted} aceptadas", style = MaterialTheme.typography.bodyMedium)
+            fleetWeek.adherencePct?.let { SectionCaption("Seguiste la recomendación en el $it % de lo que aceptaste.") }
+            SectionCaption("Solo totales de la semana. Lo enviás vos; no incluye direcciones, pasajeros ni ubicación.")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { share("DriverAI resumen semanal", FleetReport.text(fleetWeek), "text/plain") }, modifier = Modifier.testTag("fleet_share")) { Text("Enviar esta semana") }
+                OutlinedButton(onClick = {
+                    share("DriverAI resumen semanal", FleetReport.text(FleetReport.week(history, money, odometer, maintenance, settings.fleetName, settings.fleetDriverAlias, settings.fleetVehicleAlias, tz, weeksAgo = 1)), "text/plain")
+                }) { Text("Semana pasada") }
+            }
+        }
 
         Section("Por app", Modifier.testTag("insights_platforms")) {
             if (platforms.isEmpty()) SectionCaption("Todavía no hay ofertas registradas.")

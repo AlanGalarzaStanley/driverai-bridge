@@ -76,4 +76,7 @@ class RadarController(
 
     fun addManual(signal: DemandSignal) { scope.launch { repo.addManual(signal) } }
     fun removeManual(id: String) { scope.launch { repo.removeManual(id) } }
+    fun importAi(result: AiReport.Result) { scope.launch { repo.importAi(result.signals, result.summary) } }
+    fun clearAi() { scope.launch { repo.clearAi() } }
+    fun removeAi(id: String) { scope.launch { repo.removeAi(id) } }
 }
