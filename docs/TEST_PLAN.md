@@ -9,6 +9,9 @@ Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Action
 - Home/cockpit muestra billetera, km y estado de fuentes; vuelos, cruceros, eventos y demanda por franja siguen sin feed verificado.
 
 ## Resultado de la última ejecución verificada
+- Android CI manual run `45628698011`, commit `d1619ce8b50bb06d6a53e19ea172f7398c9cf1b2`: **unitarias, lint, compilación/verificación del APK y emulador API 30 pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45628698011).
+  - Incluyó IDs estables para entradas de historial, marcado individual por ID, migración determinista de datos antiguos, persistencia antes de mostrar el overlay y deduplicación diferenciada por producto.
+  - Se usó `workflow_dispatch` con `run_live_contract=false`: el contrato Supabase, la regresión web y el job de Release quedaron omitidos. El APK debug quedó como artefacto privado `driverai-debug-apk-58` (28.406.448 bytes; retención de 30 días).
 - Android CI manual run `45235500410` (run 32), commit `c39ba09`: **unitarias, lint, compilación/verificación del APK y emulador API 30 pasaron**. [Ejecución](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45235500410).
   - APK `0.1.0-c39ba09`: 43.958.669 bytes; SHA-256 `c2b61e61b3fdf89e433eceaded07d06bf1c4d698d35891dff4075c65030d1f82`. Está como artefacto privado `driverai-debug-apk-32` (retención 30 días); no se publicó en GitHub Releases ni reemplazó `latest-debug`.
   - Se usó `workflow_dispatch` con `run_live_contract=false`: contrato Supabase, chequeo web y job de Release omitidos. La instrumentación valida el simulador, no la lectura de Uber en un teléfono.
@@ -41,10 +44,10 @@ Estado: **E** = ejecutada y pasó · **CI** = ejecutada y pasó en GitHub Action
 | Chequeo / privacidad | `DiagnosticTextSanitizerTest` | conserva métricas/etiquetas permitidas; descarta nombres/direcciones/texto libre; límites/normalización; acepta rating con etiqueta inequívoca de pasajero, no etiquetas genéricas de usuario | CI (run 32) |
 | Backend | `BackendTest` (MockWebServer) | contrato real de ambos endpoints (JSON capturado), path/método/body, sin `Authorization`; campos nuevos/faltantes; HTTP 500; `ok:false`; JSON inválido; timeout; desconexión; contexto desactualizado y conservación del último dato | CI (run 24) |
 | Briefing | `ShiftBriefingTest` + `BackendTest` | snapshot local minimizado, hora de recepción, campos de contexto, eventos ausentes vs lista vacía | CI (run 24) |
-| Datos y copiloto | `DataAndCopilotTest` | persistencia DataStore; JSON corrupto; historial (límite 100, sin texto); turno $/h; billetera ARS con fechas locales y parseo de miles/decimales; odómetro monotónico/upsert diario; vencimientos por fecha/km; resumen horario de ofertas claramente separado de cobros; intenciones y respuestas del copiloto, incluida tarifa piso | CI (run 24) |
+| Datos y copiloto | `DataAndCopilotTest` | persistencia DataStore; JSON corrupto; historial (límite 100, sin texto, IDs únicos y migración de timestamps duplicados); turno $/h; billetera ARS con fechas locales y parseo de miles/decimales; odómetro monotónico/upsert diario; vencimientos por fecha/km; resumen horario de ofertas claramente separado de cobros; intenciones y respuestas del copiloto, incluida tarifa piso | CI (run `45628698011`) |
 | Clima de prueba | `OpenMeteoClientTest` | precipitación ausente no equivale a cero; cero explícito; intervalo reportado; probabilidad horaria; timestamp y punto fijo; repositorio release deshabilitado | CI (run 32; respuesta simulada) |
 
-El run `45235500410` validó el commit `c39ba09` en runner Linux x86_64 y emulador API 30. En la sandbox local no está configurado Android SDK/`ANDROID_HOME`, por lo que Gradle local no pudo ejecutarse.
+El run `45628698011` validó el commit `d1619ce` en runner Linux x86_64 y emulador API 30. En la sandbox local no está configurado Android SDK/`ANDROID_HOME`, por lo que Gradle local no pudo ejecutarse.
 
 ## B. Integración
 | Prueba | Estado |
