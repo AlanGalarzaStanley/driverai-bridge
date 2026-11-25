@@ -38,18 +38,6 @@ fun ToolsScreen(onNavigate: (String) -> Unit) {
             onClick = { onNavigate("copiloto") },
         )
         ToolActionCard(
-            title = "Informes y rendimiento",
-            detail = "Por app y por hora, ingresos semanales y exportación CSV",
-            tag = "tools_informes",
-            onClick = { onNavigate("informes") },
-        )
-        ToolActionCard(
-            title = "Vehículo",
-            detail = "Odómetro, mantenimiento y costos del auto",
-            tag = "tab_vehiculo",
-            onClick = { onNavigate("vehiculo") },
-        )
-        ToolActionCard(
             title = "Actividad de ofertas",
             detail = "Revisá lecturas y evaluaciones recientes",
             tag = "tab_historial",
@@ -66,6 +54,18 @@ fun ToolsScreen(onNavigate: (String) -> Unit) {
             detail = "Estado local de captura, lectura y conexiones",
             tag = "tab_diag",
             onClick = { onNavigate("diag") },
+        )
+        ToolActionCard(
+            title = "Informes y rendimiento",
+            detail = "Por app y por hora, ingresos semanales y exportación CSV",
+            tag = "tools_informes",
+            onClick = { onNavigate("informes") },
+        )
+        ToolActionCard(
+            title = "Vehículo",
+            detail = "Odómetro, mantenimiento y costos del auto",
+            tag = "tab_vehiculo",
+            onClick = { onNavigate("vehiculo") },
         )
         Section("Control del conductor") {
             Text("DriverAI evalúa y orienta. La aceptación o el rechazo del viaje siempre los decidís vos desde la app de viajes.", style = MaterialTheme.typography.bodySmall, color = TextMuted)

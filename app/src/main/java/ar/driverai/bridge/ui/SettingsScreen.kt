@@ -95,11 +95,6 @@ fun SettingsScreen() {
             num("Mínimo \$ por hora", minHour, "set_minhour") { minHour = it }
             num("Margen mínimo (%)", margin, "set_margin") { margin = it }
         }
-        Section("Recogida") {
-            num("Máximo km hasta el pasajero", maxPkm, "set_max_pickup_km") { maxPkm = it }
-            num("Máximo minutos hasta el pasajero", maxPmin, "set_max_pickup_min") { maxPmin = it }
-            Text("Si la oferta muestra una recogida más lejana, el resultado será NO CONVIENE aunque la tarifa sea buena.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        }
         Section("Preferencias del pasajero") {
             num("Calificación mínima (1–5)", minPassengerRating, "set_min_passenger_rating") { minPassengerRating = it }
             Text("Se compara solo si DriverAI lee una calificación explícita del pasajero. Si falta o es ambigua, el resultado será REVISAR; no se completa por inferencia.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
@@ -122,6 +117,11 @@ fun SettingsScreen() {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 UncertaintyTolerance.entries.forEach { t -> FilterChip(selected = tol == t, onClick = { tol = t }, label = { Text("${t.label} (${(t.minConfidence * 100).toInt()} %)") }) }
             }
+        }
+        Section("Recogida") {
+            num("Máximo km hasta el pasajero", maxPkm, "set_max_pickup_km") { maxPkm = it }
+            num("Máximo minutos hasta el pasajero", maxPmin, "set_max_pickup_min") { maxPmin = it }
+            Text("Si la oferta muestra una recogida más lejana, el resultado será NO CONVIENE aunque la tarifa sea buena.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
         Section("Apps que DriverAI lee") {
             RidePlatform.READABLE.forEach { p ->

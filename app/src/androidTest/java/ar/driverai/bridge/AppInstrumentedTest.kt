@@ -254,7 +254,7 @@ class AppInstrumentedTest {
 
     @Test fun vehiculo_guardaKilometrosYRecordatorio() {
         compose.onNodeWithTag("tab_mas").performClick()
-        compose.onNodeWithTag("tab_vehiculo").performClick()
+        compose.onNodeWithTag("tab_vehiculo").performScrollTo().performClick()
         compose.onNodeWithTag("odo_start").performTextReplacement("1000")
         compose.onNodeWithTag("odo_end").performTextReplacement("1012")
         compose.onNodeWithTag("odo_save").performScrollTo().performClick()
