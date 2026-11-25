@@ -101,6 +101,24 @@ Respondé con un único bloque de código JSON con exactamente esta estructura, 
 Si no encontrás nada confiable, devolvé "senales": [] y explicalo en "resumen"."""
     }
 
+    /**
+     * Consulta corta para el buscador del teléfono (Google u otro).
+     * No reemplaza el prompt de IA: sirve para que el conductor vea fuentes en segundos
+     * sin depender de otra app de chat.
+     */
+    fun googleQuery(city: CityPack, now: Long): String {
+        val tz = ZoneId.of(city.timeZone)
+        val local = Instant.ofEpochMilli(now).atZone(tz)
+        val day = DateTimeFormatter.ofPattern("d MMMM yyyy", es).format(local)
+        return buildString {
+            append("eventos partidos conciertos paros transporte alertas clima ")
+            append(city.name)
+            append(" hoy ")
+            append(day)
+            append(" horarios")
+        }
+    }
+
     data class Rejected(val title: String, val reason: String)
 
     data class Result(

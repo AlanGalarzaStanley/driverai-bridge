@@ -1,9 +1,12 @@
 package ar.driverai.bridge.ui
 
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.SearchManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,6 +46,7 @@ import java.util.Locale
 /**
  * Pantalla "Actualizar con IA". El conductor elige su IA (ChatGPT, Gemini, Perplexity, Copilot…),
  * DriverAI solo arma el pedido y lee la respuesta que el conductor pega o comparte.
+ * También puede abrir Google con una búsqueda corta ya armada (sin API ni costo).
  */
 @Composable
 fun AiUpdateScreen(sharedText: String?, onSharedConsumed: () -> Unit, onBack: () -> Unit) {
@@ -53,12 +57,32 @@ fun AiUpdateScreen(sharedText: String?, onSharedConsumed: () -> Unit, onBack: ()
     val city = Cities.byId(settings.cityId)
     val now = remember { System.currentTimeMillis() }
     val prompt = remember(city.id, now) { AiReport.prompt(city, now) }
+    val googleQuery = remember(city.id, now) { AiReport.googleQuery(city, now) }
     var answer by remember { mutableStateOf("") }
     var preview by remember { mutableStateOf<AiReport.Result?>(null) }
     var copied by remember { mutableStateOf(false) }
     var showPrompt by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     val hm = remember { SimpleDateFormat("HH:mm", Locale.forLanguageTag("es-AR")) }
+
+    fun openGoogleSearch(query: String) {
+        val webSearch = Intent(Intent.ACTION_WEB_SEARCH)
+            .putExtra(SearchManager.QUERY, query)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val browser = Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://www.google.com/search?q=" + Uri.encode(query)),
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            ctx.startActivity(webSearch)
+        } catch (_: ActivityNotFoundException) {
+            runCatching { ctx.startActivity(browser) }
+                .onFailure { message = "No pude abrir el buscador. Copiá el pedido y pegalo en Google o en tu IA." }
+        } catch (_: Exception) {
+            runCatching { ctx.startActivity(browser) }
+                .onFailure { message = "No pude abrir el buscador. Copiá el pedido y pegalo en Google o en tu IA." }
+        }
+    }
 
     LaunchedEffect(sharedText) {
         if (!sharedText.isNullOrBlank()) {
@@ -93,7 +117,11 @@ fun AiUpdateScreen(sharedText: String?, onSharedConsumed: () -> Unit, onBack: ()
                     modifier = Modifier.weight(1f).height(50.dp).testTag("ai_share"),
                 ) { Text("Enviar a mi IA") }
             }
-            SectionCaption("Funciona mejor con una IA que busque en la web (Perplexity, ChatGPT con búsqueda, Gemini).")
+            OutlinedButton(
+                onClick = { openGoogleSearch(googleQuery) },
+                modifier = Modifier.fillMaxWidth().height(50.dp).padding(top = 8.dp).testTag("ai_google"),
+            ) { Text("Abrir Google con búsqueda lista") }
+            SectionCaption("Google abre al toque con una consulta corta. Para cargar señales al radar usá una IA que responda en el formato del pedido (o pegá un resumen estructurado).")
             TextButton(onClick = { showPrompt = !showPrompt }) { Text(if (showPrompt) "Ocultar pedido" else "Ver el pedido") }
             if (showPrompt) Text(prompt, style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.testTag("ai_prompt"))
         }
