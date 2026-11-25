@@ -271,6 +271,8 @@ class DataAndCopilotTest {
         assertEquals(Intent.POR_HORA, CopilotEngine.intentOf("¿Cuánto estoy haciendo por hora?"))
         assertEquals(Intent.DONDE_ESPERAR, CopilotEngine.intentOf("¿Dónde me conviene esperar ahora?"))
         assertEquals(Intent.EVENTOS, CopilotEngine.intentOf("¿Qué eventos pueden generar demanda esta noche?"))
+        assertEquals(Intent.PAROS, CopilotEngine.intentOf("¿Hay paro de colectivos?"))
+        assertEquals(Intent.MEJOR_HORA, CopilotEngine.intentOf("¿Cuál es mi mejor hora?"))
         assertEquals(Intent.CERCA_CASA, CopilotEngine.intentOf("¿Qué zona me queda mejor para terminar cerca de casa?"))
         assertEquals(Intent.DESCONOCIDA, CopilotEngine.intentOf("hola"))
     }
@@ -352,5 +354,22 @@ class DataAndCopilotTest {
         val answer = CopilotEngine.answer("¿por qué?", ctx(evaluation))
         assertTrue(answer, answer.contains("Bruto por km"))
         assertFalse(answer, answer.contains("4,9/5"))
+    }
+
+    @Test fun copiloto_usaElRadarLocalAntesQueElServidor() {
+        val now = java.time.LocalDateTime.of(2026, 11, 25, 22, 40).atZone(java.time.ZoneId.of("America/Argentina/Buenos_Aires")).toInstant().toEpochMilli()
+        val partido = ar.driverai.bridge.intel.DemandSignal(
+            "p1", ar.driverai.bridge.intel.SignalKind.EVENTO_DEPORTIVO, ar.driverai.bridge.intel.SignalOrigin.API_PUBLICA,
+            "Boca vs Independiente Rivadavia", "la_boca", now - 100 * 60_000L, null, 0.67, 0.75, "TheSportsDB", null, now,
+        )
+        val radar = ar.driverai.bridge.intel.DemandRadar.forecast(ar.driverai.bridge.intel.Cities.AMBA, listOf(partido), now)
+        val c = ctx().copy(radar = radar, now = now)
+        val d = CopilotEngine.answer("¿dónde espero?", c)
+        assertTrue(d, d.startsWith("Radar local: La Boca"))
+        val ev = CopilotEngine.answer("eventos esta noche", c)
+        assertTrue(ev, ev.contains("Boca vs Independiente Rivadavia"))
+        assertTrue(CopilotEngine.answer("¿hay paro?", c).contains("No tengo paros"))
+        val mh = CopilotEngine.answer("¿cuál es mi mejor hora?", c.copy(bestHours = listOf(Triple(8, 25000.0, 12))))
+        assertTrue(mh, mh.contains("08 h") && mh.contains("12 ofertas"))
     }
 }

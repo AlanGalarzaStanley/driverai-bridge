@@ -10,6 +10,22 @@ El copiloto empieza el turno con un panorama del día —eventos, clima, vuelos,
 
 La ventaja no nace de una respuesta genérica de IA. Nace de combinar deprisa datos oportunos, rentabilidad verificable, historial propio y herramientas útiles para el trabajo, indicando siempre fuente, vigencia e incertidumbre.
 
+## Posicionamiento: Gridwise + Ruta Rentable para LATAM
+
+- **Gridwise** domina en EE.UU. el seguimiento de ingresos, la demanda por eventos y aeropuertos, y los informes. No evalúa ofertas en vivo ni opera en LATAM.
+- **Ruta Rentable, Viaje Rentable y UDDI** resuelven el semáforo de la oferta en LATAM, pero no anticipan dónde y cuándo trabajar.
+- **DriverAI** une las dos cosas en un copiloto en tiempo real: evalúa la oferta en cinco apps, muestra el radar de demanda por zona y hora, la demanda prevista en el destino, el límite de recogida, los informes y la exportación. Todo funciona local-first y sin automatizar toques.
+
+Detalle del modelo y las fuentes: [`RADAR_DEMANDA.md`](RADAR_DEMANDA.md).
+
+### Hoja de ruta propuesta
+1. Validar en teléfonos reales la lectura de DiDi, Cabify, inDrive y Bolt con muestras anonimizadas.
+2. Calibrar el índice: comparar el radar con las ofertas observadas por franja (historial propio) y ajustar los pesos.
+3. Desplegar `driverai-senales` con fuentes licenciadas (fixtures pagos, AA2000, AGP, comunicados de paros) para que la release no dependa de la carga manual.
+4. Agregar paquetes de ciudad (Córdoba, Rosario, Santiago, CDMX, Bogotá, Lima) con zonas, recintos y moneda.
+5. Ofrecer señal colaborativa entre conductores solo con consentimiento, autenticación y agregación anónima.
+6. Plan premium: radar completo, alertas proactivas por voz antes de cada pico e informes contables.
+
 ## Punto de partida confirmado
 
 - El APK `713f1fe` pasó Android CI y el emulador.

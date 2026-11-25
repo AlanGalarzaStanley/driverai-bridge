@@ -78,12 +78,12 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-const val DISCLOSURE_ACCESSIBILITY = """DriverAI usa el servicio de accesibilidad de Android para LEER el texto visible de la app Uber Driver (solo ese paquete) mientras está abierta, con el único fin de detectar tarifa, distancias, tiempos y una calificación del pasajero si está explícitamente etiquetada, y mostrarte una evaluación económica.
+const val DISCLOSURE_ACCESSIBILITY = """DriverAI usa el servicio de accesibilidad de Android para LEER el texto visible de las apps de conductor que habilites (Uber Driver, DiDi Conductor, Cabify Driver, inDrive y Bolt Driver; solo esos paquetes) mientras están abiertas, con el único fin de detectar tarifa, distancias, tiempos y una calificación del pasajero si está explícitamente etiquetada, y mostrarte una evaluación económica.
 
-• Qué procesa: el texto visible de Uber Driver, incluida la calificación del pasajero solo si está etiquetada explícitamente, dentro de tu teléfono.
-• Qué guarda: solo tarifa, km, minutos y veredicto en el historial si lo activás. La calificación no se añade al historial; el Chequeo temporal puede mostrarla reducida. Nunca nombres, direcciones ni capturas.
+• Qué procesa: el texto visible de esas apps, incluida la calificación del pasajero solo si está etiquetada explícitamente, dentro de tu teléfono.
+• Qué guarda: solo tarifa, km, minutos y veredicto en el historial si lo activás. La calificación no se añade al historial; el Chequeo temporal puede mostrarla reducida. Del destino se guarda solo la zona aproximada (ej. "Palermo"), nunca la dirección. Nunca nombres ni capturas.
 • Qué transmite: nada del contenido de pantalla. Al servidor solo se envía la zona que elegís para el reporte estratégico.
-• Qué NO hace: no toca la pantalla, no acepta ni rechaza viajes, no lee otras apps.
+• Qué NO hace: no toca la pantalla, no acepta ni rechaza viajes, no lee otras apps fuera de esa lista.
 
 DriverAI no es una herramienta de accesibilidad para personas con discapacidad. Podés desactivarlo cuando quieras en Ajustes > Accesibilidad."""
 
@@ -177,6 +177,7 @@ fun HomeScreen(activity: Activity, onNavigate: (String) -> Unit = {}) {
         )
         LatestOfferCard(last, onEvaluate = { onNavigate("evaluar") })
         CopilotEntryCard(onOpen = { onNavigate("copiloto") })
+        RadarHomeCard(onOpen = { onNavigate("radar") })
 
         WeatherCard(
             state = weatherState,
@@ -499,4 +500,24 @@ fun MetricsSummary(m: ar.driverai.bridge.engine.Metrics) {
     Text("Km totales: ${d(m.totalKm) { Fmt.num(it) }} · Min con pasajero: ${d(m.tripMin) { Fmt.num(it, 0) }} · Min totales: ${d(m.totalMin) { Fmt.num(it, 0) }}")
     Text("Bruto/km: ${d(m.grossPerKm, Fmt::ars)} · Bruto/h: ${d(m.grossPerHour, Fmt::ars)}", fontWeight = FontWeight.Bold, modifier = Modifier.testTag("metrics_gross"))
     if (m.variableCost != null) Text("Costo variable est.: ${Fmt.ars(m.variableCost)} · Ganancia est. antes de fijos e impuestos: ${d(m.estimatedProfitBeforeFixed, Fmt::ars)} · Margen: ${d(m.marginPct) { Fmt.num(it) + " %" }}")
+}
+
+
+@Composable
+private fun RadarHomeCard(onOpen: () -> Unit) {
+    val forecast by DriverAiApp.graph.radar.forecast.collectAsState()
+    val top = forecast?.now()?.firstOrNull()
+    val peak = forecast?.upcomingPeaks()?.firstOrNull()
+    Section("Radar de demanda", Modifier.fillMaxWidth().testTag("home_radar")) {
+        if (top == null) SectionCaption("Calculando zonas…")
+        else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(top.zoneName, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                StatusPill("${top.level.label} · ${top.index}", levelColor(top.level))
+            }
+            SectionCaption((top.topReason?.label ?: "Patrón general") + " · " + confidenceLabel(top.confidence))
+            peak?.let { SectionCaption("Próximo pico: ${it.zoneName} ${java.text.SimpleDateFormat("HH:mm", java.util.Locale("es", "AR")).format(java.util.Date(it.slotStart))}") }
+        }
+        OutlinedButton(onClick = onOpen, modifier = Modifier.fillMaxWidth()) { Text("Ver radar") }
+    }
 }

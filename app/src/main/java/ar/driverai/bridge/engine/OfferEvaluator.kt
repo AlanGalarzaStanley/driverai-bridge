@@ -22,7 +22,7 @@ object OfferEvaluator {
         var invalid = false
         var lowConfidence = false
         val minConf = s.tolerance.minConfidence
-        val thresholdValues = listOf(s.minFare, s.minGrossPerKm, s.minGrossPerHour, s.minMarginPct)
+        val thresholdValues = listOf(s.minFare, s.minGrossPerKm, s.minGrossPerHour, s.minMarginPct, s.maxPickupKm, s.maxPickupMin)
         val invalidRatingThreshold = s.minPassengerRating?.let { !it.isFinite() || it !in 1.0..5.0 } == true
         val invalidThresholds = thresholdValues.any { it != null && (!it.isFinite() || it < 0.0) } ||
             (s.minMarginPct ?: 0.0) > 100.0 || invalidRatingThreshold
@@ -179,6 +179,25 @@ object OfferEvaluator {
                 else -> reasons += Reason(ReasonKind.PASA, "Calificación del pasajero ${Fmt.num(passengerRating, 2)}/5 ≥ mínimo ${Fmt.num(threshold, 2)}/5.")
             }
         }
+
+        // Límites de recogida: solo se comparan con datos leídos de la oferta, nunca con la estimación de Ajustes.
+        fun checkPickup(label: String, actual: Double?, assumed: Boolean, max: Double?, unit: String) {
+            if (max == null || !max.isFinite() || max < 0.0) return
+            when {
+                actual == null || assumed -> {
+                    anyUnknown = true
+                    reasons += Reason(ReasonKind.AVISO, "$label: la oferta no mostró el dato; no se puede verificar tu máximo de ${Fmt.num(max)} $unit.")
+                }
+                actual > max -> {
+                    anyFail = true
+                    nonEconomicFailure = true
+                    reasons += Reason(ReasonKind.FALLA, "$label ${Fmt.num(actual)} $unit > máximo ${Fmt.num(max)} $unit.")
+                }
+                else -> reasons += Reason(ReasonKind.PASA, "$label ${Fmt.num(actual)} $unit ≤ máximo ${Fmt.num(max)} $unit.")
+            }
+        }
+        checkPickup("Distancia a la recogida", pickupKm, pickupKmAssumed, s.maxPickupKm, "km")
+        checkPickup("Tiempo a la recogida", pickupMin, pickupMinAssumed, s.maxPickupMin, "min")
 
         if (s.fuelPricePerLiter != null) {
             val updated = s.fuelPriceUpdatedAt

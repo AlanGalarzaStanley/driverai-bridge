@@ -2,6 +2,20 @@
 
 ## En desarrollo
 ### Agregado
+- **Radar de demanda** (nueva pestaña). Calcula un índice 0–100 por zona del AMBA y franja de 30 minutos para las próximas 6 horas, con la confianza por separado y los motivos explicados.
+  - Combina el patrón por perfil de zona y tipo de día, los feriados de ArgentinaDatos, los partidos de TheSportsDB, la lluvia (en la build privada) y tu propio historial.
+  - Admite señales cargadas por el conductor: paros de colectivos, subte o trenes; partidos, recitales, vuelos EZE/AEP, cruceros y lluvia.
+  - Modela la ventana real de impacto de cada señal: la salida del público, el arribo más el tiempo de equipaje y el desembarco escalonado.
+- **Demanda en el destino**: la tarjeta flotante muestra el nivel previsto en la zona de destino a la hora estimada de llegada. Solo se guarda el id de zona, nunca la dirección.
+- **Lectura multi-app**: Uber (verificado) y, en beta, DiDi, Cabify, inDrive y Bolt. Cada app se activa o desactiva en Ajustes, y el historial guarda la app de origen.
+- **Límite de recogida**: máximo de km y de minutos hasta el pasajero. Si se excede, el resultado es NO CONVIENE y no se sugiere una tarifa alternativa. Si el dato no se lee, el resultado es REVISAR.
+- **Informes**: métricas por app (ofertas, aceptación, $/km, $/h, % de ofertas convenientes), por hora del día, tus mejores horas y la billetera por semana. Exportación CSV del historial y la billetera, con protección contra fórmulas.
+- Copiloto: "¿dónde espero?" y "¿qué eventos hay?" responden primero con el radar local; el servidor queda como dato secundario y no verificado. Nuevas preguntas: "¿hay paro?" y "¿cuál es mi mejor hora?".
+- Tarjeta de radar en Inicio y `docs/RADAR_DEMANDA.md`, que documenta el modelo, las fuentes y la propuesta del servidor `driverai-senales` (sin desplegar).
+
+### Cambiado
+- Navegación: Inicio · Radar · Oferta · Billetera · Más. Vehículo pasa a Más, junto con Informes.
+- El parser reconoce el contexto de solicitud de otras apps ("Ofrecé tu tarifa", "Nuevo pedido") y sus productos (DiDi Express, Cabify Lite, etc.).
 - **Diario de viaje de punta a punta** en Historial: oferta observada → aceptada/rechazada → completada/cancelada → cobro confirmado por el conductor.
 - Los viajes completados admiten kilómetros y minutos reales opcionales; el cobro se vincula a Billetera en una transacción local y se puede corregir o deshacer sin duplicarlo.
 - Los cobros vinculados no se pueden borrar por separado en Billetera; se corrigen o revierten desde Actividad de ofertas para mantener ambos registros alineados.

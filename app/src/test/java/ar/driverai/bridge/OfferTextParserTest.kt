@@ -211,4 +211,13 @@ class OfferTextParserTest {
         assertEquals(9.3, r.offer.tripKm.value!!, 1e-9)
         assertEquals(18.0, r.offer.tripMin.value!!, 0.0)
     }
+
+    @Test fun ofertasDeOtrasApps_palabrasDeContexto() {
+        val indrive = p("inDrive", "Ofrecé tu tarifa", "$ 6.500", "A 4 min (1,8 km)", "Viaje: 22 min (9,3 km)")
+        assertTrue(indrive.isLikelyOffer)
+        assertEquals(6_500.0, indrive.offer.fare.value!!, 0.0)
+        val didi = p("DiDi Express", "Nuevo pedido", "$ 7.200", "A 5 min (2,0 km)", "Viaje: 25 min (10,0 km)")
+        assertTrue(didi.isLikelyOffer)
+        assertEquals("DiDi Express", didi.offer.product)
+    }
 }

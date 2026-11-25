@@ -1,5 +1,5 @@
 <resources>
     <string name="app_name">DriverAI</string>
     <string name="a11y_label">DriverAI – lectura de ofertas</string>
-    <string name="a11y_description">Lee el texto visible de la app Uber Driver para evaluar la conveniencia económica de cada oferta. No toca la pantalla, no acepta ni rechaza viajes, no lee otras apps y no envía el contenido de la pantalla a ningún servidor. DriverAI no es una herramienta de accesibilidad para personas con discapacidad.</string>
+    <string name="a11y_description">Lee el texto visible de las apps de conductor que habilites (Uber Driver, DiDi Conductor, Cabify Driver, inDrive y Bolt Driver) para evaluar la conveniencia económica de cada oferta. No toca la pantalla, no acepta ni rechaza viajes, no lee otras apps fuera de esa lista y no envía el contenido de la pantalla a ningún servidor. DriverAI no es una herramienta de accesibilidad para personas con discapacidad.</string>
 </resources>

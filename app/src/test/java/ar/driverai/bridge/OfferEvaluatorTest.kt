@@ -289,4 +289,24 @@ class OfferEvaluatorTest {
         assertTrue(Fmt.ars(Double.POSITIVE_INFINITY).startsWith(">"))
         assertEquals("—", Fmt.ars(Double.NaN))
     }
+
+    @Test fun recogidaMaxima_fallaSiSeExcedeYNoOfreceTarifaAlternativa() {
+        val e = OfferEvaluator.evaluate(offer(9000.0, 4.5, 12.0, 8.0, 20.0), DriverSettings(minGrossPerKm = 500.0, maxPickupKm = 3.0, maxPickupMin = 10.0))
+        assertEquals(Verdict.NO_CONVIENE, e.verdict)
+        assertTrue(e.reasons.any { it.kind == ReasonKind.FALLA && it.text.startsWith("Distancia a la recogida") })
+        assertTrue(e.reasons.any { it.kind == ReasonKind.FALLA && it.text.startsWith("Tiempo a la recogida") })
+        assertNull("subir la tarifa no acerca al pasajero", e.fareAlternative)
+    }
+
+    @Test fun recogidaMaxima_pasaDentroDelLimite() {
+        val e = OfferEvaluator.evaluate(offer(9000.0, 2.0, 6.0, 8.0, 20.0), DriverSettings(minGrossPerKm = 500.0, maxPickupKm = 3.0, maxPickupMin = 10.0))
+        assertEquals(Verdict.CONVIENE, e.verdict)
+        assertEquals(2, e.reasons.count { it.kind == ReasonKind.PASA && it.text.contains("recogida") })
+    }
+
+    @Test fun recogidaMaxima_sinDatoNoUsaLaEstimacionYPideRevisar() {
+        val e = OfferEvaluator.evaluate(offer(9000.0, null, null, 8.0, 20.0), DriverSettings(minGrossPerKm = 500.0, maxPickupKm = 3.0, defaultPickupKm = 1.0, defaultPickupMin = 3.0))
+        assertEquals(Verdict.REVISAR, e.verdict)
+        assertTrue(e.reasons.any { it.kind == ReasonKind.AVISO && it.text.contains("no mostró el dato") })
+    }
 }

@@ -78,7 +78,23 @@ data class DriverSettings(
     val minPassengerRating: Double? = null,
     /** Objetivo diario elegido por el conductor; solo se compara con ingresos anotados en la billetera. */
     val dailyTargetArs: Double? = null,
+    /** Máximo aceptable hasta el pasajero (km leídos de la oferta). */
+    val maxPickupKm: Double? = null,
+    /** Máximo aceptable hasta el pasajero (minutos leídos de la oferta). */
+    val maxPickupMin: Double? = null,
+    /** Ciudad del radar de demanda (catálogo de zonas y recintos). */
+    val cityId: String = "amba",
+    /** Clave propia de TheSportsDB; sin clave se usa la de prueba (solo build privada). */
+    val sportsApiKey: String? = null,
+    /** Apps de conductor que el lector puede observar. */
+    val enabledPlatforms: List<String> = RidePlatform.READABLE.map { it.name },
+    /** Mostrar en la tarjeta la demanda prevista en la zona de destino. */
+    val showDestinationDemand: Boolean = true,
 ) {
+    val hasPickupLimit: Boolean get() = maxPickupKm != null || maxPickupMin != null
+
+    fun platformEnabled(p: RidePlatform): Boolean = p.name in enabledPlatforms
+
     val hasAnyThreshold: Boolean
         get() = hasEconomicThreshold || minPassengerRating != null
 

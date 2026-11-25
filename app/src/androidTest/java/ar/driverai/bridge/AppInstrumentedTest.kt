@@ -2,6 +2,7 @@ package ar.driverai.bridge
 
 import android.content.Intent
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -69,7 +70,7 @@ class AppInstrumentedTest {
         compose.onNodeWithTag("status").assertExists()
         compose.onNodeWithTag("tab_evaluar").assertExists()
         compose.onNodeWithTag("tab_billetera").assertExists()
-        compose.onNodeWithTag("tab_vehiculo").assertExists()
+        compose.onNodeWithTag("tab_radar").assertExists()
         compose.onNodeWithTag("home_wallet").assertExists()
         compose.onNodeWithTag("home_vehicle").assertExists()
         compose.onNodeWithText("Briefing del turno").assertExists()
@@ -245,7 +246,14 @@ class AppInstrumentedTest {
         assertTrue("un cobro vinculado no se borra desde Billetera", compose.onAllNodesWithText("Borrar").fetchSemanticsNodes().isEmpty())
     }
 
+    @Test fun radar_muestraPronosticoYFuentes() {
+        compose.onNodeWithTag("tab_radar").performClick()
+        assertTrue(waitFor(5_000) { compose.onAllNodesWithTag("radar_now").fetchSemanticsNodes().isNotEmpty() })
+        compose.onNodeWithTag("radar_add_signal").performScrollTo().assertExists()
+    }
+
     @Test fun vehiculo_guardaKilometrosYRecordatorio() {
+        compose.onNodeWithTag("tab_mas").performClick()
         compose.onNodeWithTag("tab_vehiculo").performClick()
         compose.onNodeWithTag("odo_start").performTextReplacement("1000")
         compose.onNodeWithTag("odo_end").performTextReplacement("1012")

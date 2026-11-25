@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -55,15 +56,16 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun Root() {
         BackHandler(enabled = tab == "copiloto") { tab = "inicio" }
+        BackHandler(enabled = tab in setOf("ajustes", "diag", "historial", "vehiculo", "informes")) { tab = "mas" }
         val tabs = listOf(
             Triple("inicio", "Inicio", Icons.Filled.Home),
+            Triple("radar", "Radar", Icons.Filled.Place),
             Triple("evaluar", "Oferta", Icons.Filled.Check),
             Triple("billetera", "Billetera", Icons.Filled.List),
-            Triple("vehiculo", "Vehículo", Icons.Filled.Build),
             Triple("mas", "Más", Icons.Filled.Settings),
         )
         val selectedTab = when (tab) {
-            "ajustes", "diag", "historial" -> "mas"
+            "ajustes", "diag", "historial", "vehiculo", "informes" -> "mas"
             else -> tab
         }
         Box(
@@ -114,6 +116,8 @@ class MainActivity : ComponentActivity() {
                         "ajustes" -> SettingsScreen()
                         "historial" -> HistoryScreen()
                         "diag" -> DiagnosticsScreen(this@MainActivity)
+                        "radar" -> RadarScreen()
+                        "informes" -> InsightsScreen()
                         else -> HomeScreen(this@MainActivity)
                     }
                 }

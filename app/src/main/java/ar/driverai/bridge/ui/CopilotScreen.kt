@@ -123,6 +123,9 @@ fun CopilotScreen(onBack: () -> Unit) {
                     latest?.evaluation, shiftStats, g.strategic.state.value, settings, now,
                     moneyToday = moneyToday,
                     odometerTodayKm = odometerToday?.drivenKm,
+                    radar = g.radar.forecast.value,
+                    bestHours = ar.driverai.bridge.insights.Insights.bestHours(history, java.time.ZoneId.systemDefault())
+                        .mapNotNull { (h, b) -> b.avgGrossPerHour?.let { Triple(h, it, b.offers) } },
                 )
                 val answer = CopilotEngine.answer(clean, copilotContext)
                 CopilotConversation.append(CopilotMessage(false, answer))

@@ -76,6 +76,8 @@ class OverlayManager(private val app: Context) {
         x = prefs.getInt("${key}_x", dp(12)); y = prefs.getInt("${key}_y", defY)
     }
 
+    private val timeFmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale("es", "AR"))
+
     fun showEvaluation(rec: EvalRecord, compact: Boolean) = main.post {
         val e = rec.evaluation
         val m = e.metrics
@@ -99,8 +101,10 @@ class OverlayManager(private val app: Context) {
             "Piso teórico (no oferta futura): ${Fmt.ars(alternative.minimumFare)}" + if (assumptions.isNotEmpty()) " ($assumptions)" else ""
         }
         val src = when (rec.source.name) { "ACCESSIBILITY" -> "leído de pantalla"; "OCR" -> "leído por OCR"; else -> "ingreso manual" }
-        val compactBody = listOfNotNull(lines.getOrNull(1), ratingLine, primaryReason, alternativeLine)
-        val fullBody = lines + listOfNotNull(ratingLine, primaryReason, alternativeLine, "Fuente: $src. Vos decidís en Uber.")
+        val destinationLine = rec.destination?.shortLine { at -> timeFmt.format(java.util.Date(at)) }
+        val appName = rec.platform?.label ?: "la app de viajes"
+        val compactBody = listOfNotNull(lines.getOrNull(1), ratingLine, primaryReason, destinationLine, alternativeLine)
+        val fullBody = lines + listOfNotNull(ratingLine, primaryReason, destinationLine, alternativeLine, "Fuente: $src${rec.platform?.let { " (${it.label})" } ?: ""}. Vos decidís en $appName.")
         render(e.verdict.label, color, if (compact) compactBody else fullBody, rec.historyId, compact)
     }
 

@@ -2,7 +2,27 @@
 
 **Actualizado:** 2026-11-25. Lee primero este resumen y `../AGENTS.md`; luego confirma la rama, el HEAD y el estado del árbol. Es una instantánea, no reemplaza a Git.
 
-## Estado de trabajo
+## Último trabajo: copiloto multi-app y radar de demanda (2026-11-25)
+
+- Rama `feature/copiloto-radar-latam`, creada desde `feature/realtime-fleet-and-brand`. **`main` no se tocó y no hay PR abierto.**
+- Entregado:
+  - Radar de demanda local: paquete `intel/` y pestaña Radar.
+  - Demanda en la zona de destino dentro de la tarjeta.
+  - Lectura de Uber, DiDi, Cabify, inDrive y Bolt (todas salvo Uber en beta).
+  - Límite de recogida en km y minutos.
+  - Informes con exportación CSV.
+  - Copiloto que consulta el radar primero.
+  - Vehículo movido a Más.
+- Modelo, fuentes y propuesta de servidor: [`RADAR_DEMANDA.md`](RADAR_DEMANDA.md).
+- Validación local: `testDebugUnitTest`, `lintDebug` y `assembleDebug` en verde, con OpenJDK 17 y Android SDK 35. CI: ver la sección de CI más abajo.
+- Próximos pasos:
+  1. Conseguir muestras anonimizadas de ofertas de DiDi, Cabify, inDrive y Bolt, y ajustar el parser con pruebas.
+  2. Probar el radar y la línea de destino en un teléfono real.
+  3. Calibrar los pesos de `DemandRadar` con el historial.
+  4. Diseñar e implementar `driverai-senales` solo con fuentes licenciadas y sin datos del conductor.
+  5. Decidir con el usuario si se abre un PR a `main`.
+
+## Estado de trabajo (anterior)
 
 - Repositorio: `AlanGalarzaStanley/driverai-bridge`; app nativa Android en Kotlin y Jetpack Compose.
 - Rama con el estado más reciente: `feature/realtime-fleet-and-brand`. El commit de funcionalidad/documentación `c12f718` está subido a `origin`; contiene el ciclo local de diario que venía de `feature/trip-journal-lifecycle` (`444fe07`), el icono alineado a Cockpit y la propuesta de flotas/demanda. `main` no se modificó y no hay PR abierto. La guía de agentes se añade en esta misma rama.

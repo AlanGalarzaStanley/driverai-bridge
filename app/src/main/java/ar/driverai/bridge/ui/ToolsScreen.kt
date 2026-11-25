@@ -38,6 +38,18 @@ fun ToolsScreen(onNavigate: (String) -> Unit) {
             onClick = { onNavigate("copiloto") },
         )
         ToolActionCard(
+            title = "Informes y rendimiento",
+            detail = "Por app y por hora, ingresos semanales y exportación CSV",
+            tag = "tools_informes",
+            onClick = { onNavigate("informes") },
+        )
+        ToolActionCard(
+            title = "Vehículo",
+            detail = "Odómetro, mantenimiento y costos del auto",
+            tag = "tab_vehiculo",
+            onClick = { onNavigate("vehiculo") },
+        )
+        ToolActionCard(
             title = "Actividad de ofertas",
             detail = "Revisá lecturas y evaluaciones recientes",
             tag = "tab_historial",
@@ -62,7 +74,7 @@ fun ToolsScreen(onNavigate: (String) -> Unit) {
 }
 
 @Composable
-private fun ToolActionCard(title: String, detail: String, tag: String, onClick: () -> Unit) {
+internal fun ToolActionCard(title: String, detail: String, tag: String, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth().testTag(tag),

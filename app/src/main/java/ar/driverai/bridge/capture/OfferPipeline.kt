@@ -8,7 +8,11 @@ import ar.driverai.bridge.engine.OfferData
 import ar.driverai.bridge.engine.OfferEvaluator
 import ar.driverai.bridge.engine.OfferTextParser
 import ar.driverai.bridge.engine.Reading
+import ar.driverai.bridge.engine.RidePlatform
 import ar.driverai.bridge.engine.Verdict
+import ar.driverai.bridge.intel.Cities
+import ar.driverai.bridge.intel.DestinationOutlook
+import ar.driverai.bridge.intel.ZoneMatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +31,10 @@ data class EvalRecord(
     val source: DataSource,
     val notes: List<String>,
     val historyId: String = UUID.randomUUID().toString(),
+    /** App de origen de la oferta; null si no se pudo determinar. */
+    val platform: RidePlatform? = null,
+    /** Demanda prevista en la zona de destino al llegar; solo zona aproximada, nunca la dirección. */
+    val destination: DestinationOutlook? = null,
 )
 
 data class DiagnosticField(val value: String?, val confidencePercent: Int) {
@@ -105,7 +113,7 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
         DiagnosticField(reading.value?.let(format), (reading.confidence * 100).roundToInt())
 
     /** @return true si se reconoció una oferta (nueva o repetida). */
-    fun onScreenText(fragments: List<String>, source: DataSource): Boolean {
+    fun onScreenText(fragments: List<String>, source: DataSource, platform: RidePlatform? = null): Boolean {
         scans++
         _status.value = PipelineStatus.LEYENDO
         val parsed = OfferTextParser.parse(fragments, source)
@@ -115,7 +123,9 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
             return false
         }
         val o = parsed.offer
+        val resolvedPlatform = platform ?: RidePlatform.guessFromText(fragments)
         val sig = listOf(
+            resolvedPlatform?.name,
             o.product,
             o.fare.value,
             o.tripKm.value,
@@ -133,9 +143,12 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
         lastSignature = sig; lastSignatureAt = now
         offersDetected++
         _status.value = PipelineStatus.CALCULANDO
-        val eval = OfferEvaluator.evaluate(o, g.settings.value, now)
+        val settings = g.settings.value
+        val eval = OfferEvaluator.evaluate(o, settings, now)
         recordDiagnostic(source, fragments, parsed.offer, eval.verdict.label)
-        publish(EvalRecord(eval, now, source, parsed.notes), showOverlay = true)
+        // El texto de direcciones se usa solo aquí, en memoria, para obtener una zona aproximada.
+        val destination = if (settings.showDestinationDemand) destinationFor(fragments, eval, now) else null
+        publish(EvalRecord(eval, now, source, parsed.notes, platform = resolvedPlatform, destination = destination), showOverlay = true)
         return true
     }
 
@@ -144,9 +157,15 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
         g.overlay.scheduleHide(OFFER_GONE_HIDE_MS)
     }
 
-    fun evaluateManual(offer: OfferData, showOverlay: Boolean = false): EvalRecord {
+    private fun destinationFor(fragments: List<String>, eval: Evaluation, now: Long): DestinationOutlook? {
+        val minutes = (eval.metrics.pickupMin ?: 0.0) + (eval.metrics.tripMin ?: return null)
+        val city = Cities.byId(g.settings.value.cityId)
+        return ZoneMatcher.outlook(fragments, city, g.radar.forecast.value, now + (minutes * 60_000).toLong())
+    }
+
+    fun evaluateManual(offer: OfferData, showOverlay: Boolean = false, platform: RidePlatform? = null): EvalRecord {
         val now = clock()
-        val rec = EvalRecord(OfferEvaluator.evaluate(offer, g.settings.value, now), now, DataSource.MANUAL, emptyList())
+        val rec = EvalRecord(OfferEvaluator.evaluate(offer, g.settings.value, now), now, DataSource.MANUAL, emptyList(), platform = platform)
         publish(rec, showOverlay)
         return rec
     }
@@ -159,7 +178,7 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
             // El overlay se muestra después de persistir para que “La tomé” nunca gane la carrera
             // contra DataStore y marque una entrada que todavía no existe.
             g.scope.launch {
-                g.historyRepo.add(rec.evaluation, rec.at, rec.source, rec.historyId)
+                g.historyRepo.add(rec.evaluation, rec.at, rec.source, rec.historyId, rec.platform, rec.destination?.zoneId)
                 if (showOverlay) g.overlay.showEvaluation(rec, s.overlayCompact)
             }
         } else if (showOverlay) {

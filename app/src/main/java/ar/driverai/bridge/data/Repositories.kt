@@ -66,6 +66,10 @@ data class HistoryEntry(
     val actualDistanceKm: Double? = null,
     val actualDurationMin: Double? = null,
     val actualIncomeArs: Double? = null,
+    /** App de origen (nombre de [ar.driverai.bridge.engine.RidePlatform]); null en registros antiguos. */
+    val platform: String? = null,
+    /** Zona aproximada de destino detectada; nunca la dirección. */
+    val destinationZoneId: String? = null,
 )
 
 class HistoryRepository(private val store: DataStore<Preferences>) {
@@ -75,7 +79,14 @@ class HistoryRepository(private val store: DataStore<Preferences>) {
     val entries: Flow<List<HistoryEntry>> = store.data.map { decode(it[key]) }
     val shiftStart: Flow<Long?> = store.data.map { it[shiftKey] }
 
-    suspend fun add(e: Evaluation, at: Long, source: DataSource, id: String = UUID.randomUUID().toString()) {
+    suspend fun add(
+        e: Evaluation,
+        at: Long,
+        source: DataSource,
+        id: String = UUID.randomUUID().toString(),
+        platform: ar.driverai.bridge.engine.RidePlatform? = null,
+        destinationZoneId: String? = null,
+    ) {
         val m = e.metrics
         val entry = HistoryEntry(
             at = at,
@@ -87,6 +98,8 @@ class HistoryRepository(private val store: DataStore<Preferences>) {
             grossPerHour = m.grossPerHour,
             source = source,
             id = id,
+            platform = platform?.name,
+            destinationZoneId = destinationZoneId,
         )
         store.edit { p ->
             val combined = listOf(entry) + decode(p[key])

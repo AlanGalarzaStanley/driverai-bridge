@@ -1,6 +1,6 @@
 # DriverAI Bridge — copiloto Android para conductores
 
-App Android nativa (Kotlin + Jetpack Compose) que evalúa ofertas de viaje con reglas económicas configurables por el conductor, muestra una tarjeta flotante con la recomendación (CONVIENE / NO CONVIENE / REVISAR) y suma el contexto estratégico del backend existente de DriverAI (Supabase).
+App Android nativa (Kotlin + Jetpack Compose) que funciona como copiloto en tiempo real para conductores de apps en LATAM. Evalúa ofertas de Uber, DiDi, Cabify, inDrive y Bolt con reglas económicas configurables por el conductor, predice dónde y cuándo conviene estar con un radar de demanda local (partidos, feriados, paros, vuelos, cruceros, lluvia y el propio historial), muestra la demanda prevista en el destino de cada oferta y lleva los informes de ingresos. También muestra una tarjeta flotante con la recomendación (CONVIENE / NO CONVIENE / REVISAR) y suma el contexto estratégico del backend existente de DriverAI (Supabase).
 
 **DriverAI recomienda; el conductor decide.** La app no toca la pantalla, no acepta ni rechaza viajes.
 
@@ -18,6 +18,7 @@ App Android nativa (Kotlin + Jetpack Compose) que evalúa ofertas de viaje con r
 ## Documentación
 - [Auditoría inicial](docs/INITIAL_AUDIT.md) — repos, web, backend y hallazgos.
 - [Arquitectura](docs/ARCHITECTURE.md)
+- [Radar de demanda y multi-app](docs/RADAR_DEMANDA.md): modelo del índice, fuentes, privacidad y propuesta de servidor.
 - [Visión y hoja de ruta del copiloto](docs/PRODUCT_VISION.md)
 - [Investigación de fuentes para el briefing](docs/BRIEFING_SOURCE_RESEARCH.md) — cobertura, vigencia, permisos y brechas de producción.
 - [Permisos y políticas](docs/ANDROID_PERMISSIONS.md)

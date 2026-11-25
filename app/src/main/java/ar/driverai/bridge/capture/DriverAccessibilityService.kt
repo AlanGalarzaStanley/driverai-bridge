@@ -12,10 +12,12 @@ import android.view.accessibility.AccessibilityNodeInfo
 import ar.driverai.bridge.BuildConfig
 import ar.driverai.bridge.DriverAiApp
 import ar.driverai.bridge.engine.DataSource
+import ar.driverai.bridge.engine.RidePlatform
 import ar.driverai.bridge.ui.SimulatorActivity
 
 /**
- * Lee SOLO el texto visible de la app de conductor de Uber (y del simulador interno en debug).
+ * Lee SOLO el texto visible de las apps de conductor habilitadas (Uber, DiDi, Cabify, inDrive, Bolt)
+ * y del simulador interno en debug. Cada app puede desactivarse en Ajustes.
  * No realiza gestos, no toca botones, no acepta ni rechaza viajes: la configuración XML
  * no declara canPerformGestures y el código nunca llama a performAction.
  */
@@ -45,7 +47,7 @@ class DriverAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val pkg = event?.packageName?.toString() ?: return
-        if (pkg !in watchedPackages(this) || (pkg == packageName && !SimulatorActivity.isVisible)) {
+        if (pkg !in activePackages(this) || (pkg == packageName && !SimulatorActivity.isVisible)) {
             pendingEventTexts.clear()
             pendingEventPackage = null
             handler.removeCallbacks(scanRunnable)
@@ -86,14 +88,14 @@ class DriverAccessibilityService : AccessibilityService() {
                 DriverAiApp.graph.pipeline.onOfferGone()
                 return
             }
-            val found = DriverAiApp.graph.pipeline.onScreenText(eventTexts, DataSource.ACCESSIBILITY)
+            val found = DriverAiApp.graph.pipeline.onScreenText(eventTexts, DataSource.ACCESSIBILITY, RidePlatform.fromPackage(eventPackage))
             offerOnScreen = found
             if (!found) DriverAiApp.graph.pipeline.onOfferGone()
             return
         }
         val pipeline = DriverAiApp.graph.pipeline
         val texts = (collectTexts(root) + eventTexts).distinct()
-        val found = pipeline.onScreenText(texts, DataSource.ACCESSIBILITY)
+        val found = pipeline.onScreenText(texts, DataSource.ACCESSIBILITY, RidePlatform.fromPackage(rootPackage))
         offerOnScreen = found
         if (!found) pipeline.onOfferGone()
     }
@@ -125,8 +127,18 @@ class DriverAccessibilityService : AccessibilityService() {
         @Volatile var instance: DriverAccessibilityService? = null
             private set
 
-        fun watchedPackages(ctx: Context): Set<String> =
-            if (BuildConfig.SIMULATOR_WATCH) setOf(UBER_DRIVER_PACKAGE, ctx.packageName) else setOf(UBER_DRIVER_PACKAGE)
+        /** Paquetes declarados al sistema (todas las apps compatibles). */
+        fun watchedPackages(ctx: Context): Set<String> {
+            val apps = RidePlatform.READABLE.mapNotNull { it.packageName }.toSet()
+            return if (BuildConfig.SIMULATOR_WATCH) apps + ctx.packageName else apps
+        }
+
+        /** Paquetes que el conductor dejó habilitados en Ajustes. */
+        fun activePackages(ctx: Context): Set<String> {
+            val s = DriverAiApp.graph.settings.value
+            val apps = RidePlatform.READABLE.filter { s.platformEnabled(it) }.mapNotNull { it.packageName }.toSet()
+            return if (BuildConfig.SIMULATOR_WATCH) apps + ctx.packageName else apps
+        }
 
         /** Recorrido acotado del árbol (máx. 400 nodos) para no consumir CPU. */
         fun collectTexts(root: AccessibilityNodeInfo): List<String> {

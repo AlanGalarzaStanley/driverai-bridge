@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import ar.driverai.bridge.DriverAiApp
 import ar.driverai.bridge.copilot.Zones
 import ar.driverai.bridge.engine.DriverSettings
+import ar.driverai.bridge.engine.RidePlatform
 import ar.driverai.bridge.engine.Fmt
 import ar.driverai.bridge.engine.UncertaintyTolerance
 import kotlinx.coroutines.launch
@@ -63,6 +64,9 @@ fun SettingsScreen() {
     var margin by remember { mutableStateOf("") }
     var minPassengerRating by remember { mutableStateOf("") }
     var dailyTarget by remember { mutableStateOf("") }
+    var maxPkm by remember { mutableStateOf("") }
+    var maxPmin by remember { mutableStateOf("") }
+    var sportsKey by remember { mutableStateOf("") }
     var tol by remember { mutableStateOf(UncertaintyTolerance.NORMAL) }
     var msg by remember { mutableStateOf<String?>(null) }
     var homeMenu by remember { mutableStateOf(false) }
@@ -73,6 +77,7 @@ fun SettingsScreen() {
             minFare = f(s.minFare); minKm = f(s.minGrossPerKm); minHour = f(s.minGrossPerHour); costKm = f(s.costPerKm)
             fuelL = f(s.fuelLitersPer100Km); fuelP = f(s.fuelPricePerLiter); defPkm = f(s.defaultPickupKm); defPmin = f(s.defaultPickupMin)
             ret = Fmt.num(s.emptyReturnFraction * 100, 0); margin = f(s.minMarginPct); minPassengerRating = f(s.minPassengerRating); dailyTarget = f(s.dailyTargetArs); tol = s.tolerance
+            maxPkm = f(s.maxPickupKm); maxPmin = f(s.maxPickupMin); sportsKey = s.sportsApiKey.orEmpty()
             loaded = true
         }
     }
@@ -89,6 +94,11 @@ fun SettingsScreen() {
             num("Mínimo \$ por km", minKm, "set_minkm") { minKm = it }
             num("Mínimo \$ por hora", minHour, "set_minhour") { minHour = it }
             num("Margen mínimo (%)", margin, "set_margin") { margin = it }
+        }
+        Section("Recogida") {
+            num("Máximo km hasta el pasajero", maxPkm, "set_max_pickup_km") { maxPkm = it }
+            num("Máximo minutos hasta el pasajero", maxPmin, "set_max_pickup_min") { maxPmin = it }
+            Text("Si la oferta muestra una recogida más lejana, el resultado será NO CONVIENE aunque la tarifa sea buena.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
         Section("Preferencias del pasajero") {
             num("Calificación mínima (1–5)", minPassengerRating, "set_min_passenger_rating") { minPassengerRating = it }
@@ -112,6 +122,31 @@ fun SettingsScreen() {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 UncertaintyTolerance.entries.forEach { t -> FilterChip(selected = tol == t, onClick = { tol = t }, label = { Text("${t.label} (${(t.minConfidence * 100).toInt()} %)") }) }
             }
+        }
+        Section("Apps que DriverAI lee") {
+            RidePlatform.READABLE.forEach { p ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(p.label + if (p.verified) "" else " (beta)", Modifier.weight(1f))
+                    Switch(saved.platformEnabled(p), { on ->
+                        scope.launch {
+                            g.settingsRepo.update { st ->
+                                val next = if (on) (st.enabledPlatforms + p.name).distinct() else st.enabledPlatforms - p.name
+                                st.copy(enabledPlatforms = next)
+                            }
+                        }
+                    }, modifier = Modifier.testTag("platform_${p.name.lowercase()}"))
+                }
+            }
+            Text("Solo lectura del texto visible. «beta» = diseño de pantalla aún sin muestras reales confirmadas; si algo no se lee bien, usá Oferta manual.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+        }
+        Section("Radar de demanda") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Mostrar demanda en el destino de cada oferta", Modifier.weight(1f))
+                Switch(saved.showDestinationDemand, { v -> scope.launch { g.settingsRepo.update { it.copy(showDestinationDemand = v) } } })
+            }
+            OutlinedTextField(sportsKey, { sportsKey = it.trim().take(64) }, label = { Text("Clave TheSportsDB (opcional)") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().testTag("set_sports_key"))
+            Text("Con tu clave el radar trae más partidos del fútbol argentino. Se guarda solo en este teléfono.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
         Section("Voz y privacidad") {
             Row(verticalAlignment = Alignment.CenterVertically) { Text("Voz activada", Modifier.weight(1f)); Switch(saved.voiceEnabled, { v -> scope.launch { g.settingsRepo.update { it.copy(voiceEnabled = v) } } }) }
@@ -148,6 +183,9 @@ fun SettingsScreen() {
                 emptyReturnFraction = retPct / 100.0, minMarginPct = p("Margen", margin, 100.0), tolerance = tol,
                 minPassengerRating = parsedMinPassengerRating?.takeIf { it >= 1.0 },
                 dailyTargetArs = parsedDailyTarget?.takeIf { it > 0.0 },
+                maxPickupKm = p("Máximo km a recogida", maxPkm, 200.0)?.takeIf { it > 0.0 },
+                maxPickupMin = p("Máximo min a recogida", maxPmin, 240.0)?.takeIf { it > 0.0 },
+                sportsApiKey = sportsKey.takeIf { it.matches(Regex("^[A-Za-z0-9]{1,64}$")) },
             ) }
             // Se valida primero sin guardar
             upd(saved)

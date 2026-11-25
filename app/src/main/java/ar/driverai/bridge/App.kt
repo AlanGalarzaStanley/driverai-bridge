@@ -16,6 +16,8 @@ import ar.driverai.bridge.data.MoneyLedgerRepository
 import ar.driverai.bridge.data.SettingsRepository
 import ar.driverai.bridge.data.VehicleRecordsRepository
 import ar.driverai.bridge.engine.DriverSettings
+import ar.driverai.bridge.intel.IntelRepository
+import ar.driverai.bridge.intel.RadarController
 import ar.driverai.bridge.overlay.OverlayManager
 import ar.driverai.bridge.voice.TtsManager
 import kotlinx.coroutines.CoroutineScope
@@ -63,6 +65,16 @@ class AppGraph(val app: DriverAiApp) {
     val shiftBriefing = ShiftBriefingRepository(app.driverStore)
     val settings: StateFlow<DriverSettings> = settingsRepo.settings.stateIn(scope, SharingStarted.Eagerly, DriverSettings())
     val tts: TtsManager by lazy { TtsManager(app) }
+    val intelRepo = IntelRepository(app.driverStore)
+    /** Fixtures deportivos: clave de prueba solo en build privada; en release requiere clave propia. */
+    val radar = RadarController(
+        scope = scope,
+        repo = intelRepo,
+        settings = settings,
+        history = historyRepo.entries,
+        weather = weather.state,
+        sportsAllowed = { s -> BuildConfig.DEBUG || !s.sportsApiKey.isNullOrBlank() },
+    )
     val overlay = OverlayManager(app)
     val pipeline = OfferPipeline(this)
 }

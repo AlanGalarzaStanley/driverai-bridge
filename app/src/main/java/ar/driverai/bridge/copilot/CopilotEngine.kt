@@ -8,6 +8,12 @@ import ar.driverai.bridge.engine.Evaluation
 import ar.driverai.bridge.engine.Fmt
 import ar.driverai.bridge.engine.ReasonKind
 import ar.driverai.bridge.engine.Verdict
+import ar.driverai.bridge.intel.RadarForecast
+import ar.driverai.bridge.intel.SignalKind
+import ar.driverai.bridge.intel.SignalOrigin
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.text.Normalizer
 
 object Zones {
@@ -25,7 +31,7 @@ object Zones {
     fun groupOf(zone: String): String? = GROUPS.entries.firstOrNull { (_, z) -> z.any { it.equals(zone, true) } }?.key
 }
 
-enum class Intent { RESUMEN_JORNADA, OBJETIVO, CONVIENE, POR_QUE, POR_HORA, DONDE_ESPERAR, EVENTOS, CERCA_CASA, DESCONOCIDA }
+enum class Intent { RESUMEN_JORNADA, OBJETIVO, CONVIENE, POR_QUE, POR_HORA, DONDE_ESPERAR, EVENTOS, PAROS, MEJOR_HORA, CERCA_CASA, DESCONOCIDA }
 
 data class CopilotContext(
     val lastEvaluation: Evaluation?,
@@ -35,6 +41,10 @@ data class CopilotContext(
     val now: Long,
     val moneyToday: MoneyDaySummary? = null,
     val odometerTodayKm: Double? = null,
+    /** Radar local de demanda; tiene prioridad sobre el reporte del servidor. */
+    val radar: RadarForecast? = null,
+    /** Mejores horas del historial propio: hora → bruto/h promedio y cantidad de ofertas. */
+    val bestHours: List<Triple<Int, Double, Int>> = emptyList(),
 )
 
 /**
@@ -53,6 +63,8 @@ object CopilotEngine {
             q.contains("por que") || q.contains("porque") || q.contains("motivo") -> Intent.POR_QUE
             q.contains("por hora") || q.contains("estoy haciendo") || q.contains("llevo") || q.contains("cuanto hice") -> Intent.POR_HORA
             q.contains("casa") || q.contains("terminar") -> Intent.CERCA_CASA
+            q.contains("paro") || q.contains("huelga") || q.contains("medida de fuerza") -> Intent.PAROS
+            q.contains("mejor hora") || q.contains("mejores horas") || q.contains("a que hora") || q.contains("cuando salgo") || q.contains("cuando conviene salir") -> Intent.MEJOR_HORA
             q.contains("evento") || q.contains("esta noche") || q.contains("partido") || q.contains("recital") -> Intent.EVENTOS
             q.contains("donde") || q.contains("esperar") || q.contains("zona") || q.contains("me muevo") || q.contains("me quedo") -> Intent.DONDE_ESPERAR
             q.contains("conviene") || q.contains("acepto") || q.contains("este viaje") || q.contains("la oferta") -> Intent.CONVIENE
@@ -106,8 +118,10 @@ object CopilotEngine {
         }
         Intent.DONDE_ESPERAR -> donde(ctx)
         Intent.EVENTOS -> eventos(ctx)
+        Intent.PAROS -> paros(ctx)
+        Intent.MEJOR_HORA -> mejorHora(ctx)
         Intent.CERCA_CASA -> cercaCasa(ctx)
-        Intent.DESCONOCIDA -> "Podés preguntarme: ¿me conviene?, ¿por qué?, ¿cómo va mi jornada?, ¿cómo va mi objetivo diario?, ¿cuánto hago por hora?, ¿dónde espero?"
+        Intent.DESCONOCIDA -> "Podés preguntarme: ¿me conviene?, ¿por qué?, ¿cómo va mi jornada?, ¿cómo va mi objetivo diario?, ¿cuánto hago por hora?, ¿dónde espero?, ¿qué eventos hay?, ¿hay paro?, ¿cuál es mi mejor hora?"
     }
 
     private fun resumenJornada(ctx: CopilotContext): String {
@@ -155,7 +169,57 @@ object CopilotEngine {
             if (assumptions.isNotEmpty()) " (incluye $assumptions)." else "."
     }
 
+    private val hhmm get() = SimpleDateFormat("HH:mm", Locale("es", "AR"))
+
+    private fun radarDonde(r: RadarForecast): String? {
+        val now = r.now().take(3).ifEmpty { return null }
+        val top = now.first()
+        val reason = top.topReason?.label?.let { " por $it" } ?: ""
+        val others = now.drop(1).joinToString(" y ") { "${it.zoneName} (${it.index})" }
+        val conf = if (top.confidence >= 0.55) "" else " Confianza baja: es sobre todo el patrón general."
+        val peak = r.upcomingPeaks().firstOrNull { it.slotStart > r.generatedAt }?.let { " Próximo pico: ${it.zoneName} a las ${hhmm.format(Date(it.slotStart))}." } ?: ""
+        return "Radar local: ${top.zoneName}, demanda ${top.level.label.lowercase()} (${top.index})$reason." +
+            (if (others.isNotEmpty()) " Después $others." else "") + peak + conf
+    }
+
     private fun donde(ctx: CopilotContext): String {
+        ctx.radar?.let { r -> radarDonde(r)?.let { local -> return local + serverHint(ctx) } }
+        return dondeServidor(ctx)
+    }
+
+    /** Agrega la recomendación del servidor como dato secundario y sin verificar. */
+    private fun serverHint(ctx: CopilotContext): String {
+        val p = ctx.strategic.posicion
+        val zone = p?.zona_recomendada ?: ctx.strategic.reporte?.reporte?.mejor_zona_ahora ?: return ""
+        return " Servidor (no verificado): $zone.${staleNote(ctx, ctx.strategic.posicionAt ?: ctx.strategic.reporteAt)}"
+    }
+
+    private fun radarSignals(ctx: CopilotContext, kinds: Set<SignalKind>): List<String> {
+        val r = ctx.radar ?: return emptyList()
+        return r.signalsUsed.filter { it.kind in kinds && it.origin != SignalOrigin.PATRON_GENERAL }
+            .sortedBy { it.startAt }
+            .take(3)
+            .map { "${it.title} (${hhmm.format(Date(it.startAt))}, ${it.sourceName})" }
+    }
+
+    private fun paros(ctx: CopilotContext): String {
+        val list = radarSignals(ctx, setOf(SignalKind.PARO_TRANSPORTE))
+        return if (list.isEmpty()) "No tengo paros cargados para las próximas horas. Si te enterás de uno, cargalo en Radar: sube la demanda en toda la ciudad."
+        else "Paros en el radar: ${list.joinToString("; ")}. Suele subir la demanda en horas pico."
+    }
+
+    private fun mejorHora(ctx: CopilotContext): String {
+        val parts = mutableListOf<String>()
+        if (ctx.bestHours.isNotEmpty()) {
+            parts += "Según tu historial, tus mejores horas son " + ctx.bestHours.joinToString(", ") { (h, perHour, n) -> "%02d h (%s/h, %d ofertas)".format(h, Fmt.ars(perHour), n) } + "."
+        } else parts += "Todavía no tengo suficientes ofertas tuyas por hora para comparar."
+        ctx.radar?.bestPerSlot()?.maxByOrNull { it.index }?.let { w ->
+            parts += "En las próximas horas el radar marca el pico a las ${hhmm.format(Date(w.slotStart))} en ${w.zoneName} (${w.index})."
+        }
+        return parts.joinToString(" ")
+    }
+
+    private fun dondeServidor(ctx: CopilotContext): String {
         val p = ctx.strategic.posicion
         if (p != null && p.zona_recomendada != null) {
             return if (p.decision == "moverte") "Estimación del servidor: movete a ${p.zona_recomendada}, puntaje ${Fmt.num(p.score_recomendado ?: 0.0)} contra ${Fmt.num(p.score_actual ?: 0.0)}.${staleNote(ctx, ctx.strategic.posicionAt)}"
@@ -167,6 +231,13 @@ object CopilotEngine {
     }
 
     private fun eventos(ctx: CopilotContext): String {
+        val local = radarSignals(ctx, setOf(SignalKind.EVENTO_DEPORTIVO, SignalKind.EVENTO_SHOW, SignalKind.VUELOS, SignalKind.CRUCERO))
+        if (local.isNotEmpty()) return "En el radar: ${local.joinToString("; ")}. La salida del público suele generar el pico." + (ctx.strategic.reporte?.let { " " + eventosServidor(ctx) } ?: "")
+        if (ctx.radar != null && ctx.strategic.reporte == null) return "No hay eventos cargados en el radar para las próximas horas. Podés actualizar fuentes o cargar uno en Radar."
+        return eventosServidor(ctx)
+    }
+
+    private fun eventosServidor(ctx: CopilotContext): String {
         val r = ctx.strategic.reporte ?: return "No tengo el reporte del servidor. Actualizalo en Inicio."
         val parts = mutableListOf<String>()
         val ev = r.eventos
