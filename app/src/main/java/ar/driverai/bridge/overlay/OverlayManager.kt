@@ -101,13 +101,13 @@ class OverlayManager(private val app: Context) {
         val src = when (rec.source.name) { "ACCESSIBILITY" -> "leído de pantalla"; "OCR" -> "leído por OCR"; else -> "ingreso manual" }
         val compactBody = listOfNotNull(lines.getOrNull(1), ratingLine, primaryReason, alternativeLine)
         val fullBody = lines + listOfNotNull(ratingLine, primaryReason, alternativeLine, "Fuente: $src. Vos decidís en Uber.")
-        render(e.verdict.label, color, if (compact) compactBody else fullBody, rec.at, compact)
+        render(e.verdict.label, color, if (compact) compactBody else fullBody, rec.historyId, compact)
     }
 
-        fun showMessage(text: String) = main.post { render("DriverAI", 0xFF62E6A4.toInt(), listOf(text), null, false) }
+    fun showMessage(text: String) = main.post { render("DriverAI", 0xFF62E6A4.toInt(), listOf(text), null, false) }
 
     @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
-    private fun render(title: String, color: Int, body: List<String>, recordAt: Long?, compact: Boolean) {
+    private fun render(title: String, color: Int, body: List<String>, historyId: String?, compact: Boolean) {
         main.removeCallbacks(hideRunnable)
         hideCard()
         lastShownText = (listOf(title) + body).joinToString("\n")
@@ -139,10 +139,10 @@ class OverlayManager(private val app: Context) {
         body.forEach { line ->
             root.addView(TextView(ctx).apply { text = line; setTextColor(0xFFECEFF1.toInt()); textSize = 15f; maxWidth = dp(300) })
         }
-        if (recordAt != null && !compact) {
+        if (historyId != null && !compact) {
             val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
             row.addView(smallBtn("La tomé", "Marcar viaje como tomado") {
-                DriverAiApp.graph.scope.launch { DriverAiApp.graph.historyRepo.markTaken(recordAt) }
+                DriverAiApp.graph.scope.launch { DriverAiApp.graph.historyRepo.markTaken(historyId) }
                 hideCard()
             })
             row.addView(smallBtn("Corregir", "Abrir DriverAI para corregir datos") {

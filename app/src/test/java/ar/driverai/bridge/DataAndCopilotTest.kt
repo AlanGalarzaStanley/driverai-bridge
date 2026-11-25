@@ -65,11 +65,24 @@ class DataAndCopilotTest {
         repeat(HistoryRepository.MAX + 5) { repo.add(e, it.toLong(), DataSource.MANUAL) }
         val list = repo.entries.first()
         assertEquals(HistoryRepository.MAX, list.size)
-        repo.markTaken(104L)
-        assertTrue(repo.entries.first().first { it.at == 104L }.taken)
+        val target = repo.entries.first().first { it.at == 104L }
+        repo.markTaken(target.id)
+        assertTrue(repo.entries.first().first { it.id == target.id }.taken)
         val json = HistoryRepository.encode(list)
         assertFalse(json.contains("Av.")); assertFalse(json.contains("raw"))
         repo.clear(); assertTrue(repo.entries.first().isEmpty())
+    }
+
+    @Test fun historial_migraIdsUnicosAunqueCompartaTimestamp() {
+        val legacy = HistoryRepository.encode(
+            listOf(
+                HistoryEntry(1L, "CONVIENE", 1000.0, 1.0, 10.0, 1000.0, 6000.0, DataSource.MANUAL),
+                HistoryEntry(1L, "REVISAR", 900.0, 1.0, 10.0, 900.0, 5400.0, DataSource.MANUAL),
+            ),
+        )
+        val migrated = HistoryRepository.decode(legacy)
+        assertEquals(2, migrated.map { it.id }.toSet().size)
+        assertEquals(migrated, HistoryRepository.decode(HistoryRepository.encode(migrated)))
     }
 
     @Test fun turno_brutoPorHora() {

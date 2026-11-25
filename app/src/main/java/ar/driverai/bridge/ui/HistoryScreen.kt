@@ -49,7 +49,7 @@ fun HistoryScreen() {
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                items(items, key = { it.at }) { e ->
+                items(items, key = { it.id }) { e ->
                     val verdict = runCatching { Verdict.valueOf(e.verdict) }.getOrDefault(Verdict.REVISAR)
                     Section("${df.format(Date(e.at))}${if (e.taken) " · marcada tomada" else ""}", modifier = Modifier.fillMaxWidth()) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
@@ -64,7 +64,7 @@ fun HistoryScreen() {
                             color = verdictColor(verdict),
                             fontWeight = FontWeight.Medium,
                         )
-                        OutlinedButton(onClick = { scope.launch { g.historyRepo.markTaken(e.at, !e.taken) } }, modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(onClick = { scope.launch { g.historyRepo.markTaken(e.id, !e.taken) } }, modifier = Modifier.fillMaxWidth()) {
                             Text(if (e.taken) "Desmarcar tomada" else "Marcar como tomada")
                         }
                     }

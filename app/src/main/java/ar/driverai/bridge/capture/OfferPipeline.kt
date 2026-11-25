@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.UUID
 import kotlin.math.roundToInt
 
 enum class PipelineStatus(val label: String) {
@@ -20,7 +21,13 @@ enum class PipelineStatus(val label: String) {
     SIN_OFERTA("Sin oferta en pantalla"), ERROR("Error de lectura"), PERMISO_PENDIENTE("Permiso pendiente"),
 }
 
-data class EvalRecord(val evaluation: Evaluation, val at: Long, val source: DataSource, val notes: List<String>)
+data class EvalRecord(
+    val evaluation: Evaluation,
+    val at: Long,
+    val source: DataSource,
+    val notes: List<String>,
+    val historyId: String = UUID.randomUUID().toString(),
+)
 
 data class DiagnosticField(val value: String?, val confidencePercent: Int) {
     fun displayText(): String = value?.let { "$it (confianza $confidencePercent%)" } ?: "no detectada"
@@ -108,7 +115,15 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
             return false
         }
         val o = parsed.offer
-        val sig = listOf(o.fare.value, o.tripKm.value, o.tripMin.value, o.pickupKm.value, o.pickupMin.value, o.passengerRating.value).joinToString("|")
+        val sig = listOf(
+            o.product,
+            o.fare.value,
+            o.tripKm.value,
+            o.tripMin.value,
+            o.pickupKm.value,
+            o.pickupMin.value,
+            o.passengerRating.value,
+        ).joinToString("|")
         val now = clock()
         if (sig == lastSignature && now - lastSignatureAt < DEDUPE_MS) {
             recordDiagnostic(source, fragments, parsed.offer, _last.value?.evaluation?.verdict?.label ?: "REVISAR")
@@ -140,8 +155,16 @@ class OfferPipeline(private val g: AppGraph, private val clock: () -> Long = Sys
         _last.value = rec
         _status.value = PipelineStatus.RESULTADO
         val s = g.settings.value
-        if (showOverlay) g.overlay.showEvaluation(rec, s.overlayCompact)
-        if (s.historyEnabled) g.scope.launch { g.historyRepo.add(rec.evaluation, rec.at, rec.source) }
+        if (s.historyEnabled) {
+            // El overlay se muestra después de persistir para que “La tomé” nunca gane la carrera
+            // contra DataStore y marque una entrada que todavía no existe.
+            g.scope.launch {
+                g.historyRepo.add(rec.evaluation, rec.at, rec.source, rec.historyId)
+                if (showOverlay) g.overlay.showEvaluation(rec, s.overlayCompact)
+            }
+        } else if (showOverlay) {
+            g.overlay.showEvaluation(rec, s.overlayCompact)
+        }
         if (s.voiceEnabled && s.speakVerdicts && rec.source != DataSource.MANUAL) g.tts.speak(shortSpeech(rec.evaluation), s.voiceVolume)
     }
 

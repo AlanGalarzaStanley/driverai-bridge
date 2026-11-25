@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.util.UUID
 
 val AppJson = Json { ignoreUnknownKeys = true; encodeDefaults = true; isLenient = true; coerceInputValues = true }
 
@@ -50,6 +51,8 @@ data class HistoryEntry(
     val grossPerHour: Double?,
     val source: DataSource,
     val taken: Boolean = false,
+    /** Identidad estable; queda al final para mantener compatibilidad con constructores existentes. */
+    val id: String = "",
 )
 
 class HistoryRepository(private val store: DataStore<Preferences>) {
@@ -58,14 +61,24 @@ class HistoryRepository(private val store: DataStore<Preferences>) {
     val entries: Flow<List<HistoryEntry>> = store.data.map { decode(it[key]) }
     val shiftStart: Flow<Long?> = store.data.map { it[shiftKey] }
 
-    suspend fun add(e: Evaluation, at: Long, source: DataSource) {
+    suspend fun add(e: Evaluation, at: Long, source: DataSource, id: String = UUID.randomUUID().toString()) {
         val m = e.metrics
-        val entry = HistoryEntry(at, e.verdict.name, m.fare, m.totalKm, m.totalMin, m.grossPerKm, m.grossPerHour, source)
+        val entry = HistoryEntry(
+            at = at,
+            verdict = e.verdict.name,
+            fare = m.fare,
+            totalKm = m.totalKm,
+            totalMin = m.totalMin,
+            grossPerKm = m.grossPerKm,
+            grossPerHour = m.grossPerHour,
+            source = source,
+            id = id,
+        )
         store.edit { p -> p[key] = encode((listOf(entry) + decode(p[key])).take(MAX)) }
     }
 
-    suspend fun markTaken(at: Long, taken: Boolean = true) {
-        store.edit { p -> p[key] = encode(decode(p[key]).map { if (it.at == at) it.copy(taken = taken) else it }) }
+    suspend fun markTaken(id: String, taken: Boolean = true) {
+        store.edit { p -> p[key] = encode(decode(p[key]).map { if (it.id == id) it.copy(taken = taken) else it }) }
     }
 
     suspend fun clear() { store.edit { it.remove(key) } }
@@ -75,8 +88,15 @@ class HistoryRepository(private val store: DataStore<Preferences>) {
     companion object {
         const val MAX = 100
         private val ser = kotlinx.serialization.builtins.ListSerializer(HistoryEntry.serializer())
-        fun decode(raw: String?): List<HistoryEntry> =
-            if (raw.isNullOrBlank()) emptyList() else runCatching { AppJson.decodeFromString(ser, raw) }.getOrDefault(emptyList())
+        fun decode(raw: String?): List<HistoryEntry> {
+            if (raw.isNullOrBlank()) return emptyList()
+            val decoded = runCatching { AppJson.decodeFromString(ser, raw) }.getOrDefault(emptyList())
+            // Las versiones anteriores no tenían id. El índice hace la migración estable incluso
+            // cuando dos evaluaciones comparten el mismo milisegundo de timestamp.
+            return decoded.mapIndexed { index, entry ->
+                if (entry.id.isBlank()) entry.copy(id = "legacy-${entry.at}-$index") else entry
+            }
+        }
         fun encode(list: List<HistoryEntry>): String = AppJson.encodeToString(ser, list)
     }
 }
