@@ -7,10 +7,10 @@ App Android nativa (Kotlin + Jetpack Compose) que funciona como copiloto en tiem
 ## Estado
 | | |
 |---|---|
-| Compila en la nube y genera APK | Sí — [CI verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45652876845), commit `c12f718` en rama `feature/realtime-fleet-and-brand` |
-| Pruebas unitarias / lint | En verde en CI (run `45652876845`, commit `c12f718`) |
+| Compila en la nube y genera APK | Sí — [CI verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45694670753), rama `feature/copiloto-radar-latam` |
+| Pruebas unitarias / lint | En verde en CI (run `45694670753`) |
 | Contrato con backend real | Validado históricamente (run 17); omitido deliberadamente en la CI manual más reciente |
-| Emulador Android 11 | En verde en run `45652876845` (API 30) |
+| Emulador Android 11 | En verde en run `45694670753` (API 30, 15 pruebas) |
 | Uber real en teléfono real | **OCR leyó una oferta real** (run 17 / APK `713f1fe`); revalidar accesibilidad automática y más formatos |
 | Briefing de turno | Parcial: consulta explícita al reporte heredado y guarda un snapshot local; aún sin feeds verificados ni índice calibrado |
 | Flotas y demanda colaborativa | Propuesta documentada; sin backend multiusuario ni ingestión de observaciones |

@@ -2,7 +2,27 @@
 
 **Actualizado:** 2026-11-25. Lee primero este resumen y `../AGENTS.md`; luego confirma la rama, el HEAD y el estado del árbol. Es una instantánea, no reemplaza a Git.
 
-## Último trabajo: copiloto multi-app y radar de demanda (2026-11-25)
+## Último trabajo: MVP para piloto con flota (2026-11-25)
+
+- Rama `feature/copiloto-radar-latam`, commits `208d2ad` y `7896670` (fix de test). **`main` no se tocó y no hay PR abierto.**
+- Entregado:
+  - Inicio simplificado: tarjetas Ahora, Turno, Última oferta y Hoy, más primeros pasos (`home_first_steps`) que se pueden ocultar. Cuatro pestañas: Inicio, Radar, Billetera y Más. Evaluar (`home_open_evaluate`) y el copiloto (`home_open_copilot`) son rutas sin pestaña.
+  - **Informe IA** (`intel/AiReport.kt`, `ui/AiUpdateScreen.kt`): pedido para una IA externa, respuesta pegada o compartida (intent SEND text/plain), validación local y carga al radar con origen `IA_EXTERNA` y confianza máxima de 0,55 (0,35 sin URL https).
+  - Alertas de pico (`intel/PeakAlerts.kt`, canal `radar`, notificación 31 y voz con el turno activo).
+  - Mínimos rápidos (`engine/QuickThresholds.kt`, `ui/QuickSetupDialog.kt`).
+  - Resumen semanal para flota con CSV (`insights/FleetReport.kt`, Informes).
+  - Ajustes con `settings_advanced`. El Radar pliega fuentes, contexto del servidor y carga manual en `radar_details` (`ui/ContextCards.kt`).
+- Documentación: [`PILOTO_FLOTA.md`](PILOTO_FLOTA.md), brief del MVP en `PRODUCT_VISION.md` y la sección Informe IA en `RADAR_DEMANDA.md`.
+- Validación local: `testDebugUnitTest`, `lintDebug`, `assembleDebug` y `compileDebugAndroidTestKotlin` en verde.
+- CI: [run 45694670753, verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45694670753). Pasaron compilación, unit tests, lint, APK y 15 pruebas en el emulador API 30. El contrato se omitió y no hubo Release. [APK debug](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45694670753/artifacts/15060910822).
+  - El intento previo ([run 45692863004](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45692863004)) falló porque Evaluar ahora viene precargado con la última oferta y el test escribía encima. Se corrigió usando `performTextReplacement`.
+- Próximos pasos:
+  1. Fase 0 del piloto en el teléfono del usuario: lectura de Uber, alertas e Informe IA con 2 o 3 IAs reales.
+  2. Fases 1 y 2 con 5 y luego 15 autos; juntar muestras anonimizadas de otras apps.
+  3. Implementar el tablero de aciertos (previsto vs observado) y los umbrales aprendidos del historial.
+  4. Decidir con el usuario si se abre un PR a `main`.
+
+## Trabajo anterior: copiloto multi-app y radar de demanda (2026-11-25)
 
 - Rama `feature/copiloto-radar-latam`, creada desde `feature/realtime-fleet-and-brand`. **`main` no se tocó y no hay PR abierto.**
 - Entregado:
