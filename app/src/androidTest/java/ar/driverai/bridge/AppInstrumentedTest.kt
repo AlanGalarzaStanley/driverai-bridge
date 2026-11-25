@@ -96,11 +96,11 @@ class AppInstrumentedTest {
 
     @Test fun evaluacionManual_conviene() {
         compose.onNodeWithTag("home_open_evaluate").performScrollTo().performClick()
-        compose.onNodeWithTag("in_fare").performTextInput("8000")
-        compose.onNodeWithTag("in_pkm").performTextInput("2")
-        compose.onNodeWithTag("in_pmin").performTextInput("5")
-        compose.onNodeWithTag("in_tkm").performTextInput("8")
-        compose.onNodeWithTag("in_tmin").performTextInput("20")
+        compose.onNodeWithTag("in_fare").performTextReplacement("8000")
+        compose.onNodeWithTag("in_pkm").performTextReplacement("2")
+        compose.onNodeWithTag("in_pmin").performTextReplacement("5")
+        compose.onNodeWithTag("in_tkm").performTextReplacement("8")
+        compose.onNodeWithTag("in_tmin").performTextReplacement("20")
         compose.onNodeWithTag("btn_evaluate").performScrollTo().performClick()
         compose.onNodeWithTag("verdict").performScrollTo().assertTextContains("CONVIENE")
         compose.onNodeWithTag("metrics_gross").assertTextContains("$800", substring = true)
