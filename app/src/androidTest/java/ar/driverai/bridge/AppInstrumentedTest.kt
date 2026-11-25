@@ -1,7 +1,6 @@
 package ar.driverai.bridge
 
 import android.content.Intent
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -243,7 +242,7 @@ class AppInstrumentedTest {
 
         compose.onNodeWithTag("tab_billetera").performClick()
         compose.onNodeWithText("Vinculado al diario. Corregilo desde Actividad de ofertas.").performScrollTo().assertExists()
-        compose.onNodeWithText("Borrar").assertDoesNotExist()
+        assertTrue("un cobro vinculado no se borra desde Billetera", compose.onAllNodesWithText("Borrar").fetchSemanticsNodes().isEmpty())
     }
 
     @Test fun vehiculo_guardaKilometrosYRecordatorio() {
