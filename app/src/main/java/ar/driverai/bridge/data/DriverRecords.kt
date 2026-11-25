@@ -54,6 +54,8 @@ data class MoneyEntry(
     val kind: MoneyKind,
     val amountArs: Double,
     val category: MoneyCategory,
+    /** Links a confirmed trip payment to its offer history record; null for manual entries. */
+    val tripHistoryId: String? = null,
 )
 
 data class MoneyDaySummary(
@@ -76,8 +78,15 @@ class MoneyLedgerRepository(private val store: DataStore<Preferences>) {
         store.edit { prefs -> prefs[key] = encode((decode(prefs[key]) + entry).takeLast(MAX_ENTRIES)) }
     }
 
-    suspend fun delete(id: String) {
-        store.edit { prefs -> prefs[key] = encode(decode(prefs[key]).filterNot { it.id == id }) }
+    suspend fun delete(id: String): Boolean {
+        var deleted = false
+        store.edit { prefs ->
+            val entries = decode(prefs[key])
+            if (entries.any { it.id == id && it.tripHistoryId != null }) return@edit
+            deleted = entries.any { it.id == id }
+            if (deleted) prefs[key] = encode(entries.filterNot { it.id == id })
+        }
+        return deleted
     }
 
     suspend fun clear() { store.edit { it.remove(key) } }

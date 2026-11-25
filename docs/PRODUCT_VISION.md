@@ -17,8 +17,8 @@ La ventaja no nace de una respuesta genérica de IA. Nace de combinar deprisa da
 - La lectura automática por Accesibilidad todavía debe volver a probarse con esa versión.
 - La app ya tiene umbrales de tarifa, bruto por km/hora y margen; puede derivar costo variable por km de consumo y precio de combustible; guarda historial numérico, permite marcar una oferta como “La tomé” y estima bruto/hora del turno.
 - En la rama `manus/briefing-end-to-end` se está incorporando un primer paso explícito al iniciar el turno: consultar el reporte estratégico heredado y guardar un resumen mínimo local. Ese endpoint no identifica fuente, vigencia ni confianza de cada dato; por tanto, no es el escaneo diario de señales ni un índice de demanda nuevo y calibrado.
-- Siguen pendientes el briefing alimentado por fuentes autorizadas, índice de demanda por zona/franja, billetera completa, registro de gastos y sincronización con Gridwise LATAM.
-- El historial actual es un inicio, no una contabilidad: registrar “La tomé” no confirma que el viaje se completó ni que se cobró. Oferta, viaje aceptado, viaje terminado e ingreso liquidado deben mantenerse separados.
+- El historial local ya separa oferta observada, decisión del conductor, viaje completado y cobro confirmado; los cobros asociados se reflejan una sola vez en la billetera. Distancia/tiempo reales siguen siendo opcionales y manuales.
+- Siguen pendientes el briefing alimentado por fuentes autorizadas, índice de demanda por zona/franja calibrado, cierre contable completo (incluidos impuestos y costos fijos), sincronización con Gridwise LATAM y expansión de monedas/mercados más allá del piloto ARS.
 
 ## El producto en cuatro piezas
 
@@ -47,7 +47,7 @@ El turno es el puente entre una predicción y la realidad. El diario debe distin
 
 - **Oferta observada** y valores estimados.
 - **Aceptada / rechazada / cancelada**, solo cuando el conductor lo confirme; la app no toca Uber.
-- **Viaje completado** y, por separado, ingreso real recibido o corregido por el conductor.
+- **Viaje completado** y, por separado, ingreso real recibido o corregido por el conductor. La versión Android ahora permite registrar este recorrido localmente y vincular el cobro confirmado a Billetera; no deriva pagos de ofertas.
 - **Gastos** del turno: combustible, peajes, estacionamiento y otros costos que quiera registrar.
 - **Resultado del turno**: bruto, gastos variables, costos asignados, neto estimado, horas conectadas/trabajadas, km, objetivo diario y rendimiento por hora/km.
 
@@ -100,7 +100,7 @@ La IA explica un cálculo determinístico, resume el turno y contesta preguntas 
 
 1. **Cerrar calibración del lector.** Repetir OCR en más ofertas y revalidar Accesibilidad automática; separar tarifa, recogida, viaje y confianza. Configurar umbrales personales.
 2. **Diseñar el “Briefing de turno” como la primera función estratégica.** Elegir zona y horario; mostrar clima, eventos, vuelos/barcos y patrones horarios con fuentes, caducidad y confianza. Empezar en una zona y sin predicciones de ganancia.
-3. **Construir en paralelo el diario y la billetera mínima local.** Registrar qué se predijo, qué oferta llegó, qué decidió el conductor y qué ingreso/gasto ocurrió. Esto crea la verdad de terreno necesaria para calibrar demanda y economía.
+3. **Evolucionar el diario y la billetera mínima local.** La app ya registra qué oferta llegó, qué decidió el conductor, si se completó y qué cobro confirmó; gastos y cobros quedan local-first. Falta mejorar correcciones/observación de resultados y luego usar datos agregados solo con consentimiento para calibrar demanda y economía.
 4. **Cruzar demanda y rentabilidad gradualmente.** Primero presentar índices independientes; después evaluar si las señales del destino mejoran resultados reales, manteniendo pisos económicos y explicaciones.
 5. **Agregar vehículo, mantenimiento y vencimientos.** Configuración de costos, recordatorios locales y corrección por fecha/km.
 6. **Conectar DriverAI Bridge y Gridwise LATAM.** Diseñar identidad, API, consentimiento, retención, corrección y eliminación antes de cambiar backend o sitio. Añadir fuentes externas con licencias/contratos verificados.

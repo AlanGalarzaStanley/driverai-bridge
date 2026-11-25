@@ -14,6 +14,7 @@
 | Voz (TTS) / dictado | Sí | **No** en teléfono | Sí | No |
 | Copiloto por reglas | Sí | Unitarias | Sí | No |
 | Briefing de turno | Parcial en `manus/briefing-end-to-end` | Pruebas de código pendientes | Solo con el reporte heredado | No |
+| Diario de viaje observado → decisión → completado → cobro vinculado | Sí, local-first | Unitarias e instrumentadas añadidas; CI/emulador pendiente y falta teléfono real | Sí, registros solo en el dispositivo | No |
 
 ## Limitaciones
 1. **Compatibilidad real aún parcial.** Una primera versión no reconoció el formato `11.405 ARS`; el parser se corrigió en `713f1fe`. Después, el conductor confirmó que esa versión leyó una oferta real por OCR (tarifa, km y minutos); recibió REVISAR porque no había configurado umbrales. Es solo una muestra. La lectura automática por accesibilidad sigue pendiente de revalidación y no se afirma compatibilidad general.
@@ -30,5 +31,6 @@
 12. El clima de referencia es una estimación modelada de Open-Meteo, habilitada solo en la build privada de depuración para un punto fijo de CABA Centro; no usa GPS ni representa necesariamente la zona seleccionada. La precipitación se presenta como acumulado informado y su intervalo, no como observación instantánea. Incluye atribución y enlace CC BY 4.0. El endpoint gratuito no se habilita en release; una distribución comercial necesita un plan comercial autorizado y una arquitectura de servidor/proxy. El dato meteorológico no equivale a alerta del SMN ni demanda.
 13. No hay fuentes integradas y verificadas de vuelos, cruceros, eventos musicales/deportivos ni demanda por franja horaria. La tarjeta indica expresamente estos faltantes; no se simulan datos.
 14. La web y el backend productivo no se modificaron.
-15. El historial local conserva como máximo 100 evaluaciones. El cálculo del turno usa esas entradas, por lo que una jornada con más de 100 evaluaciones puede quedar truncada; no debe interpretarse como contabilidad completa.
-16. DataStore usa el almacenamiento privado de la app, pero todavía no cifra los registros localmente. La billetera, el historial y los datos del vehículo requieren protección adicional si el dispositivo está comprometido o se comparte.
+15. El historial local conserva como máximo 100 evaluaciones. El cálculo del turno usa esas entradas, por lo que una jornada con más de 100 evaluaciones puede quedar truncada; los cobros ya registrados permanecen en Billetera, pero no se debe interpretar el historial como contabilidad completa.
+16. Los estados del diario y los importes asociados son confirmaciones manuales del conductor; DriverAI no observa si Uber aceptó, terminó o liquidó un viaje. Los km/minutos reales son opcionales y no se estiman a partir del GPS.
+17. DataStore usa el almacenamiento privado de la app, pero todavía no cifra los registros localmente. La billetera, el historial y los datos del vehículo requieren protección adicional si el dispositivo está comprometido o se comparte.

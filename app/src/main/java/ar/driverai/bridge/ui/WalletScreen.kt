@@ -101,7 +101,12 @@ fun WalletScreen() {
                             fontWeight = FontWeight.SemiBold,
                             color = if (entry.kind == MoneyKind.INCOME) Green else Amber,
                         )
-                        TextButton(onClick = { deleteTarget = entry }) { Text("Borrar") }
+                        if (entry.tripHistoryId == null) {
+                            TextButton(onClick = { deleteTarget = entry }) { Text("Borrar") }
+                        }
+                    }
+                    if (entry.tripHistoryId != null) {
+                        Text("Vinculado al diario. Corregilo desde Actividad de ofertas.", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
             }

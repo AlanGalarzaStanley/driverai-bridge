@@ -99,8 +99,9 @@ object CopilotEngine {
             when {
                 s == null || s.hours == null -> "Iniciá el turno en la pantalla principal para medir cuánto hacés por hora."
                 s.trips == 0 -> "No marcaste ofertas como tomadas en este turno."
-                s.grossPerHour == null -> "Marcaste ${s.trips} ofertas; sus tarifas leídas suman ${Fmt.ars(s.grossFare)}. No confirma cobros."
-                else -> "Ofertas marcadas tomadas: ${s.trips}; tarifas leídas ${Fmt.ars(s.grossFare)} (${Fmt.ars(s.grossPerHour)}/h estimado). No confirma cobros."
+                s.paidTrips > 0 -> "Aceptaste ${s.trips} ofertas; tarifas ${Fmt.ars(s.grossFare)} (${s.grossPerHour?.let { Fmt.ars(it) + "/h bruto estimado" } ?: "tiempo insuficiente para calcular /h"}). Cobros vinculados: ${s.paidTrips} viajes, ${Fmt.ars(s.actualIncome)}${s.actualIncomePerHour?.let { " (${Fmt.ars(it)}/h desde el inicio)" } ?: ""}. No es ganancia neta."
+                s.grossPerHour == null -> "Marcaste ${s.trips} ofertas como aceptadas; sus tarifas leídas suman ${Fmt.ars(s.grossFare)}. No confirma cobros."
+                else -> "Ofertas aceptadas: ${s.trips}; tarifas leídas ${Fmt.ars(s.grossFare)} (${Fmt.ars(s.grossPerHour)}/h bruto estimado). No confirma cobros."
             }
         }
         Intent.DONDE_ESPERAR -> donde(ctx)
@@ -118,7 +119,9 @@ object CopilotEngine {
         parts += ctx.odometerTodayKm?.let { "Odómetro manual de hoy: ${Fmt.num(it, 1)} km." } ?: "No hay odómetro manual de hoy."
         val shift = ctx.shift
         if (shift != null) {
-            parts += "En el turno: ${shift.trips} ofertas marcadas tomadas y tarifas leídas ${Fmt.ars(shift.grossFare)}; no confirma cobros."
+            val estimate = "En el turno: ${shift.trips} ofertas aceptadas; sus tarifas suman ${Fmt.ars(shift.grossFare)} (estimado, no confirma cobros)."
+            val paid = if (shift.paidTrips > 0) " Cobros vinculados y anotados: ${shift.paidTrips} viajes por ${Fmt.ars(shift.actualIncome)}; no es ganancia neta." else " Todavía no anotaste cobros vinculados a esas ofertas."
+            parts += estimate + paid
         }
         val target = ctx.settings.dailyTargetArs?.takeIf { it.isFinite() && it > 0.0 }
         if (target != null && wallet != null) {

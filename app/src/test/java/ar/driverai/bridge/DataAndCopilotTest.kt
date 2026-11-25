@@ -12,6 +12,7 @@ import ar.driverai.bridge.copilot.ExternalBriefingPrompt
 import ar.driverai.bridge.copilot.Intent
 import ar.driverai.bridge.data.HistoryEntry
 import ar.driverai.bridge.data.HistoryRepository
+import ar.driverai.bridge.data.JournalResult
 import ar.driverai.bridge.data.MaintenanceRecord
 import ar.driverai.bridge.data.MoneyCategory
 import ar.driverai.bridge.data.MoneyAmountParser
@@ -21,6 +22,7 @@ import ar.driverai.bridge.data.OdometerEntry
 import ar.driverai.bridge.data.OdometerSaveResult
 import ar.driverai.bridge.data.SettingsRepository
 import ar.driverai.bridge.data.ShiftCalculator
+import ar.driverai.bridge.data.TripStatus
 import ar.driverai.bridge.data.VehicleRecordsRepository
 import ar.driverai.bridge.engine.*
 import kotlinx.coroutines.CoroutineScope
@@ -74,15 +76,91 @@ class DataAndCopilotTest {
     }
 
     @Test fun historial_migraIdsUnicosAunqueCompartaTimestamp() {
-        val legacy = HistoryRepository.encode(
-            listOf(
-                HistoryEntry(1L, "CONVIENE", 1000.0, 1.0, 10.0, 1000.0, 6000.0, DataSource.MANUAL),
-                HistoryEntry(1L, "REVISAR", 900.0, 1.0, 10.0, 900.0, 5400.0, DataSource.MANUAL),
-            ),
-        )
+        val legacy = """[
+            {"at":1,"verdict":"CONVIENE","fare":1000.0,"totalKm":1.0,"totalMin":10.0,"grossPerKm":1000.0,"grossPerHour":6000.0,"source":"MANUAL","taken":true},
+            {"at":1,"verdict":"REVISAR","fare":900.0,"totalKm":1.0,"totalMin":10.0,"grossPerKm":900.0,"grossPerHour":5400.0,"source":"MANUAL","taken":false}
+        ]"""
         val migrated = HistoryRepository.decode(legacy)
         assertEquals(2, migrated.map { it.id }.toSet().size)
+        assertEquals(TripStatus.ACCEPTED, migrated.first().tripStatus)
+        assertEquals(TripStatus.OBSERVED, migrated.last().tripStatus)
         assertEquals(migrated, HistoryRepository.decode(HistoryRepository.encode(migrated)))
+    }
+
+    @Test fun diarioViaje_separaOfertaDecisionFinalizacionYCobroYActualizaBilleteraUnaSolaVez() = runBlocking {
+        val sharedStore = store("trip-journal")
+        val historyRepo = HistoryRepository(sharedStore)
+        val walletRepo = MoneyLedgerRepository(sharedStore)
+        val evaluation = OfferEvaluator.evaluate(
+            OfferData(Reading.manual(8000.0), Reading.manual(2.0), Reading.manual(5.0), Reading.manual(8.0), Reading.manual(20.0)),
+            DriverSettings(minFare = 1.0),
+        )
+        historyRepo.add(evaluation, 100L, DataSource.MANUAL, id = "offer-1")
+
+        assertEquals(TripStatus.OBSERVED, historyRepo.entries.first().single().tripStatus)
+        assertEquals(JournalResult.UPDATED, historyRepo.recordOfferDecision("offer-1", accepted = false, at = 110L))
+        assertEquals(JournalResult.INVALID_TRANSITION, historyRepo.completeTrip("offer-1", null, null, at = 120L))
+        assertEquals(JournalResult.UPDATED, historyRepo.restoreObserved("offer-1", at = 130L))
+        assertEquals(JournalResult.UPDATED, historyRepo.recordOfferDecision("offer-1", accepted = true, at = 140L))
+        assertEquals(JournalResult.UPDATED, historyRepo.restoreObserved("offer-1", at = 145L))
+        assertEquals(TripStatus.OBSERVED, historyRepo.entries.first().single().tripStatus)
+        assertEquals(JournalResult.UPDATED, historyRepo.recordOfferDecision("offer-1", accepted = true, at = 146L))
+        assertEquals(JournalResult.UPDATED, historyRepo.completeTrip("offer-1", actualDistanceKm = 9.4, actualDurationMin = 31.0, at = 150L))
+        assertEquals(JournalResult.INVALID_AMOUNT, historyRepo.recordTripPayment("offer-1", 0.001, at = 160L))
+        assertEquals(JournalResult.UPDATED, historyRepo.recordTripPayment("offer-1", 7500.0, at = 170L))
+        val firstPayment = walletRepo.entries.first().single()
+        assertEquals("offer-1", firstPayment.tripHistoryId)
+        assertEquals(MoneyCategory.TRIP_INCOME, firstPayment.category)
+        assertFalse(walletRepo.delete(firstPayment.id))
+        assertEquals(1, walletRepo.entries.first().size)
+        assertEquals(TripStatus.PAID, historyRepo.entries.first().single().tripStatus)
+        assertEquals(7500.0, historyRepo.entries.first().single().actualIncomeArs!!, 0.0)
+
+        assertEquals(JournalResult.UPDATED, historyRepo.recordTripPayment("offer-1", 7600.0, at = 180L))
+        assertEquals(1, walletRepo.entries.first().size)
+        assertEquals(7600.0, walletRepo.entries.first().single().amountArs, 0.0)
+        val shift = ShiftCalculator.compute(historyRepo.entries.first(), shiftStart = 0L, now = 3_600_000L)
+        assertEquals(1, shift.trips)
+        assertEquals(1, shift.paidTrips)
+        assertEquals(8000.0, shift.grossFare, 0.0)
+        assertEquals(7600.0, shift.actualIncome, 0.0)
+        assertEquals(7600.0, shift.actualIncomePerHour!!, 0.0)
+
+        assertEquals(JournalResult.UPDATED, historyRepo.removeTripPayment("offer-1", at = 190L))
+        assertEquals(TripStatus.COMPLETED, historyRepo.entries.first().single().tripStatus)
+        assertTrue(walletRepo.entries.first().isEmpty())
+
+        assertEquals(JournalResult.UPDATED, historyRepo.recordTripPayment("offer-1", 7600.0, at = 200L))
+        historyRepo.clear()
+        assertTrue(historyRepo.entries.first().isEmpty())
+        assertEquals(1, walletRepo.entries.first().size)
+        assertNull(walletRepo.entries.first().single().tripHistoryId)
+    }
+
+    @Test fun diario_alExpulsarUnaOfertaPagadaConservaElIngresoYLoDesvincula() = runBlocking {
+        val sharedStore = store("trip-journal-overflow")
+        val historyRepo = HistoryRepository(sharedStore)
+        val walletRepo = MoneyLedgerRepository(sharedStore)
+        val evaluation = OfferEvaluator.evaluate(
+            OfferData(Reading.manual(8000.0), Reading.manual(2.0), Reading.manual(5.0), Reading.manual(8.0), Reading.manual(20.0)),
+            DriverSettings(minFare = 1.0),
+        )
+        historyRepo.add(evaluation, 1L, DataSource.MANUAL, id = "old-paid-offer")
+        historyRepo.recordOfferDecision("old-paid-offer", accepted = true, at = 2L)
+        historyRepo.completeTrip("old-paid-offer", actualDistanceKm = null, actualDurationMin = null, at = 3L)
+        historyRepo.recordTripPayment("old-paid-offer", 7600.0, at = 4L)
+        val paymentId = walletRepo.entries.first().single().id
+
+        repeat(HistoryRepository.MAX) { index ->
+            historyRepo.add(evaluation, 10L + index, DataSource.MANUAL, id = "new-offer-$index")
+        }
+
+        assertFalse(historyRepo.entries.first().any { it.id == "old-paid-offer" })
+        val retainedPayment = walletRepo.entries.first().single { it.id == paymentId }
+        assertEquals(7600.0, retainedPayment.amountArs, 0.0)
+        assertNull(retainedPayment.tripHistoryId)
+        assertTrue(walletRepo.delete(paymentId))
+        assertTrue(walletRepo.entries.first().isEmpty())
     }
 
     @Test fun turno_brutoPorHora() {
@@ -103,7 +181,25 @@ class DataAndCopilotTest {
         assertTrue(answer, answer.contains("No confirma cobros"))
     }
 
+    @Test fun copiloto_distingueCobrosRealesVinculadosDeTarifasYGananciaNeta() {
+        val paid = HistoryEntry(
+            3_600_000, "CONVIENE", 8000.0, 10.0, 25.0, 800.0, 19200.0,
+            DataSource.ACCESSIBILITY,
+            taken = true,
+            id = "paid-trip",
+            tripStatus = TripStatus.PAID,
+            actualIncomeArs = 7600.0,
+        )
+        val shift = ShiftCalculator.compute(listOf(paid), shiftStart = 0L, now = 2 * 3_600_000L)
+        val answer = CopilotEngine.answer("¿Cuánto hago por hora?", ctx().copy(shift = shift))
+        assertTrue(answer, answer.contains("tarifas"))
+        assertTrue(answer, answer.contains("Cobros vinculados: 1 viajes, \$7.600"))
+        assertTrue(answer, answer.contains("No es ganancia neta"))
+    }
+
     @Test fun billetera_persisteYResumePorDiaLocal() = runBlocking {
+        val legacyMoney = """[{"id":"old-entry","at":1,"kind":"INCOME","amountArs":2.0,"category":"TRIP_INCOME"}]"""
+        assertNull(MoneyLedgerRepository.decode(legacyMoney).single().tripHistoryId)
         val repo = MoneyLedgerRepository(store("money"))
         val zone = ZoneId.of("America/Argentina/Buenos_Aires")
         val day = LocalDate.of(2026, 11, 21)

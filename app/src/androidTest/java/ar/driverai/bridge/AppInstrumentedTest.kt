@@ -1,7 +1,9 @@
 package ar.driverai.bridge
 
 import android.content.Intent
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -17,6 +19,9 @@ import androidx.test.uiautomator.Until
 import ar.driverai.bridge.capture.DriverAccessibilityService
 import ar.driverai.bridge.engine.DataSource
 import ar.driverai.bridge.engine.DriverSettings
+import ar.driverai.bridge.engine.OfferData
+import ar.driverai.bridge.engine.OfferEvaluator
+import ar.driverai.bridge.engine.Reading
 import ar.driverai.bridge.engine.Verdict
 import ar.driverai.bridge.ui.MainActivity
 import ar.driverai.bridge.ui.SimulatorActivity
@@ -46,6 +51,7 @@ class AppInstrumentedTest {
     @Before fun setUp(): Unit = runBlocking {
         DriverAiApp.graph.settingsRepo.update { DriverSettings(minGrossPerKm = 500.0, historyEnabled = true, speakVerdicts = false, dailyTargetArs = null) }
         DriverAiApp.graph.overlay.hideAll()
+        DriverAiApp.graph.historyRepo.clear()
         DriverAiApp.graph.walletRepo.clear()
         DriverAiApp.graph.vehicleRepo.clearAll()
     }
@@ -188,6 +194,56 @@ class AppInstrumentedTest {
         val summary = ar.driverai.bridge.data.MoneyLedgerRepository.summarize(DriverAiApp.graph.walletRepo.entries.first())
         assertEquals(12000.0, summary.incomeArs, 0.0)
         assertEquals(2500.0, summary.expensesArs, 0.0)
+    }
+
+    @Test fun historial_completaViajeYRegistraCobroVinculadoEnBilletera() = runBlocking {
+        val tripId = "instrumented-trip-lifecycle"
+        val evaluation = OfferEvaluator.evaluate(
+            OfferData(Reading.manual(8000.0), Reading.manual(2.0), Reading.manual(5.0), Reading.manual(8.0), Reading.manual(20.0)),
+            DriverSettings(minFare = 1.0),
+        )
+        DriverAiApp.graph.historyRepo.add(evaluation, System.currentTimeMillis(), DataSource.MANUAL, id = tripId)
+
+        compose.onNodeWithTag("tab_mas").performClick()
+        compose.onNodeWithTag("tab_historial").performClick()
+        compose.onNodeWithText("La acepté").performScrollTo().performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Viaje completado").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Corregir estado").performScrollTo().performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("La acepté").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("La acepté").performScrollTo().performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Viaje completado").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Viaje completado").performScrollTo().performClick()
+        compose.onNodeWithTag("trip_actual_km").performTextInput("9,4")
+        compose.onNodeWithTag("trip_actual_minutes").performTextInput("31")
+        compose.onNodeWithTag("trip_save_completed").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Registrar cobro real").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Registrar cobro real").performScrollTo().performClick()
+        compose.onNodeWithTag("trip_actual_income").performTextInput("7.600,50")
+        compose.onNodeWithTag("trip_save_income").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Ingreso cobrado y vinculado:", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        val recordedTrip = DriverAiApp.graph.historyRepo.entries.first().single { it.id == tripId }
+        val walletEntry = DriverAiApp.graph.walletRepo.entries.first().single()
+        assertEquals(ar.driverai.bridge.data.TripStatus.PAID, recordedTrip.tripStatus)
+        assertEquals(9.4, recordedTrip.actualDistanceKm!!, 1e-9)
+        assertEquals(31.0, recordedTrip.actualDurationMin!!, 0.0)
+        assertEquals(7600.5, recordedTrip.actualIncomeArs!!, 1e-9)
+        assertEquals(tripId, walletEntry.tripHistoryId)
+        assertEquals(7600.5, walletEntry.amountArs, 1e-9)
+
+        compose.onNodeWithTag("tab_billetera").performClick()
+        compose.onNodeWithText("Vinculado al diario. Corregilo desde Actividad de ofertas.").performScrollTo().assertExists()
+        compose.onNodeWithText("Borrar").assertDoesNotExist()
     }
 
     @Test fun vehiculo_guardaKilometrosYRecordatorio() {

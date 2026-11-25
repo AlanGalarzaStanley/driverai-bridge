@@ -2,12 +2,19 @@
 
 ## En desarrollo
 ### Agregado
+- **Diario de viaje de punta a punta** en Historial: oferta observada → aceptada/rechazada → completada/cancelada → cobro confirmado por el conductor.
+- Los viajes completados admiten kilómetros y minutos reales opcionales; el cobro se vincula a Billetera en una transacción local y se puede corregir o deshacer sin duplicarlo.
+- Los cobros vinculados no se pueden borrar por separado en Billetera; se corrigen o revierten desde Actividad de ofertas para mantener ambos registros alineados.
+- Si una oferta pagada sale del historial acotado, su ingreso se conserva y se desvincula para que siga siendo editable en Billetera; una aceptación errónea también se puede devolver a oferta observada.
+- Copiloto de turno diferencia tarifas de ofertas aceptadas de ingresos cobrados y vinculados, sin llamar ganancia neta a la diferencia.
 - Cliente **Open-Meteo** en el teléfono (sin API key) para clima real de BA.
 - Sección **Clima (verificado)** en Inicio, separada del reporte del servidor.
 - `docs/TRUTH_LAYER.md`: contrato de hechos vs estimaciones.
 - **Design system Cockpit** centralizado en `Theme.kt`: `DriverColors`, `ScreenScaffold`, `Section`, `MetricTile`, `PrimaryCta`, `GhostCta`, `StatusPill`, `VerdictBanner`, `CockpitField`.
 
 ### Mejorado
+- Migración local transparente: registros antiguos marcados “La tomé” pasan a “Aceptada por vos”, sin asumir que el viaje terminó o se cobró.
+- Borrar el historial de ofertas conserva los movimientos reales de Billetera y los desvincula antes de eliminar sus ofertas.
 - **Rediseño visual integral (Cockpit)** en todas las pantallas:
   - Inicio, Evaluar, Historial, Ajustes y Chequeo usan el mismo lenguaje visual.
   - Fondo void/hull, acentos cyan/go, tipografía mono-sans, métricas en tiles, CTAs consistentes.
