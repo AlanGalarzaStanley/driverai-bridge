@@ -2,13 +2,14 @@
 
 **Actualizado:** 2026-11-26. Lee primero este resumen y `../AGENTS.md`; luego confirma la rama, el HEAD y el estado del árbol. Es una instantánea, no reemplaza a Git.
 
-## Última continuación: lectura automática y tarjeta (2026-11-26)
+## Última continuación: Billetera, contraste y lectura de ofertas (2026-11-26)
 
-- Rama `manus/offer-reading-card-cleanup`, commit `ac4efb9`, basada en `06fa260`. Está subida a `origin`; `main` no se modificó y no se abrió PR.
-- Accesibilidad hace hasta dos reintentos breves, conserva el aislamiento de paquetes y usa solo texto del evento cuando el árbol activo pertenece a otra app. El parser no se relajó. La tarjeta prioriza veredicto y cuatro métricas colorizadas por los umbrales del conductor; valores aproximados quedan ámbar y la vista compacta es el valor predeterminado para ajustes nuevos.
-- CI [run 45756555582, verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45756555582): unit tests, lint, APK debug y pruebas instrumentadas en emulador API 30 pasaron. El contrato productivo se omitió; no se publicó Release. [Artefacto APK debug 71](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45756555582/artifacts/15088112272) (retención de 30 días). La compilación local no se pudo ejecutar porque el sandbox no tiene Android SDK.
-- La captura enviada originó una prueba sin direcciones en `OfferTextParserTest.kt` para tarifa 23.913 ARS, recogida 5 min/1,1 km y viaje 48 min/41,2 km; la CI de esta nueva prueba queda pendiente. No se infiere el rating `5,00 (51)` al faltar una etiqueta textual, para no introducir falsos positivos.
-- **Pendiente:** probar la lectura automática con Uber real en un teléfono. La captura muestra los textos visuales, pero no confirma que Android los exponga al servicio de Accesibilidad; la CI del simulador tampoco lo prueba.
+- Rama `manus/offer-reading-card-cleanup`, código en `d62c976` sobre `ff22b28`, subida a `origin`. `main` sigue intacta; no se abrió PR.
+- Billetera deriva una sección aparte para viajes aceptados/completados sin cobro vinculado: suma tarifas ofrecidas como **estimación**, sin crear movimiento ni alterar ingresos/balance. La acción abre Registro; el cobro real continúa requiriendo completar el viaje y confirmar manualmente el importe.
+- Inicio ahora separa tarifas aceptadas estimadas de cobros vinculados. Se aclararon los nombres de los resúmenes de Billetera. `Scaffold` fija el color de contenido claro para el tema oscuro y Evaluar usa el color atenuado de la paleta en lugar de gris fijo.
+- CI [run 45760031369, verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45760031369), compilado desde `d62c976`: unit tests, lint, APK debug y pruebas instrumentadas en emulador API 30 pasaron. El contrato contra backend real se omitió y no hubo Release. [APK debug (artefacto 15089891688, retención de 30 días)](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45760031369/artifacts/15089891688). La compilación local no se pudo ejecutar porque el sandbox no tiene Android SDK.
+- La captura originó una fixture anonimizada en `OfferTextParserTest.kt`, sin direcciones, con tarifa 23.913 ARS, recogida 5 min/1,1 km y viaje 48 min/41,2 km. El rating `5,00 (51)` no se clasifica sin etiqueta textual. CI [run 45758510594, verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45758510594) validó esa prueba.
+- **Pendiente:** probar Accesibilidad con Uber real en un teléfono: la captura prueba texto visible, no que Android lo exponga al servicio. También falta revisión visual en el teléfono del usuario, incluida la pantalla oscura.
 
 ## Último trabajo: MVP para piloto con flota (2026-11-25)
 
