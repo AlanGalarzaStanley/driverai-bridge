@@ -43,7 +43,7 @@ object OfferTextParser {
     private val pickupKw = listOf("away", "de distancia", "recog", "para buscar", "hasta el pasajero", "pickup", "pick-up", "llegada")
     private val tripKw = listOf("trip", "viaje", "recorrido", "destino", "con pasajero")
     private val requestContextRegex = Regex(
-        """(?i)(?<![\p{L}\p{N}])(?:solicitud|request|nuevo viaje|new trip|aceptar|accept|toca para aceptar|tap to accept|acepta en|accept in|ofrecer|ofrecé|tomar viaje|nuevo pedido|propon[eé]|propón)(?![\p{L}\p{N}])""",
+        """(?i)(?<![\p{L}\p{N}])(?:solicitud|request|nuevo viaje|new trip|aceptar|accept|toca para aceptar|tap to accept|acepta en|accept in|me interesa|ofrecer|ofrecé|tomar viaje|nuevo pedido|propon[eé]|propón)(?![\p{L}\p{N}])""",
     )
     private val bonusKw = listOf("incluid", "incl.", "incluye", "promo", "bonif", "propina", "tip", "dinámica", "boost", "surge", "+")
     private val products = listOf(

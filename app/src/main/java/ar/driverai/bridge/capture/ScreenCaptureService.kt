@@ -100,7 +100,14 @@ class ScreenCaptureService : Service() {
             try {
                 val lines = OcrEngine.recognizeLines(bitmap)
                 val found = g.pipeline.onScreenText(lines, DataSource.OCR)
-                if (!found) g.overlay.showMessage("No se detectó una oferta legible en pantalla.")
+                if (!found) {
+                    val message = if (lines.isEmpty()) {
+                        "No se reconoció texto en la captura. Asegurate de que la oferta esté visible e intentá de nuevo."
+                    } else {
+                        "Se leyó texto, pero no se reconoció una oferta. Dejá visibles la tarifa, el detalle del viaje y «Me interesa» o «Aceptar»."
+                    }
+                    g.overlay.showMessage(message)
+                }
             } catch (e: Exception) {
                 g.pipeline.setStatus(PipelineStatus.ERROR)
                 g.overlay.showMessage("Error de OCR. Probá de nuevo.")

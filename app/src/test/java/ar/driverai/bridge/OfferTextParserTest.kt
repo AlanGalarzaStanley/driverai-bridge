@@ -146,6 +146,39 @@ class OfferTextParserTest {
         assertEquals(Verdict.CONVIENE, evaluation.verdict)
     }
 
+    @Test fun ofertaListaUberPriority_meInteresaNoConfundeBonosConTarifa() {
+        // Fixture anonimizada de una tarjeta elegible de la lista; no conserva mapa ni direcciones.
+        val lines = listOf(
+            "Uber Priority",
+            "7.575 ARS",
+            "29 min · 7.3 km · 1.038 ARS/km est.",
+            "4,92 (348)",
+            "+685,00 ARS incluido",
+            "+749,00 ARS incluido para inicio",
+            "A 7 min (1.1 km) de distancia",
+            "Viaje: 22 min (6.2 km)",
+            "Me interesa",
+        )
+        val accessibility = OfferTextParser.parse(lines, DataSource.ACCESSIBILITY)
+        val ocr = OfferTextParser.parse(lines, DataSource.OCR)
+
+        assertTrue("la tarjeta elegible de lista también es una oferta", accessibility.isLikelyOffer)
+        assertTrue("el mismo texto debe funcionar con OCR local", ocr.isLikelyOffer)
+        assertEquals(7_575.0, accessibility.offer.fare.value!!, 0.0)
+        assertEquals("no sumar bonos ni el ARS/km estimado a la tarifa", 7_575.0, ocr.offer.fare.value!!, 0.0)
+        assertEquals(1.1, accessibility.offer.pickupKm.value!!, 1e-9)
+        assertEquals(7.0, accessibility.offer.pickupMin.value!!, 0.0)
+        assertEquals(6.2, accessibility.offer.tripKm.value!!, 1e-9)
+        assertEquals(22.0, accessibility.offer.tripMin.value!!, 0.0)
+        assertEquals("Uber Priority", accessibility.offer.product)
+        assertNull("un rating con estrella pero sin etiqueta no se clasifica", accessibility.offer.passengerRating.value)
+
+        val evaluation = OfferEvaluator.evaluate(accessibility.offer, DriverSettings())
+        assertEquals(7.3, evaluation.metrics.totalKm!!, 1e-9)
+        assertEquals(29.0, evaluation.metrics.totalMin!!, 0.0)
+        assertEquals(7_575.0 / 7.3, evaluation.metrics.grossPerKm!!, 1e-9)
+    }
+
     @Test fun ofertaClara_ingles_millas() {
         val o = p("UberX", "$12", "5 mins (1.6 mi) away", "12 mins (5.1 mi) trip").offer
         assertEquals(1.6 * 1.609344, o.pickupKm.value!!, 1e-6)
