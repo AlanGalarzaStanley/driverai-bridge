@@ -4,7 +4,7 @@
 
 ## Última continuación: Billetera, contraste y lectura de ofertas (2026-11-26)
 
-- Rama `manus/offer-reading-card-cleanup`, HEAD `dbdbee7` (`fix: recognize Uber list offer CTA`), subida a `origin`. `main` sigue intacta; no se abrió PR.
+- Rama `manus/offer-reading-card-cleanup`; la corrección de parser/OCR está en `dbdbee7` y el handoff/changelog están actualizados y subidos a `origin`. `main` sigue intacta; no se abrió PR.
 - Billetera deriva una sección aparte para viajes aceptados/completados sin cobro vinculado: suma tarifas ofrecidas como **estimación**, sin crear movimiento ni alterar ingresos/balance. La acción abre Registro; el cobro real continúa requiriendo completar el viaje y confirmar manualmente el importe.
 - Inicio ahora separa tarifas aceptadas estimadas de cobros vinculados. Se aclararon los nombres de los resúmenes de Billetera. `Scaffold` fija el color de contenido claro para el tema oscuro y Evaluar usa el color atenuado de la paleta en lugar de gris fijo.
 - La fixture de la oferta listada comprueba ambas fuentes (`ACCESSIBILITY` y `OCR`) con texto simulado: tarifa 7.575 ARS; bonos `+685,00` y `+749,00` y `1.038 ARS/km` quedan excluidos; recogida 7 min/1,1 km y viaje 22 min/6,2 km prevalecen sobre el resumen total 29 min/7,3 km. El parser acepta “Me interesa” solo como contexto junto con tarifa y métricas requeridas; no hace clic, acepta ni registra viajes.
