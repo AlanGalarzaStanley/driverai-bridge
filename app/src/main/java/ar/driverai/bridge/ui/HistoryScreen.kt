@@ -59,7 +59,7 @@ fun HistoryScreen() {
     Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 12.dp)) {
         ScreenTitle("REGISTRO", "Actividad de ofertas", "De la lectura al viaje y al cobro")
         Section("Tu decisión · datos separados") {
-            Text("Una oferta observada no significa que la hayas aceptado. Completar un viaje y registrar lo que cobraste son pasos distintos; los importes reales se guardan en Billetera. No se envía información a Uber ni al servidor.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            Text("Marcar una oferta como aceptada no crea un cobro: la tarifa queda como estimación. Después de completar el viaje, registrá en Registro lo que realmente cobraste; ese importe vinculado aparece en Billetera. No se envía información a Uber ni al servidor.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
         OutlinedButton(onClick = { scope.launch { g.historyRepo.clear() } }, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Text("Borrar historial de ofertas") }
         if (history.isEmpty()) {

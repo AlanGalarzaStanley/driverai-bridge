@@ -337,7 +337,13 @@ private fun ShiftCard(
     val active = shiftStart != null
     Section(if (active) "Turno en marcha" else "Turno") {
         if (active) {
-            Text("Desde ${formatHomeTime(shiftStart!!)} · ${stats.trips} viajes tomados" + (stats.grossPerHour?.let { " · ${Fmt.ars(it)}/h bruto" } ?: ""), style = MaterialTheme.typography.bodyMedium)
+            Text("Desde ${formatHomeTime(shiftStart!!)} · ${stats.trips} viajes aceptados", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Tarifas ofrecidas: ${Fmt.ars(stats.grossFare)}${stats.grossPerHour?.let { " · ${Fmt.ars(it)}/h estimado" } ?: ""} · no son cobros.",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextMuted,
+            )
+            Text("Cobros de viajes anotados: ${stats.paidTrips} · ${Fmt.ars(stats.actualIncome)}", style = MaterialTheme.typography.bodySmall, color = Green)
             val previousDay = java.time.Instant.ofEpochMilli(shiftStart).atZone(java.time.ZoneId.systemDefault()).toLocalDate() <
                 java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()).toLocalDate()
             if (previousDay) SectionCaption("Empezó un día anterior: las horas no descuentan pausas.")
@@ -414,5 +420,4 @@ fun MetricsSummary(m: ar.driverai.bridge.engine.Metrics) {
     Text("Bruto/km: ${d(m.grossPerKm, Fmt::ars)} · Bruto/h: ${d(m.grossPerHour, Fmt::ars)}", fontWeight = FontWeight.Bold, modifier = Modifier.testTag("metrics_gross"))
     if (m.variableCost != null) Text("Costo variable est.: ${Fmt.ars(m.variableCost)} · Ganancia est. antes de fijos e impuestos: ${d(m.estimatedProfitBeforeFixed, Fmt::ars)} · Margen: ${d(m.marginPct) { Fmt.num(it) + " %" }}")
 }
-
 

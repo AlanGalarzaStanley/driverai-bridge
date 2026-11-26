@@ -88,6 +88,7 @@ class MainActivity : ComponentActivity() {
         ) {
             Scaffold(
                 containerColor = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onBackground,
                 bottomBar = {
                     if (tab != "copiloto" && tab != "ia") {
                         NavigationBar(containerColor = Color(0xF20D1410), tonalElevation = 0.dp) {
@@ -119,7 +120,7 @@ class MainActivity : ComponentActivity() {
                             tab = destination
                         }
                         "evaluar" -> EvaluateScreen(prefill) { prefill = false }
-                        "billetera" -> WalletScreen()
+                        "billetera" -> WalletScreen(onHistory = { tab = "historial" })
                         "vehiculo" -> VehicleScreen()
                         "mas" -> ToolsScreen { destination -> tab = destination }
                         "copiloto" -> CopilotScreen(onOpenAi = { aiReturn = "inicio"; tab = "ia" }) { tab = "inicio" }

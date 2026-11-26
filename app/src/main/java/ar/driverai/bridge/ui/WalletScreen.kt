@@ -40,6 +40,7 @@ import ar.driverai.bridge.data.MoneyEntry
 import ar.driverai.bridge.data.MoneyKind
 import ar.driverai.bridge.data.MoneyLedgerRepository
 import ar.driverai.bridge.data.MoneyAmountParser
+import ar.driverai.bridge.data.PendingTripEstimateSummary
 import ar.driverai.bridge.engine.Fmt
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -47,12 +48,14 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @Composable
-fun WalletScreen() {
+fun WalletScreen(onHistory: () -> Unit = {}) {
     val g = DriverAiApp.graph
     val scope = rememberCoroutineScope()
     val entries by g.walletRepo.entries.collectAsState(initial = emptyList())
+    val history by g.historyRepo.entries.collectAsState(initial = emptyList())
     val today = LocalDate.now()
     val summary = remember(entries, today) { MoneyLedgerRepository.summarize(entries, today) }
+    val pendingTrips = remember(history) { PendingTripEstimateSummary.from(history) }
     var editingType by remember { mutableStateOf<MoneyKind?>(null) }
     var amountText by remember { mutableStateOf("") }
     var category by remember { mutableStateOf(MoneyCategory.TRIP_INCOME) }
@@ -62,17 +65,43 @@ fun WalletScreen() {
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 12.dp)) {
         ScreenTitle("Control diario", "Billetera", today.format(DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale.forLanguageTag("es-AR"))))
-        MetricCard("Diferencia de caja", Fmt.ars(summary.cashBalanceArs), "Saldo entre movimientos que anotaste · no es ganancia neta", Modifier.fillMaxWidth().testTag("wallet_balance_metric"), if (summary.cashBalanceArs < 0) Red else AccentMint)
+        MetricCard("Balance anotado hoy", Fmt.ars(summary.cashBalanceArs), "Ingresos anotados − gastos anotados · no es ganancia neta", Modifier.fillMaxWidth().testTag("wallet_balance_metric"), if (summary.cashBalanceArs < 0) Red else AccentMint)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("Ingresos cargados", Fmt.ars(summary.incomeArs), "Confirmados por vos", Modifier.weight(1f).testTag("wallet_income_metric"), Green)
-            MetricCard("Gastos cargados", Fmt.ars(summary.expensesArs), "Registrados hoy", Modifier.weight(1f).testTag("wallet_expense_metric"), Amber)
+            MetricCard("Ingresos anotados", Fmt.ars(summary.incomeArs), "Confirmados por vos", Modifier.weight(1f).testTag("wallet_income_metric"), Green)
+            MetricCard("Gastos anotados", Fmt.ars(summary.expensesArs), "Registrados hoy", Modifier.weight(1f).testTag("wallet_expense_metric"), Amber)
         }
         Text(
-            "Solo suma movimientos que registrás. No convierte ofertas leídas o marcadas como tomadas en ingresos, ni estima gastos que todavía no cargaste.",
+            "Los viajes aceptados aparecen aparte como estimación. Para vincular un cobro con un viaje, confirmalo desde Registro; no cargues el mismo importe dos veces.",
             style = MaterialTheme.typography.bodySmall,
             color = TextMuted,
             modifier = Modifier.padding(top = 8.dp, bottom = 10.dp),
         )
+        Section("Viajes aceptados · estimación separada", modifier = Modifier.fillMaxWidth().testTag("wallet_pending_trip_estimate")) {
+            if (pendingTrips.tripCount == 0) {
+                Text("No hay viajes aceptados o completados sin cobro anotado.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            } else {
+                Text(
+                    pendingTrips.offeredFareArs.takeIf { it > 0.0 }?.let(Fmt::ars) ?: "Tarifa no identificada",
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = AccentBlue,
+                    modifier = Modifier.testTag("wallet_pending_trip_amount"),
+                )
+                Text("${pendingTrips.tripCount} viaje(s) aceptado(s) o completado(s) sin cobro vinculado.", style = MaterialTheme.typography.bodyMedium)
+                pendingTrips.pendingTrips.take(3).forEach { trip ->
+                    val status = if (trip.tripStatus == ar.driverai.bridge.data.TripStatus.COMPLETED) {
+                        "Completado · falta confirmar el cobro"
+                    } else {
+                        "Aceptado · falta completar el viaje"
+                    }
+                    Text("$status · ${trip.fare?.let(Fmt::ars) ?: "sin tarifa"}", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                }
+                if (pendingTrips.tripCount > 3) Text("Y ${pendingTrips.tripCount - 3} viaje(s) más.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Text("Estimación según la tarifa ofrecida: no es dinero recibido y no se suma al balance.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                OutlinedButton(onClick = onHistory, modifier = Modifier.fillMaxWidth().testTag("wallet_open_history")) {
+                    Text("Abrir Registro para confirmar")
+                }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Button(onClick = { editingType = MoneyKind.INCOME; category = MoneyCategory.TRIP_INCOME; amountText = ""; formError = null }, modifier = Modifier.weight(1f).height(54.dp).testTag("wallet_add_income")) {
                 Text("+ Ingreso real")

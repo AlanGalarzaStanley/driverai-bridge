@@ -234,6 +234,15 @@ class AppInstrumentedTest {
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("Viaje completado").fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onNodeWithTag("tab_billetera").performClick()
+        compose.onNodeWithTag("wallet_pending_trip_estimate").assertExists()
+        compose.onNodeWithTag("wallet_pending_trip_amount").assertExists()
+        assertTrue("aceptar no crea un movimiento de dinero", DriverAiApp.graph.walletRepo.entries.first().isEmpty())
+        compose.onNodeWithTag("tab_mas").performClick()
+        compose.onNodeWithTag("tab_historial").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Viaje completado").fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("Viaje completado").performScrollTo().performClick()
         compose.onNodeWithTag("trip_actual_km").performTextInput("9,4")
         compose.onNodeWithTag("trip_actual_minutes").performTextInput("31")

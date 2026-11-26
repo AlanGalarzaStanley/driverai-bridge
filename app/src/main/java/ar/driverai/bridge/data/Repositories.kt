@@ -310,6 +310,26 @@ class HistoryRepository(private val store: DataStore<Preferences>) {
     }
 }
 
+/** Offer fares waiting for a driver-confirmed payment; never a wallet movement. */
+data class PendingTripEstimateSummary(
+    val pendingTrips: List<HistoryEntry>,
+    val offeredFareArs: Double,
+) {
+    val tripCount: Int get() = pendingTrips.size
+
+    companion object {
+        fun from(entries: List<HistoryEntry>): PendingTripEstimateSummary {
+            val pending = entries.filter {
+                it.tripStatus == TripStatus.ACCEPTED || it.tripStatus == TripStatus.COMPLETED
+            }
+            val estimatedFare = pending.sumOf { entry ->
+                entry.fare?.takeIf { it.isFinite() && it > 0.0 } ?: 0.0
+            }
+            return PendingTripEstimateSummary(pending, estimatedFare)
+        }
+    }
+}
+
 /** Shift figures keep offer estimates separate from confirmed money received. */
 data class ShiftStats(
     val trips: Int,

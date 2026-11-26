@@ -18,6 +18,7 @@ import ar.driverai.bridge.data.MoneyCategory
 import ar.driverai.bridge.data.MoneyAmountParser
 import ar.driverai.bridge.data.MoneyKind
 import ar.driverai.bridge.data.MoneyLedgerRepository
+import ar.driverai.bridge.data.PendingTripEstimateSummary
 import ar.driverai.bridge.data.OdometerEntry
 import ar.driverai.bridge.data.OdometerSaveResult
 import ar.driverai.bridge.data.SettingsRepository
@@ -105,9 +106,15 @@ class DataAndCopilotTest {
         assertEquals(JournalResult.UPDATED, historyRepo.restoreObserved("offer-1", at = 145L))
         assertEquals(TripStatus.OBSERVED, historyRepo.entries.first().single().tripStatus)
         assertEquals(JournalResult.UPDATED, historyRepo.recordOfferDecision("offer-1", accepted = true, at = 146L))
+        assertTrue("aceptar no crea un ingreso real", walletRepo.entries.first().isEmpty())
+        val acceptedEstimate = PendingTripEstimateSummary.from(historyRepo.entries.first())
+        assertEquals(1, acceptedEstimate.tripCount)
+        assertEquals(8000.0, acceptedEstimate.offeredFareArs, 0.0)
         assertEquals(JournalResult.UPDATED, historyRepo.completeTrip("offer-1", actualDistanceKm = 9.4, actualDurationMin = 31.0, at = 150L))
+        assertEquals(1, PendingTripEstimateSummary.from(historyRepo.entries.first()).tripCount)
         assertEquals(JournalResult.INVALID_AMOUNT, historyRepo.recordTripPayment("offer-1", 0.001, at = 160L))
         assertEquals(JournalResult.UPDATED, historyRepo.recordTripPayment("offer-1", 7500.0, at = 170L))
+        assertEquals(0, PendingTripEstimateSummary.from(historyRepo.entries.first()).tripCount)
         val firstPayment = walletRepo.entries.first().single()
         assertEquals("offer-1", firstPayment.tripHistoryId)
         assertEquals(MoneyCategory.TRIP_INCOME, firstPayment.category)

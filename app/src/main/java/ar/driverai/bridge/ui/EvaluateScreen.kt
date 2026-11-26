@@ -144,7 +144,7 @@ fun EvaluateScreen(prefill: Boolean, onPrefillConsumed: () -> Unit) {
                     Text("Alternativa según tus umbrales", fontWeight = FontWeight.Bold)
                     Text("Con los datos disponibles para esta oferta, el piso para cumplir tus umbrales es ${Fmt.ars(alternative.minimumFare)}.")
                     if (assumptions.isNotEmpty()) Text("Supuestos: $assumptions.", color = Amber)
-                    Text("No predice otra oferta ni incorpora tráfico o demanda.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    Text("No predice otra oferta ni incorpora tráfico o demanda.", style = MaterialTheme.typography.bodySmall, color = TextMuted)
                 }
                 OutlinedButton(onClick = { g.overlay.showEvaluation(rec, false) }) { Text("Mostrar en tarjeta flotante (demo)") }
             }
