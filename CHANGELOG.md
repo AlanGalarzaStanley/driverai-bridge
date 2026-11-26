@@ -1,6 +1,12 @@
 # Changelog
 
 ## En desarrollo
+### Lectura automática y tarjeta de oferta (2026-11-26, pendiente de CI y prueba en teléfono)
+- Accesibilidad vuelve a escanear el árbol visible hasta dos veces cuando los textos iniciales aún no forman una oferta; puede usar texto del evento si Android pone otra ventana al frente, pero nunca combina árboles de paquetes distintos.
+- La tarjeta prioriza CONVIENE (verde), NO CONVIENE (rojo) o REVISAR (ámbar), tarifa y cuatro métricas: bruto/hora, bruto/km, distancia y minutos hasta el pasajero. Los colores comparan únicamente umbrales configurados; valores estimados se marcan como aproximados y ámbar, y datos sin umbral quedan neutrales.
+- El modo compacto es ahora el predeterminado para ajustes nuevos; el modo expandido conserva explicación, contexto y controles manuales.
+- Se añadieron pruebas del selector de textos por paquete, de los colores de umbral y una aserción instrumentada de las métricas de la tarjeta. La lectura de Uber real sigue sin validarse en teléfono.
+
 ### MVP para piloto (2026-11-25)
 - **Inicio simplificado**: cuatro tarjetas (Ahora, Turno, Última oferta, Hoy), primeros pasos guiados que se pueden ocultar y cuatro pestañas (Inicio, Radar, Billetera, Más). Evaluar a mano y el copiloto se abren desde Inicio.
 - **Actualizar con IA**: pedido listo para copiar o compartir a una IA externa; la respuesta se pega o se comparte a DriverAI, se valida localmente y se carga al radar con la confianza acotada.

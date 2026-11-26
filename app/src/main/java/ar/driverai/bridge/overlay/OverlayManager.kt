@@ -49,6 +49,7 @@ class OverlayManager(private val app: Context) {
     private var readWm: WindowManager? = null
     private val hideRunnable = Runnable { hideCard() }
     private val prefs = app.getSharedPreferences("overlay", Context.MODE_PRIVATE)
+    private data class MetricTile(val label: String, val value: String, val color: Int)
 
     @Volatile var isCardVisible = false; private set
     @Volatile var lastShownText: String? = null; private set
@@ -81,17 +82,34 @@ class OverlayManager(private val app: Context) {
     fun showEvaluation(rec: EvalRecord, compact: Boolean) = main.post {
         val e = rec.evaluation
         val m = e.metrics
-        val color = when (e.verdict) { Verdict.CONVIENE -> 0xFF62E6A4.toInt(); Verdict.NO_CONVIENE -> 0xFFFF777D.toInt(); Verdict.REVISAR -> 0xFFFFC66D.toInt() }
-        val lines = mutableListOf<String>()
-        lines += listOfNotNull(m.fare?.let { Fmt.ars(it) }, m.totalKm?.let { Fmt.num(it) + " km tot." }, m.totalMin?.let { Fmt.num(it, 0) + " min tot." }).joinToString(" · ")
-        lines += listOfNotNull(m.grossPerKm?.let { Fmt.ars(it) + "/km" }, m.grossPerHour?.let { Fmt.ars(it) + "/h" }).joinToString(" · ").ifEmpty { "Métricas incompletas" } + " (bruto)"
+        val settings = DriverAiApp.graph.settings.value
+        val amber = 0xFFFFC66D.toInt()
+        val color = when (e.verdict) {
+            Verdict.CONVIENE -> OverlayMetricColor.GREEN
+            Verdict.NO_CONVIENE -> OverlayMetricColor.RED
+            Verdict.REVISAR -> amber
+        }
+        val rawPickupKm = e.offer.pickupKm.value
+        val rawPickupMin = e.offer.pickupMin.value
+        val pickupKm = rawPickupKm ?: m.pickupKm.takeIf { m.pickupAssumed }
+        val pickupMin = rawPickupMin ?: m.pickupMin.takeIf { m.pickupAssumed }
+        val metricTiles = listOf(
+            MetricTile("BRUTO / HORA", m.grossPerHour?.let { Fmt.ars(it) + "/h" } ?: "—", OverlayMetricColor.forThreshold(m.grossPerHour, settings.minGrossPerHour, higherIsBetter = true)),
+            MetricTile("BRUTO / KM", m.grossPerKm?.let { Fmt.ars(it) + "/km" } ?: "—", OverlayMetricColor.forThreshold(m.grossPerKm, settings.minGrossPerKm, higherIsBetter = true)),
+            MetricTile("HASTA PASAJERO", pickupKm?.let { (if (rawPickupKm == null) "≈" else "") + Fmt.num(it) + " km" } ?: "—", if (rawPickupKm == null && pickupKm != null) amber else OverlayMetricColor.forThreshold(rawPickupKm, settings.maxPickupKm, higherIsBetter = false)),
+            MetricTile("TIEMPO DE RECOGIDA", pickupMin?.let { (if (rawPickupMin == null) "≈" else "") + Fmt.num(it, 0) + " min" } ?: "—", if (rawPickupMin == null && pickupMin != null) amber else OverlayMetricColor.forThreshold(rawPickupMin, settings.maxPickupMin, higherIsBetter = false)),
+        )
         val rating = e.offer.passengerRating
         val ratingLine = when {
             rating.value != null -> "Calificación del pasajero: ${Fmt.num(rating.value, 2)}/5 · confianza ${(rating.confidence * 100).toInt()} %"
-            DriverAiApp.graph.settings.value.minPassengerRating != null -> "Calificación del pasajero: no detectada"
+            settings.minPassengerRating != null -> "Calificación del pasajero: no detectada"
             else -> null
         }
-        val primaryReason = e.reasons.firstOrNull { it.kind == ReasonKind.FALLA || it.kind == ReasonKind.AVISO }?.text
+        val primaryReason = when (e.verdict) {
+            Verdict.CONVIENE -> null
+            Verdict.NO_CONVIENE -> e.reasons.firstOrNull { it.kind == ReasonKind.FALLA }?.text
+            Verdict.REVISAR -> e.reasons.firstOrNull { it.kind == ReasonKind.AVISO }?.text
+        }
         val alternativeLine = e.fareAlternative?.let { alternative ->
             val assumptions = listOfNotNull(
                 alternative.assumedPickupKm?.let { "recogida ${Fmt.num(it)}km estimada" },
@@ -102,33 +120,51 @@ class OverlayManager(private val app: Context) {
         }
         val src = when (rec.source.name) { "ACCESSIBILITY" -> "leído de pantalla"; "OCR" -> "leído por OCR"; else -> "ingreso manual" }
         val destinationLine = rec.destination?.shortLine { at -> timeFmt.format(java.util.Date(at)) }
-        val appName = rec.platform?.label ?: "la app de viajes"
-        val compactBody = listOfNotNull(lines.getOrNull(1), ratingLine, primaryReason, destinationLine, alternativeLine)
-        val fullBody = lines + listOfNotNull(ratingLine, primaryReason, destinationLine, alternativeLine, "Fuente: $src${rec.platform?.let { " (${it.label})" } ?: ""}. Vos decidís en $appName.")
-        render(e.verdict.label, color, if (compact) compactBody else fullBody, rec.historyId, compact)
+        val totalLine = listOfNotNull(
+            m.totalKm?.let { "${Fmt.num(it)} km totales" },
+            m.totalMin?.let { "${Fmt.num(it, 0)} min estimados" },
+        ).joinToString(" · ").takeIf { it.isNotBlank() }
+        val profitLine = m.estimatedProfitBeforeFixed?.let { "Ganancia estimada antes de costos fijos e impuestos: ${Fmt.ars(it)}" }
+        val grossNote = if (m.variableCost == null) "Bruto: no descuenta combustible ni desgaste." else null
+        val details = listOfNotNull(totalLine, profitLine, ratingLine, alternativeLine, grossNote, "Lectura: $src${rec.platform?.let { " · ${it.label}" } ?: ""}.")
+        val body = listOfNotNull(primaryReason, destinationLine)
+        val title = "${e.verdict.label} · ${m.fare?.let { Fmt.ars(it) } ?: "tarifa —"}"
+        render(title, color, body, rec.historyId, compact, metricTiles, details, primaryReason)
     }
 
     fun showMessage(text: String) = main.post { render("DriverAI", 0xFF62E6A4.toInt(), listOf(text), null, false) }
 
     @SuppressLint("ClickableViewAccessibility", "SetTextI18n")
-    private fun render(title: String, color: Int, body: List<String>, historyId: String?, compact: Boolean) {
+    private fun render(
+        title: String,
+        color: Int,
+        body: List<String>,
+        historyId: String?,
+        compact: Boolean,
+        metrics: List<MetricTile> = emptyList(),
+        details: List<String> = emptyList(),
+        emphasizedBody: String? = null,
+    ) {
         main.removeCallbacks(hideRunnable)
         hideCard()
-        lastShownText = (listOf(title) + body).joinToString("\n")
+        val shownDetails = if (compact) emptyList() else details
+        val accessibilitySummary = metrics.map { "${it.label}: ${it.value}" } + shownDetails
+        val fallbackBody = body + accessibilitySummary
+        lastShownText = (listOf(title) + fallbackBody).joinToString("\n")
         val wc = windowContext()
-        if (wc == null) { notifyFallback(title, body); return }
+        if (wc == null) { notifyFallback(title, fallbackBody); return }
         val (ctx, type) = wc
         val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val root = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), dp(10), dp(10), dp(10))
+            setPadding(dp(14), dp(10), dp(14), dp(12))
             background = GradientDrawable().apply { setColor(0xF20D1410.toInt()); cornerRadius = dp(20).toFloat(); setStroke(dp(2), color) }
-            minimumWidth = dp(220)
+            minimumWidth = dp(280)
             contentDescription = "Tarjeta DriverAI"
         }
         val header = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         header.addView(TextView(ctx).apply {
-            text = title; setTextColor(color); textSize = if (compact) 18f else 22f; typeface = Typeface.DEFAULT_BOLD
+            text = title; setTextColor(color); textSize = if (compact) 17f else 19f; typeface = Typeface.DEFAULT_BOLD; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         fun smallBtn(label: String, desc: String, onClick: () -> Unit) = Button(ctx).apply {
             text = label; contentDescription = desc; textSize = 16f; minWidth = dp(44); minimumWidth = dp(44); minHeight = dp(40); minimumHeight = dp(40)
@@ -140,8 +176,47 @@ class OverlayManager(private val app: Context) {
         })
         header.addView(smallBtn("×", "Cerrar tarjeta") { hideCard() })
         root.addView(header)
+        val visibleMetrics = metrics
+        visibleMetrics.chunked(2).forEach { rowMetrics ->
+            val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(5), 0, 0) }
+            rowMetrics.forEachIndexed { index, metric ->
+                val tileColor = when (metric.color) {
+                    OverlayMetricColor.GREEN -> 0xFF14291F.toInt()
+                    OverlayMetricColor.RED -> 0xFF301A1C.toInt()
+                    0xFFFFC66D.toInt() -> 0xFF2C2517.toInt()
+                    else -> 0xFF19221D.toInt()
+                }
+                val tile = LinearLayout(ctx).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(9), dp(7), dp(9), dp(7))
+                    background = GradientDrawable().apply { setColor(tileColor); cornerRadius = dp(12).toFloat() }
+                    contentDescription = "${metric.label}: ${metric.value}"
+                }
+                tile.addView(TextView(ctx).apply {
+                    text = metric.label; setTextColor(0xFFB6C2BB.toInt()); textSize = 9f; maxLines = 1; letterSpacing = 0.04f
+                })
+                tile.addView(TextView(ctx).apply {
+                    text = metric.value; setTextColor(metric.color); textSize = 14f; typeface = Typeface.DEFAULT_BOLD; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+                })
+                row.addView(tile, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    if (index == 0 && rowMetrics.size > 1) marginEnd = dp(6)
+                })
+            }
+            root.addView(row)
+        }
         body.forEach { line ->
-            root.addView(TextView(ctx).apply { text = line; setTextColor(0xFFECEFF1.toInt()); textSize = 15f; maxWidth = dp(300) })
+            root.addView(TextView(ctx).apply {
+                text = line; setTextColor(if (line == emphasizedBody) color else 0xFFECEFF1.toInt())
+                textSize = 13f; maxWidth = dp(300); maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
+                setPadding(0, dp(5), 0, 0)
+            })
+        }
+        if (!compact) details.forEach { line ->
+            root.addView(TextView(ctx).apply {
+                text = line; setTextColor(0xFFB6C2BB.toInt()); textSize = 12f; maxWidth = dp(300); maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END
+                setPadding(0, dp(3), 0, 0)
+            })
         }
         if (historyId != null && !compact) {
             val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
@@ -162,7 +237,7 @@ class OverlayManager(private val app: Context) {
             card = root; cardWm = wm; isCardVisible = true
             main.postDelayed(hideRunnable, AUTO_HIDE_MS)
         } catch (e: Exception) {
-            notifyFallback(title, body)
+            notifyFallback(title, fallbackBody)
         }
     }
 

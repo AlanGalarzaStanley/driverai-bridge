@@ -73,7 +73,7 @@ data class DriverSettings(
     val historyEnabled: Boolean = true,
     val homeZone: String? = null,
     val currentZone: String? = null,
-    val overlayCompact: Boolean = false,
+    val overlayCompact: Boolean = true,
     /** Umbral opcional de calificación del pasajero, en escala 1–5. */
     val minPassengerRating: Double? = null,
     /** Objetivo diario elegido por el conductor; solo se compara con ingresos anotados en la billetera. */

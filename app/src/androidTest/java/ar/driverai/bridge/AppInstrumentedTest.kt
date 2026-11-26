@@ -180,6 +180,10 @@ class AppInstrumentedTest {
         assertEquals(Verdict.CONVIENE, rec.evaluation.verdict) // 8540 / 10,5 km = 813/km ≥ 500
         assertTrue("tarjeta visible sobre la app", waitFor(5000) { DriverAiApp.graph.overlay.isCardVisible })
         assertNotNull(device.wait(Until.findObject(By.desc("Tarjeta DriverAI")), 3000))
+        val cardSummary = DriverAiApp.graph.overlay.lastShownText.orEmpty()
+        assertTrue("veredicto destacado en resumen", cardSummary.contains("CONVIENE"))
+        assertTrue("métrica económica visible", cardSummary.contains("BRUTO / KM"))
+        assertTrue("distancia de recogida visible", cardSummary.contains("HASTA PASAJERO"))
         shot("simulador-tarjeta")
         // Rotación con la tarjeta visible: no debe fallar
         device.setOrientationLeft(); Thread.sleep(1500); device.setOrientationNatural(); Thread.sleep(1000)
