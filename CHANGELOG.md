@@ -1,7 +1,7 @@
 # Changelog
 
 ## En desarrollo
-### Lectura automática y tarjeta de oferta (2026-11-26, pendiente de CI y prueba en teléfono)
+### Lectura automática y tarjeta de oferta (2026-11-26, CI verde; prueba en teléfono pendiente)
 - Accesibilidad vuelve a escanear el árbol visible hasta dos veces cuando los textos iniciales aún no forman una oferta; puede usar texto del evento si Android pone otra ventana al frente, pero nunca combina árboles de paquetes distintos.
 - La tarjeta prioriza CONVIENE (verde), NO CONVIENE (rojo) o REVISAR (ámbar), tarifa y cuatro métricas: bruto/hora, bruto/km, distancia y minutos hasta el pasajero. Los colores comparan únicamente umbrales configurados; valores estimados se marcan como aproximados y ámbar, y datos sin umbral quedan neutrales.
 - El modo compacto es ahora el predeterminado para ajustes nuevos; el modo expandido conserva explicación, contexto y controles manuales.
