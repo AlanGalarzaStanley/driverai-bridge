@@ -7,7 +7,8 @@
 - Rama `manus/offer-reading-card-cleanup`, commit `ac4efb9`, basada en `06fa260`. Está subida a `origin`; `main` no se modificó y no se abrió PR.
 - Accesibilidad hace hasta dos reintentos breves, conserva el aislamiento de paquetes y usa solo texto del evento cuando el árbol activo pertenece a otra app. El parser no se relajó. La tarjeta prioriza veredicto y cuatro métricas colorizadas por los umbrales del conductor; valores aproximados quedan ámbar y la vista compacta es el valor predeterminado para ajustes nuevos.
 - CI [run 45756555582, verde](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45756555582): unit tests, lint, APK debug y pruebas instrumentadas en emulador API 30 pasaron. El contrato productivo se omitió; no se publicó Release. [Artefacto APK debug 71](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45756555582/artifacts/15088112272) (retención de 30 días). La compilación local no se pudo ejecutar porque el sandbox no tiene Android SDK.
-- **Pendiente:** probar lectura automática con Uber real en un teléfono. Las capturas que el conductor mencionó no llegaron al entorno; pedir que las vuelva a adjuntar anonimizadas antes de ajustar el parser. La CI del simulador no prueba Uber real.
+- La captura enviada originó una prueba sin direcciones en `OfferTextParserTest.kt` para tarifa 23.913 ARS, recogida 5 min/1,1 km y viaje 48 min/41,2 km; la CI de esta nueva prueba queda pendiente. No se infiere el rating `5,00 (51)` al faltar una etiqueta textual, para no introducir falsos positivos.
+- **Pendiente:** probar la lectura automática con Uber real en un teléfono. La captura muestra los textos visuales, pero no confirma que Android los exponga al servicio de Accesibilidad; la CI del simulador tampoco lo prueba.
 
 ## Último trabajo: MVP para piloto con flota (2026-11-25)
 

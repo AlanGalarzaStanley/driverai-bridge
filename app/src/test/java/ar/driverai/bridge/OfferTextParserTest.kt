@@ -110,6 +110,42 @@ class OfferTextParserTest {
         assertNotEquals(650.0, o.fare.value)
     }
 
+    @Test fun ofertaComfortCapturada_resumenYDetalleSeparanRecogidaDeViaje() {
+        // Fixture anonimizada de la captura del conductor: se excluyeron las dos direcciones y el mapa.
+        val lines = listOf(
+            "Comfort",
+            "Exclusiva",
+            "23.913 ARS",
+            "53 min · 42.3 km · 565 ARS/km est.",
+            "5,00 (51)",
+            "+430,00 ARS incluido",
+            "A 5 min (1.1 km) de distancia",
+            "Viaje: 48 min (41.2 km)",
+            "Viaje largo (40+ min)",
+            "Aceptar",
+        )
+        val accessible = OfferTextParser.parse(lines, DataSource.ACCESSIBILITY)
+        val ocr = OfferTextParser.parse(lines, DataSource.OCR)
+
+        assertTrue("debe reconocer la oferta con el botón Aceptar", accessible.isLikelyOffer)
+        assertEquals(23_913.0, accessible.offer.fare.value!!, 0.0)
+        assertEquals(1.1, accessible.offer.pickupKm.value!!, 1e-9)
+        assertEquals(5.0, accessible.offer.pickupMin.value!!, 0.0)
+        assertEquals(41.2, accessible.offer.tripKm.value!!, 1e-9)
+        assertEquals(48.0, accessible.offer.tripMin.value!!, 0.0)
+        assertNull("no inferir el rating desde un número sin etiqueta textual", accessible.offer.passengerRating.value)
+        assertTrue("OCR y accesibilidad usan el mismo formato numérico", ocr.isLikelyOffer)
+
+        val evaluation = OfferEvaluator.evaluate(
+            accessible.offer,
+            DriverSettings(minGrossPerKm = 550.0, maxPickupKm = 1.5, maxPickupMin = 8.0),
+        )
+        assertEquals(42.3, evaluation.metrics.totalKm!!, 1e-9)
+        assertEquals(53.0, evaluation.metrics.totalMin!!, 0.0)
+        assertEquals(23_913.0 / 42.3, evaluation.metrics.grossPerKm!!, 1e-9)
+        assertEquals(Verdict.CONVIENE, evaluation.verdict)
+    }
+
     @Test fun ofertaClara_ingles_millas() {
         val o = p("UberX", "$12", "5 mins (1.6 mi) away", "12 mins (5.1 mi) trip").offer
         assertEquals(1.6 * 1.609344, o.pickupKm.value!!, 1e-6)
