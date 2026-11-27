@@ -103,8 +103,17 @@ class HistoryRepository(private val store: DataStore<Preferences>) {
         )
         store.edit { p ->
             val combined = listOf(entry) + decode(p[key])
-            val retained = combined.take(MAX)
-            val evictedIds = combined.drop(MAX).mapTo(mutableSetOf()) { it.id }
+            // Never evict trips still contributing to the pending wallet estimate.
+            // Normal history remains bounded by MAX; unresolved trips stay until paid/corrected.
+            val pending = combined.filter {
+                it.tripStatus == TripStatus.ACCEPTED || it.tripStatus == TripStatus.COMPLETED
+            }
+            val recent = combined.filterNot {
+                it.tripStatus == TripStatus.ACCEPTED || it.tripStatus == TripStatus.COMPLETED
+            }.take((MAX - pending.size).coerceAtLeast(0))
+            val retainedIds = (pending + recent).mapTo(mutableSetOf()) { it.id }
+            val retained = (pending + recent).sortedByDescending { it.at }
+            val evictedIds = combined.filter { it.id !in retainedIds }.mapTo(mutableSetOf()) { it.id }
             if (evictedIds.isNotEmpty()) {
                 val money = MoneyLedgerRepository.decode(p[moneyKey])
                 if (money.any { it.tripHistoryId != null && it.tripHistoryId in evictedIds }) {
@@ -122,20 +131,25 @@ class HistoryRepository(private val store: DataStore<Preferences>) {
     }
 
     /** Called by the floating card; this records acceptance, never completion or payment. */
-    suspend fun markTaken(id: String, taken: Boolean = true, at: Long = System.currentTimeMillis()) {
+    suspend fun markTaken(id: String, taken: Boolean = true, at: Long = System.currentTimeMillis()): JournalResult {
         if (taken) {
-            recordOfferDecision(id, accepted = true, at = at)
-        } else {
-            store.edit { p ->
-                val list = decode(p[key])
-                val index = list.indexOfFirst { it.id == id }
-                if (index >= 0 && list[index].tripStatus == TripStatus.ACCEPTED) {
-                    p[key] = encode(list.toMutableList().also { items ->
-                        items[index] = items[index].copy(taken = false, tripStatus = TripStatus.OBSERVED, tripStatusUpdatedAt = at)
-                    })
-                }
-            }
+            return recordOfferDecision(id, accepted = true, at = at)
         }
+        var result = JournalResult.NOT_FOUND
+        store.edit { p ->
+            val list = decode(p[key])
+            val index = list.indexOfFirst { it.id == id }
+            if (index < 0) return@edit
+            if (list[index].tripStatus != TripStatus.ACCEPTED) {
+                result = JournalResult.INVALID_TRANSITION
+                return@edit
+            }
+            p[key] = encode(list.toMutableList().also { items ->
+                items[index] = items[index].copy(taken = false, tripStatus = TripStatus.OBSERVED, tripStatusUpdatedAt = at)
+            })
+            result = JournalResult.UPDATED
+        }
+        return result
     }
 
     suspend fun recordOfferDecision(id: String, accepted: Boolean, at: Long = System.currentTimeMillis()): JournalResult =

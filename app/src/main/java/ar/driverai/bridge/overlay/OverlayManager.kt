@@ -27,6 +27,7 @@ import ar.driverai.bridge.R
 import ar.driverai.bridge.capture.DriverAccessibilityService
 import ar.driverai.bridge.capture.EvalRecord
 import ar.driverai.bridge.capture.ScreenCaptureService
+import ar.driverai.bridge.data.JournalResult
 import ar.driverai.bridge.engine.Fmt
 import ar.driverai.bridge.engine.ReasonKind
 import ar.driverai.bridge.engine.Verdict
@@ -127,9 +128,11 @@ class OverlayManager(private val app: Context) {
         val profitLine = m.estimatedProfitBeforeFixed?.let { "Ganancia estimada antes de costos fijos e impuestos: ${Fmt.ars(it)}" }
         val grossNote = if (m.variableCost == null) "Bruto: no descuenta combustible ni desgaste." else null
         val details = listOfNotNull(totalLine, profitLine, ratingLine, alternativeLine, grossNote, "Lectura: $src${rec.platform?.let { " · ${it.label}" } ?: ""}.")
-        val body = listOfNotNull(primaryReason, destinationLine)
+        val actionHistoryId = rec.historyId.takeIf { settings.historyEnabled }
+        val historyDisabledNote = if (settings.historyEnabled) null else "Activá «Guardar historial» para registrar la aceptación y verla en Billetera."
+        val body = listOfNotNull(primaryReason, destinationLine, historyDisabledNote)
         val title = "${e.verdict.label} · ${m.fare?.let { Fmt.ars(it) } ?: "tarifa —"}"
-        render(title, color, body, rec.historyId, compact, metricTiles, details, primaryReason)
+        render(title, color, body, actionHistoryId, compact, metricTiles, details, primaryReason)
     }
 
     fun showMessage(text: String) = main.post { render("DriverAI", 0xFF62E6A4.toInt(), listOf(text), null, false) }
@@ -218,17 +221,54 @@ class OverlayManager(private val app: Context) {
                 setPadding(0, dp(3), 0, 0)
             })
         }
-        if (historyId != null && !compact) {
-            val row = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-            row.addView(smallBtn("La tomé", "Marcar viaje como tomado") {
-                DriverAiApp.graph.scope.launch { DriverAiApp.graph.historyRepo.markTaken(historyId) }
-                hideCard()
-            })
-            row.addView(smallBtn("Corregir", "Abrir DriverAI para corregir datos") {
-                app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(MainActivity.EXTRA_TAB, "evaluar").putExtra(MainActivity.EXTRA_PREFILL, true))
-                hideCard()
-            })
-            root.addView(row)
+        if (historyId != null) {
+            val actions = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(0, dp(6), 0, 0)
+            }
+            val acceptButton = Button(ctx).apply {
+                text = if (compact) "La acepté" else "Confirmar que la acepté"
+                isAllCaps = false
+                contentDescription = "Confirmar que acepté este viaje. Se agregará como estimación pendiente en Billetera, no como ingreso real."
+                textSize = 15f
+                minHeight = dp(50); minimumHeight = dp(50)
+                setPadding(dp(12), dp(4), dp(12), dp(4))
+                setTextColor(0xFF062013.toInt())
+                background = GradientDrawable().apply { setColor(0xFF62E6A4.toInt()); cornerRadius = dp(12).toFloat() }
+                setOnClickListener {
+                    isEnabled = false
+                    text = "Guardando…"
+                    DriverAiApp.graph.scope.launch {
+                        runCatching { DriverAiApp.graph.historyRepo.markTaken(historyId) }
+                            .onSuccess { result ->
+                                val message = when (result) {
+                                    JournalResult.UPDATED -> "Aceptación guardada. La tarifa figura como estimación en Billetera; no es un cobro real."
+                                    JournalResult.NOT_FOUND -> "No se encontró el viaje en el historial; no se guardó la aceptación. Revisá que «Guardar historial» esté activado."
+                                    JournalResult.INVALID_TRANSITION -> "Este viaje ya tiene una decisión registrada. Revisá Registro antes de volver a marcarlo."
+                                    JournalResult.INVALID_AMOUNT -> "No se pudo guardar la aceptación por un dato inválido. Revisá Registro."
+                                }
+                                showMessage(message)
+                            }
+                            .onFailure {
+                                showMessage("No se pudo guardar la aceptación. El viaje no quedó confirmado; revisá Registro y reintentá.")
+                            }
+                    }
+                }
+            }
+            val acceptParams = LinearLayout.LayoutParams(
+                if (compact) LinearLayout.LayoutParams.MATCH_PARENT else 0,
+                dp(50),
+                if (compact) 0f else 1f,
+            )
+            if (!compact) acceptParams.marginEnd = dp(6)
+            actions.addView(acceptButton, acceptParams)
+            if (!compact) {
+                actions.addView(smallBtn("Corregir", "Abrir DriverAI para corregir datos") {
+                    app.startActivity(Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra(MainActivity.EXTRA_TAB, "evaluar").putExtra(MainActivity.EXTRA_PREFILL, true))
+                    hideCard()
+                })
+            }
+            root.addView(actions)
         }
         val lp = params(type, "card", dp(80))
         attachDrag(root, wm, lp, "card")

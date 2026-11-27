@@ -1,6 +1,13 @@
 # Changelog
 
 ## En desarrollo
+### Confirmación compacta y estimaciones pendientes (2026-11-27, CI pendiente)
+- La tarjeta compacta muestra un CTA accesible “La acepté” con objetivo táctil de 50 dp; al guardarse correctamente, confirma que la tarifa quedó como estimación pendiente en Billetera, no como ingreso real. Si el historial está desactivado, explica cómo habilitarlo; errores y transiciones inválidas no se presentan como éxito.
+- `markTaken` devuelve el resultado del diario. La aceptación es de un solo paso válido: una segunda confirmación no duplica el viaje ni el movimiento de dinero.
+- La retención normal sigue limitada a 100 evaluaciones, pero las aceptadas o completadas sin cobro permanecen hasta resolverse, aunque temporalmente excedan ese límite; los cobros vinculados siguen separándose correctamente si una entrada liquidada sale del historial.
+- Se agregaron pruebas unitarias de doble confirmación, no encontrado y retención, además de una prueba instrumentada del botón compacto y su reflejo en Billetera. La compilación local requiere Android SDK, ausente en este sandbox; CI manual en rama pendiente.
+- No se cambió la lectura automática: el código ya acumula eventos durante un debounce y combina texto de eventos/árbol solo del mismo paquete. Una revisión técnica concluyó que más acumulación sin evidencia de una oferta real podría mezclar tarjetas; falta revalidar Uber en teléfono con una muestra anonimizada.
+
 ### Lectura automática y tarjeta de oferta (2026-11-26, CI verde; prueba en teléfono pendiente)
 - Accesibilidad vuelve a escanear el árbol visible hasta dos veces cuando los textos iniciales aún no forman una oferta; puede usar texto del evento si Android pone otra ventana al frente, pero nunca combina árboles de paquetes distintos.
 - La tarjeta prioriza CONVIENE (verde), NO CONVIENE (rojo) o REVISAR (ámbar), tarifa y cuatro métricas: bruto/hora, bruto/km, distancia y minutos hasta el pasajero. Los colores comparan únicamente umbrales configurados; valores estimados se marcan como aproximados y ámbar, y datos sin umbral quedan neutrales.

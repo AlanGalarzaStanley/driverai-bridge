@@ -159,6 +159,44 @@ class AppInstrumentedTest {
         assertTrue("tarjeta cerrada", waitFor(3000) { !DriverAiApp.graph.overlay.isCardVisible })
     }
 
+    @Test fun tarjetaCompacta_confirmaAceptacionYActualizaEstimacionSinCrearIngreso() = runBlocking {
+        val tripId = "compact-overlay-acceptance"
+        val at = System.currentTimeMillis()
+        val evaluation = OfferEvaluator.evaluate(
+            OfferData(Reading.manual(8000.0), Reading.manual(2.0), Reading.manual(5.0), Reading.manual(8.0), Reading.manual(20.0)),
+            DriverSettings(minFare = 1.0),
+        )
+        DriverAiApp.graph.historyRepo.add(evaluation, at, DataSource.MANUAL, id = tripId)
+        val record = ar.driverai.bridge.capture.EvalRecord(evaluation, at, DataSource.MANUAL, emptyList(), historyId = tripId)
+        DriverAiApp.graph.overlay.showEvaluation(record, compact = true)
+        assertTrue("tarjeta compacta visible", waitFor(3000) { DriverAiApp.graph.overlay.isCardVisible })
+
+        val accept = device.wait(
+            Until.findObject(By.desc("Confirmar que acepté este viaje. Se agregará como estimación pendiente en Billetera, no como ingreso real.")),
+            5000,
+        )
+        assertNotNull("CTA de aceptación accesible en modo compacto", accept)
+        accept.click()
+
+        val accepted = kotlinx.coroutines.withTimeout(5_000L) {
+            DriverAiApp.graph.historyRepo.entries.first { entries ->
+                entries.any { it.id == tripId && it.tripStatus == ar.driverai.bridge.data.TripStatus.ACCEPTED }
+            }.single { it.id == tripId }
+        }
+        assertEquals(ar.driverai.bridge.data.TripStatus.ACCEPTED, accepted.tripStatus)
+        val pending = ar.driverai.bridge.data.PendingTripEstimateSummary.from(DriverAiApp.graph.historyRepo.entries.first())
+        assertEquals(1, pending.tripCount)
+        assertEquals(8000.0, pending.offeredFareArs, 0.0)
+        assertTrue("aceptar no crea movimiento de ingreso", DriverAiApp.graph.walletRepo.entries.first().isEmpty())
+        assertNotNull("la tarjeta confirma el resultado guardado", device.wait(Until.findObject(By.textContains("Aceptación guardada.")), 3000))
+
+        compose.onNodeWithTag("tab_billetera").performClick()
+        compose.onNodeWithTag("wallet_pending_trip_estimate").assertExists()
+        compose.onNodeWithTag("wallet_pending_trip_amount").assertExists()
+        compose.onNodeWithText("Aceptado · falta completar el viaje").assertExists()
+        assertTrue("estimación separada del balance", DriverAiApp.graph.walletRepo.entries.first().isEmpty())
+    }
+
     @Test fun accesibilidad_simulador_extremoAExtremo() {
         Assume.assumeTrue("servicio de accesibilidad habilitado por el script de CI", DriverAccessibilityService.isEnabled(ctx))
         if (!waitFor(8_000) { DriverAccessibilityService.instance != null }) {

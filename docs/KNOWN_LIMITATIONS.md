@@ -5,7 +5,7 @@
 |---|---|---|---|---|
 | Motor económico y umbrales | Sí | Unitarias + emulador | Sí | No |
 | Evaluación manual / demo | Sí | Emulador | Sí | No |
-| Backend Supabase (reporte/posición) | Sí | Unitarias + contrato en vivo | Sí | No |
+| Funciones estratégicas Supabase (reporte/posición; sin diario/Billetera) | Sí | Unitarias + contrato en vivo anterior | Sí | No |
 | Clima Open-Meteo de CABA Centro (debug privado) | Sí | CI pendiente; no validado en teléfono | Solo prueba personal; release desactivado hasta plan/fuente autorizados | No |
 | Lectura por accesibilidad (simulador) | Sí | Emulador | Sí | Sí (declaración) |
 | **Lectura por accesibilidad de Uber real** | Sí | **Pendiente de revalidar** (un intento previo no detectó) | Sí, si Uber expone el texto | Sí |
@@ -14,7 +14,7 @@
 | Voz (TTS) / dictado | Sí | **No** en teléfono | Sí | No |
 | Copiloto por reglas | Sí | Unitarias | Sí | No |
 | Briefing de turno | Parcial en `manus/briefing-end-to-end` | Pruebas de código pendientes | Solo con el reporte heredado | No |
-| Diario de viaje observado → decisión → completado → cobro vinculado, con estimación pendiente separada en Billetera | Sí, local-first | Unitarias, lint, APK y emulador API 30 pasaron en CI (2026-11-26); falta teléfono real | Sí, registros solo en el dispositivo | No |
+| Diario de viaje observado → decisión → completado → cobro vinculado, con estimación pendiente separada en Billetera | Sí, local-first | Unitarias, lint, APK y emulador API 30 pasaron en CI (2026-11-26); CTA compacto añadido en esta rama, CI y teléfono real pendientes | Sí, registros solo en el dispositivo | No |
 | Detección automática de viaje aceptado | No | No | No | No |
 | Radar de demanda local (patrón + feriados + fixtures + manual + historial) | Sí | Unitarias; falta teléfono real | Sí | No |
 | Informe IA externo (pegar o compartir respuesta) | Sí | Unitarias + emulador (CI); falta probar con IAs reales en teléfono | Sí | No |
@@ -42,7 +42,7 @@
 12. El clima de referencia es una estimación modelada de Open-Meteo, habilitada solo en la build privada de depuración para un punto fijo de CABA Centro; no usa GPS ni representa necesariamente la zona seleccionada. La precipitación se presenta como acumulado informado y su intervalo, no como observación instantánea. Incluye atribución y enlace CC BY 4.0. El endpoint gratuito no se habilita en release; una distribución comercial necesita un plan comercial autorizado y una arquitectura de servidor/proxy. El dato meteorológico no equivale a alerta del SMN ni demanda.
 13. El radar integra partidos (TheSportsDB) y feriados (ArgentinaDatos). La clave de prueba gratuita de TheSportsDB devuelve pocos eventos por liga, así que la cobertura es parcial sin clave propia. Vuelos, cruceros, recitales y paros todavía se cargan a mano: no hay feeds gratuitos con licencia clara. El índice es una heurística explicable, no está calibrado con viajes reales y no es demanda medida.
 14. La web y el backend productivo no se modificaron.
-15. El historial local conserva como máximo 100 evaluaciones. El cálculo del turno usa esas entradas, por lo que una jornada con más de 100 evaluaciones puede quedar truncada; los cobros ya registrados permanecen en Billetera, pero no se debe interpretar el historial como contabilidad completa.
+15. El historial local conserva normalmente hasta 100 evaluaciones; aceptaciones y viajes completados sin cobro quedan retenidos para no perder la estimación pendiente, por lo que el total puede superar 100 mientras haya viajes sin resolver. El cálculo del turno todavía se limita a las entradas retenidas y no debe interpretarse como contabilidad completa.
 16. Los estados del diario y los importes asociados son confirmaciones manuales del conductor; DriverAI no observa si Uber aceptó, terminó o liquidó un viaje. Aceptar en DriverAI muestra la tarifa ofrecida como estimación pendiente, nunca como ingreso; para sumar el cobro hay que marcar el viaje completado y confirmar lo recibido. Los km/minutos reales son opcionales y no se estiman a partir del GPS.
 17. DataStore usa el almacenamiento privado de la app, pero todavía no cifra los registros localmente. La billetera, el historial y los datos del vehículo requieren protección adicional si el dispositivo está comprometido o se comparte.
 18. La app no detecta automáticamente si el conductor aceptó un viaje: el botón de la tarjeta y el diario requieren confirmación manual. La lectura de una pantalla posterior a la aceptación debe validarse con una muestra real y anonimizada antes de agregar reglas.
@@ -51,6 +51,7 @@
 21. La zona de destino se infiere del texto visible con un catálogo de barrios del AMBA. Si la oferta no muestra el barrio, o lo abrevia, no hay pronóstico de destino. Con una sola mención se marca como "zona dudosa".
 22. No hay registro automático de kilometraje por GPS (por privacidad). Para el monotributo no hay deducción por kilómetro, a diferencia del modelo de Gridwise en EE.UU.; se usa el odómetro manual.
 23. El catálogo de ciudades incluye solo el AMBA. Otras ciudades de LATAM requieren su propio paquete de zonas y recintos.
+24. El APK se conecta por HTTPS a `driverai-reporte` y `driverai-posicion`, pero no usa Supabase Auth/PostgREST ni sincroniza diario, Billetera u ofertas. La revisión de seguridad del proyecto productivo identificó bloqueos para ampliar esa integración; no enviar capturas, texto OCR ni datos personales ni invocar funciones de OCR/registro hasta completar autenticación, autorización por conductor/tenant, RLS y revisión de retención con consentimiento.
 
 ## Informe IA y piloto (2026-11-25)
 - Las señales del Informe IA **no están verificadas**: dependen de la IA que use el conductor y de que cite fuentes reales. La app limita su confianza (máx. 0,55) y exige fuente, pero no puede confirmar que el evento exista.

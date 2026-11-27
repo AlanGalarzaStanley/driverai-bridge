@@ -76,6 +76,42 @@ class DataAndCopilotTest {
         repo.clear(); assertTrue(repo.entries.first().isEmpty())
     }
 
+    @Test fun historial_aceptacionDevuelveResultadoYRechazaDobleConfirmacion() = runBlocking {
+        val repo = HistoryRepository(store("h-acceptance-result"))
+        val evaluation = OfferEvaluator.evaluate(
+            OfferData(Reading.manual(8000.0), Reading.manual(1.0), Reading.manual(3.0), Reading.manual(8.0), Reading.manual(20.0)),
+            DriverSettings(minFare = 1.0),
+        )
+        repo.add(evaluation, 1L, DataSource.MANUAL, id = "acceptance-result")
+
+        assertEquals(JournalResult.UPDATED, repo.markTaken("acceptance-result", at = 2L))
+        assertEquals(JournalResult.INVALID_TRANSITION, repo.markTaken("acceptance-result", at = 3L))
+        assertEquals(JournalResult.NOT_FOUND, repo.markTaken("missing", at = 4L))
+        assertEquals(TripStatus.ACCEPTED, repo.entries.first().single().tripStatus)
+    }
+
+    @Test fun historial_conservaViajesPendientesMasAntiguosAlSuperarElLimite() = runBlocking {
+        val sharedStore = store("h-pending-retention")
+        val repo = HistoryRepository(sharedStore)
+        val wallet = MoneyLedgerRepository(sharedStore)
+        val evaluation = OfferEvaluator.evaluate(
+            OfferData(Reading.manual(8000.0), Reading.manual(1.0), Reading.manual(3.0), Reading.manual(8.0), Reading.manual(20.0)),
+            DriverSettings(minFare = 1.0),
+        )
+        repo.add(evaluation, 1L, DataSource.MANUAL, id = "old-pending")
+        assertEquals(JournalResult.UPDATED, repo.markTaken("old-pending", at = 2L))
+        repeat(HistoryRepository.MAX + 5) { index ->
+            repo.add(evaluation, 10L + index, DataSource.MANUAL, id = "new-observed-$index")
+        }
+
+        val entries = repo.entries.first()
+        assertEquals(HistoryRepository.MAX, entries.size)
+        assertTrue("una aceptación sin cobro no debe desaparecer", entries.any { it.id == "old-pending" })
+        assertEquals(1, PendingTripEstimateSummary.from(entries).tripCount)
+        assertEquals(8000.0, PendingTripEstimateSummary.from(entries).offeredFareArs, 0.0)
+        assertTrue("una estimación no crea ingreso real", wallet.entries.first().isEmpty())
+    }
+
     @Test fun historial_migraIdsUnicosAunqueCompartaTimestamp() {
         val legacy = """[
             {"at":1,"verdict":"CONVIENE","fare":1000.0,"totalKm":1.0,"totalMin":10.0,"grossPerKm":1000.0,"grossPerHour":6000.0,"source":"MANUAL","taken":true},
