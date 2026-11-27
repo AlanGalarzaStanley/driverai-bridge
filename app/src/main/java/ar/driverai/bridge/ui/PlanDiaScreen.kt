@@ -11,6 +11,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -22,6 +28,8 @@ import ar.driverai.bridge.plan.FinFuente
 import ar.driverai.bridge.plan.PlanAviso
 import ar.driverai.bridge.plan.PlanBloque
 import ar.driverai.bridge.plan.PlanDia
+import ar.driverai.bridge.plan.PlanDiaAlerts
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -49,32 +57,23 @@ fun PlanDiaCard(
             }
             return@Section
         }
-
         if (plan.isExpired(now)) {
             StatusPill("PLAN VENCIDO", Amber)
             Text("Venció ${hm(plan.vigenciaHasta)}. Pedí uno nuevo al arrancar turno.", color = Amber)
         } else {
             StatusPill("VIGENTE HASTA ${hm(plan.vigenciaHasta)}", AccentMint)
         }
-
         Text("Zona base \u00b7 ${plan.zonaBase}", style = MaterialTheme.typography.labelLarge)
-        Text(
-            "Generado ${hm(plan.generadoAt)}. Solo eventos con fuente.",
-            color = TextMuted,
-            style = MaterialTheme.typography.bodySmall,
-        )
-
+        Text("Generado ${hm(plan.generadoAt)}. Solo eventos con fuente.", color = TextMuted, style = MaterialTheme.typography.bodySmall)
         avisoActivo?.let { av ->
             Spacer(Modifier.height(8.dp))
             StatusPill("AVISO", AccentMint)
             Text(av.texto, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             onSilenciar?.let { TextButton(onClick = it) { Text("Silenciar este aviso") } }
         }
-
         val ordered = plan.bloques.sortedBy { it.inicio }
         val nextIdx = ordered.indexOfFirst { it.ventanaPico.hasta >= now }.let { if (it < 0) ordered.lastIndex else it }
         val visible = ordered.drop(nextIdx.coerceAtLeast(0)).take(3)
-
         if (visible.isEmpty()) {
             Text("No hay bloques próximos en este plan.", color = TextMuted)
         } else {
@@ -83,7 +82,6 @@ fun PlanDiaCard(
                 BloqueCard(b, destacado = i == 0 && nextIdx >= 0, now = now)
             }
         }
-
         if (plan.huecos.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             Text("Huecos", style = MaterialTheme.typography.labelLarge)
@@ -91,12 +89,8 @@ fun PlanDiaCard(
                 Text("${hm(h.desde)}–${hm(h.hasta)} \u00b7 ${h.sugerencia}", color = TextMuted)
             }
         }
-
-        if (plan.supuestos.isNotEmpty()) {
-            Spacer(Modifier.height(6.dp))
-            plan.supuestos.take(2).forEach {
-                Text("\u00b7 $it", style = MaterialTheme.typography.bodySmall, color = Color.LightGray)
-            }
+        plan.supuestos.take(2).forEach {
+            Text("\u00b7 $it", style = MaterialTheme.typography.bodySmall, color = Color.LightGray)
         }
     }
 }
@@ -104,19 +98,9 @@ fun PlanDiaCard(
 @Composable
 private fun BloqueCard(b: PlanBloque, destacado: Boolean, now: Long) {
     val border = if (destacado) AccentMint else TextMuted
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-            .testTag("plan_bloque_${b.id}"),
-    ) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp).testTag("plan_bloque_${b.id}")) {
         Row(Modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                if (destacado) "AHORA / SIGUIENTE" else b.tipo.name.uppercase(),
-                color = border,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-            )
+            Text(if (destacado) "AHORA / SIGUIENTE" else b.tipo.name.uppercase(), color = border, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             Text(confianzaLabel(b.confianza), color = confianzaColor(b.confianza))
         }
         Text(b.nombre, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, fontSize = 20.sp)
@@ -126,21 +110,30 @@ private fun BloqueCard(b: PlanBloque, destacado: Boolean, now: Long) {
         }
         Text(donde, style = MaterialTheme.typography.bodyLarge)
         val finTag = if (b.finFuente == FinFuente.estimado) "estimado" else "oficial"
-        Text(
-            "Cuándo \u00b7 fin ${hm(b.finEstimado)} ($finTag) \u00b7 pico ${hm(b.ventanaPico.desde)}–${hm(b.ventanaPico.hasta)}",
-            style = MaterialTheme.typography.bodyLarge,
-        )
+        Text("Cuándo \u00b7 fin ${hm(b.finEstimado)} ($finTag) \u00b7 pico ${hm(b.ventanaPico.desde)}–${hm(b.ventanaPico.hasta)}", style = MaterialTheme.typography.bodyLarge)
         val espera = b.puntosEspera.take(2).joinToString(" \u00b7 ") { it.calle }.ifBlank { "sin punto de espera cargado" }
         Text("Qué hacer \u00b7 parate en $espera", style = MaterialTheme.typography.bodyLarge)
-        if (b.destinosLargos.isNotEmpty()) {
-            Text("Destinos largos probables \u00b7 ${b.destinosLargos.joinToString(", ")}", color = TextMuted)
-        }
-        b.avisoTexto?.let {
-            Text(it, style = MaterialTheme.typography.bodyMedium, color = AccentMint)
-        }
-        val fuentes = b.fuentes.joinToString { it.nombre }.ifBlank { "sin fuente" }
-        Text("Fuentes \u00b7 $fuentes", style = MaterialTheme.typography.bodySmall, color = Color.LightGray)
+        if (b.destinosLargos.isNotEmpty()) Text("Destinos largos probables \u00b7 ${b.destinosLargos.joinToString(", ")}", color = TextMuted)
+        b.avisoTexto?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = AccentMint) }
+        Text("Fuentes \u00b7 ${b.fuentes.joinToString { it.nombre }.ifBlank { "sin fuente" }}", style = MaterialTheme.typography.bodySmall, color = Color.LightGray)
     }
+}
+
+@Composable
+fun HomePlanDiaSection(now: Long) {
+    val g = ar.driverai.bridge.DriverAiApp.graph
+    val scope = rememberCoroutineScope()
+    val plan by g.planDia.plan.collectAsState(initial = null)
+    val avisos = remember(plan) { plan?.let { PlanDiaAlerts.schedule(it) }.orEmpty() }
+    var silenced by remember { mutableStateOf(setOf<String>()) }
+    val avisoActivo = remember(avisos, now, silenced) { PlanDiaAlerts.activeAt(avisos, now, silenced).firstOrNull() }
+    PlanDiaCard(
+        plan = plan,
+        now = now,
+        avisoActivo = avisoActivo,
+        onCargarDemo = { scope.launch { g.planDia.loadFixtureForDemo(System.currentTimeMillis()) } },
+        onSilenciar = { avisoActivo?.let { silenced = silenced + "${it.bloqueId}:${it.tipo}" } },
+    )
 }
 
 private fun confianzaLabel(c: Confianza) = when (c) {
