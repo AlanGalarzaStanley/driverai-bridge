@@ -40,10 +40,14 @@ object OfferTextParser {
         """(\d+(?:[.,]\d+)?)\s*(km|mi)\b[^\d\n]{0,6}(?:(\d{1,2})\s*h(?:s|oras?)?\.?\s*)?(\d{1,3})\s*min""",
         RegexOption.IGNORE_CASE,
     )
+    /** Resumen de tarjeta Uber: «16 min · 6.6 km · 515 ARS/km est.» */
+    private val totalSummaryRegex = Regex(
+        """(?i)(\d{1,3})\s*min(?:s|utos)?\.?\s*[•·\-|–—]\s*(\d+(?:[.,]\d+)?)\s*km\b(?:\s*[•·\-|–—]\s*[\d.,]+\s*(?:ARS|\$)?\s*/\s*km)?""",
+    )
     private val pickupKw = listOf("away", "de distancia", "recog", "para buscar", "hasta el pasajero", "pickup", "pick-up", "llegada")
     private val tripKw = listOf("trip", "viaje", "recorrido", "destino", "con pasajero")
     private val requestContextRegex = Regex(
-        """(?i)(?<![\p{L}\p{N}])(?:solicitud|request|nuevo viaje|new trip|aceptar|accept|toca para aceptar|tap to accept|acepta en|accept in|me interesa|ofrecer|ofrecé|tomar viaje|nuevo pedido|propon[eé]|propón)(?![\p{L}\p{N}])""",
+        """(?i)(?<![\p{L}\p{N}])(?:solicitud|request|nuevo viaje|new trip|aceptar|accept|toca para aceptar|tap to accept|acepta en|accept in|me interesa|ofrecer|ofrecé|tomar viaje|nuevo pedido|propon[eé]|propón|comfort|uberx|uber\s*x)(?![\p{L}\p{N}])""",
     )
     private val bonusKw = listOf("incluid", "incl.", "incluye", "promo", "bonif", "propina", "tip", "dinámica", "boost", "surge", "+")
     private val products = listOf(
@@ -51,7 +55,6 @@ object OfferTextParser {
         "DiDi Express", "DiDi Moto", "DiDi Entrega", "Cabify Lite", "Cabify Taxi", "Bolt", "inDrive",
     )
 
-    /** Interpreta importes con convención argentina (punto de miles, coma decimal). */
     fun parseArsAmount(rawIn: String): Amount? {
         val raw = rawIn.trim().trimEnd('.', ',')
         if (raw.isEmpty() || !raw.first().isDigit()) return null
@@ -65,7 +68,6 @@ object OfferTextParser {
             arDecimal.matches(raw) -> Amount(raw.replace(',', '.').toDouble(), 0.95)
             integer.matches(raw) -> Amount(raw.toDouble(), 0.95)
             usThousands.matches(raw) -> Amount(raw.replace(",", "").toDouble(), 0.7)
-            // "12.50" puede ser 12,50 o un "12.500" truncado: ambiguo
             dotDecimal.matches(raw) -> Amount(raw.toDouble(), 0.5)
             else -> null
         }
@@ -91,7 +93,6 @@ object OfferTextParser {
         val fragments = fragmentsIn.map { normalize(it, source) }.filter { it.isNotBlank() }
         val srcFactor = if (source == DataSource.OCR) 0.9 else 1.0
 
-        // --- Tarifa ---
         data class Cand(val amount: Amount, val standalone: Boolean, val raw: String)
         val cands = mutableListOf<Cand>()
         val moneyInputs = fragments.toMutableList()
@@ -130,7 +131,6 @@ object OfferTextParser {
             fare = Reading(chosen.amount.value, (conf * srcFactor).coerceIn(0.0, 1.0), source, chosen.raw)
         }
 
-        // Rating solo con etiqueta explícita; un número aislado o el rating del conductor no cuentan.
         val ratingCandidates = mutableListOf<kotlin.Pair<Double, String>>()
         fragments.forEachIndexed { i, f ->
             passengerRatingRegex.findAll(f).forEach { m ->
@@ -154,7 +154,6 @@ object OfferTextParser {
             else -> Reading.MISSING
         }
 
-        // --- Tiempo y distancia ---
         data class PairInput(val text: String, val previousLabel: String, val sourceIndex: Int)
         val pairInputs = fragments.mapIndexed { i, f ->
             PairInput(f, fragments.getOrNull(i - 1)?.takeIf { it.length < 40 && it.none(Char::isDigit) }.orEmpty(), i)
@@ -173,7 +172,6 @@ object OfferTextParser {
         pairInputs.forEach { input ->
             val i = input.sourceIndex
             val f = input.text
-            // El fragmento anterior solo cuenta como contexto si es una etiqueta (corta y sin números)
             val label = input.previousLabel
             val ctx = "$label $f"
             val seen = mutableListOf<IntRange>()
@@ -195,6 +193,17 @@ object OfferTextParser {
                 val h = m.groupValues[3].toDoubleOrNull() ?: 0.0
                 val min = m.groupValues[4].toDouble() + h * 60
                 pairs += Pair(min, km, m.value, ctx.lowercase(), i)
+            }
+        }
+
+        // Resumen total tipo Uber (sin etiqueta Viaje/Recogida).
+        var totalSummary: Pair? = null
+        fragments.forEachIndexed { i, f ->
+            totalSummaryRegex.find(f)?.let { m ->
+                val min = m.groupValues[1].toDouble()
+                val km = parseDecimal(m.groupValues[2]) ?: return@let
+                val candidate = Pair(min, km, m.value, f.lowercase(), i)
+                if (totalSummary == null || candidate.minutes >= totalSummary!!.minutes) totalSummary = candidate
             }
         }
 
@@ -234,6 +243,22 @@ object OfferTextParser {
             trip == null && pickup != null && unclassified.isNotEmpty() -> { trip = unclassified[0]; tripConf = 0.85 }
         }
 
+        // Si falta viaje etiquetado pero hay total + recogida, derivar viaje.
+        if (trip == null && totalSummary != null && pickup != null) {
+            val tripMin = (totalSummary!!.minutes - pickup!!.minutes).coerceAtLeast(1.0)
+            val tripKm = (totalSummary!!.km - pickup!!.km).coerceAtLeast(0.3)
+            if (tripMin <= totalSummary!!.minutes && tripKm <= totalSummary!!.km) {
+                trip = Pair(tripMin, tripKm, "derivado de total − recogida", "viaje", -1)
+                tripConf = 0.7
+                notes += "Viaje estimado como total menos recogida (resumen de tarjeta)."
+            }
+        } else if (trip == null && totalSummary != null && pickup == null) {
+            // Sin recogida clara: usar el total como viaje con menor confianza (mejor que no leer).
+            trip = totalSummary
+            tripConf = 0.55
+            notes += "Se usó el resumen total de la tarjeta como duración/distancia del viaje."
+        }
+
         fun r(v: Double?, conf: Double, raw: String?) =
             if (v == null) Reading.MISSING else Reading(v, (conf * srcFactor).coerceIn(0.0, 1.0), source, raw)
 
@@ -246,9 +271,11 @@ object OfferTextParser {
             product = fragments.firstNotNullOfOrNull { f -> products.firstOrNull { p -> f.equals(p, true) || f.startsWith("$p ", true) } },
             passengerRating = passengerRating,
         )
-        // No presentar una oferta como entendida si falta cualquiera de los tres datos esenciales.
         val hasRequestContext = fragments.any { requestContextRegex.containsMatchIn(it) }
-        val likely = hasRequestContext && fare.isPresent && offer.tripKm.isPresent && offer.tripMin.isPresent
+        val hasCoreTrip = offer.tripKm.isPresent && offer.tripMin.isPresent
+        val hasPickupAndMoney = offer.pickupKm.isPresent && fare.isPresent
+        // CTA + tarifa + (viaje completo o recogida con total ya derivado arriba).
+        val likely = hasRequestContext && fare.isPresent && (hasCoreTrip || (hasPickupAndMoney && totalSummary != null))
         return ParseResult(offer, likely, notes)
     }
 
