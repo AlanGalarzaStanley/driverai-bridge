@@ -1,6 +1,16 @@
 # Handoff para continuar DriverAI
 
-**Actualizado:** 2026-11-26. Lee primero este resumen y `../AGENTS.md`; luego confirma la rama, el HEAD y el estado del árbol. Es una instantánea, no reemplaza a Git.
+**Actualizado:** 2026-11-27. Lee primero este resumen y `../AGENTS.md`; luego confirma la rama, el HEAD y el estado del árbol. Es una instantánea, no reemplaza a Git.
+
+## Última continuación: confirmación compacta, retención y seguridad backend (2026-11-27)
+
+- Rama `manus/offer-reading-card-cleanup`; commit `6e27bf1` (`feat: quick acceptance in compact offer card`), subido a `origin`. `main` sigue intacta; no se abrió PR ni se publicó Release.
+- La tarjeta compacta predeterminada ahora ofrece “La acepté” (50 dp). Solo informa éxito con resultado `UPDATED`; los errores/transiciones inválidas no se presentan como guardados. Si se desactivó el historial, explica que debe habilitarse.
+- `markTaken` devuelve `JournalResult`. La prueba del repositorio cubre doble confirmación/no encontrado. Los viajes `ACCEPTED`/`COMPLETED` sin cobro ya no se expulsan al superar 100; las evaluaciones restantes siguen acotadas. Una prueba instrumentada comprueba el CTA, Billetera y que aceptar no crea un ingreso real.
+- CI Android manual [run 45943464271](https://github.com/AlanGalarzaStanley/driverai-bridge/actions/runs/45943464271), `run_live_contract=false`: pendiente al actualizar este handoff. El sandbox no tiene Android SDK, así que la ejecución local se detuvo antes de compilar.
+- Lectura automática no modificada: el código ya acumula eventos durante el debounce, combina árbol y eventos del mismo paquete y reintenta dos veces. Una revisión de código recomendó no aumentar la retención sin una oferta real, por riesgo de mezclar tarjetas y elevar CPU. Sigue pendiente validar en teléfono estacionario, con muestra anonimizada; fixtures sintéticas no prueban ML Kit ni el árbol real de Uber.
+- Supabase está parcialmente conectado: APK llama a `driverai-reporte` y `driverai-posicion`, pero no sincroniza diario/Billetera ni usa Auth/PostgREST. La revisión de seguridad productiva encontró bloqueos para ampliar acceso; no invocar OCR/registro ni enviar capturas, texto OCR o datos personales hasta resolver autenticación, RLS, autorización por conductor/tenant y retención con consentimiento. No se hicieron escrituras ni invocaciones en producción; el resumen seguro está en `docs/KNOWN_LIMITATIONS.md`.
+- Próximos pasos: (1) confirmar run 45943464271 y obtener el APK de esa ejecución; (2) probar el CTA y la lectura con el teléfono real y datos anonimizados; (3) completar remediación backend en staging antes de sincronizar cualquier dato personal.
 
 ## Última continuación: Billetera, contraste y lectura de ofertas (2026-11-26)
 
