@@ -10,6 +10,7 @@ import ar.driverai.bridge.backend.DriverAiApi
 import ar.driverai.bridge.backend.LocalWeatherRepository
 import ar.driverai.bridge.backend.StrategicRepository
 import ar.driverai.bridge.backend.ShiftBriefingRepository
+import ar.driverai.bridge.plan.PlanDiaRepository
 import ar.driverai.bridge.capture.OfferPipeline
 import ar.driverai.bridge.data.HistoryRepository
 import ar.driverai.bridge.data.MoneyLedgerRepository
@@ -61,6 +62,7 @@ class AppGraph(val app: DriverAiApp) {
     val strategic = StrategicRepository(api)
     val weather = LocalWeatherRepository()
     val shiftBriefing = ShiftBriefingRepository(app.driverStore)
+    val planDia = PlanDiaRepository(app.driverStore)
     val settings: StateFlow<DriverSettings> = settingsRepo.settings.stateIn(scope, SharingStarted.Eagerly, DriverSettings())
     val tts: TtsManager by lazy { TtsManager(app) }
     val overlay = OverlayManager(app)
