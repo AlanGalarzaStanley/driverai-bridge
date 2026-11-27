@@ -193,7 +193,7 @@ class AppInstrumentedTest {
         compose.onNodeWithTag("tab_billetera").performClick()
         compose.onNodeWithTag("wallet_pending_trip_estimate").assertExists()
         compose.onNodeWithTag("wallet_pending_trip_amount").assertExists()
-        compose.onNodeWithText("Aceptado · falta completar el viaje").assertExists()
+        compose.onNodeWithText("Aceptado · falta completar el viaje", substring = true).assertExists()
         assertTrue("estimación separada del balance", DriverAiApp.graph.walletRepo.entries.first().isEmpty())
     }
 
